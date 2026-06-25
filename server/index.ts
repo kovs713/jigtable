@@ -1,6 +1,6 @@
 import { Bot, Context } from "grammy";
 import type { Message, PhotoSize } from "grammy/types";
-import { client } from "./s3_client";
+import { s3_client } from "./s3_client";
 
 const COOL_STICKER_FILE_ID =
   "CAACAgIAAxkBAAMGaj15VEVjJkj-ad3gjwjG1sv8OhQAAshMAAJ35mFI7mejcmcukIc8BA";
@@ -23,7 +23,7 @@ bot.on("message", async (ctx: Context) => {
       if (response.ok || response.body) {
         const arrayBuffer = await response.arrayBuffer();
         const buffer = Buffer.from(arrayBuffer);
-        await client.write(`test/говно-${best_photo.file_id}`, buffer);
+        await s3_client.write(`test/говно-${best_photo.file_id}`, buffer);
       }
 
       await bot.api.sendPhoto(userId, best_photo.file_id, {
