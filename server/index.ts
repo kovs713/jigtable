@@ -1,6 +1,6 @@
 import { Bot, Context } from "grammy";
 import type { Message, PhotoSize } from "grammy/types";
-import { s3_client } from "./s3_client";
+import { s3_client } from "./s3";
 
 const COOL_STICKER_FILE_ID =
   "CAACAgIAAxkBAAMGaj15VEVjJkj-ad3gjwjG1sv8OhQAAshMAAJ35mFI7mejcmcukIc8BA";
