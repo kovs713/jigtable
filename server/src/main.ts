@@ -11,7 +11,8 @@ const getSessionKey = (ctx: Context): string | undefined =>
 bot.use(
   session({
     initial: (): SessionData => ({
-      step: 0,
+      photos: [],
+      isStarted: false,
     }),
     storage: drizzleSessionStorage<SessionData>(),
     getSessionKey,

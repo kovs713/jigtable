@@ -1,7 +1,7 @@
 import type { Context, Filter, SessionFlavor } from "grammy";
 
 export interface SessionData {
-  photos: string[] | [];
+  photos: string[];
   isStarted: boolean;
 }
 
