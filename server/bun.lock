@@ -5,6 +5,7 @@
     "": {
       "name": "server",
       "dependencies": {
+        "@grammyjs/storage-psql": "^2.5.1",
         "drizzle-orm": "^0.45.2",
         "grammy": "^1.44.0",
         "pg": "^8.22.0",
@@ -77,6 +78,8 @@
     "@esbuild/win32-ia32": ["@esbuild/win32-ia32@0.25.12", "", { "os": "win32", "cpu": "ia32" }, "sha512-HkqnmmBoCbCwxUKKNPBixiWDGCpQGVsrQfJoVGYLPT41XWF8lHuE5N6WhVia2n4o5QK5M4tYr21827fNhi4byQ=="],
 
     "@esbuild/win32-x64": ["@esbuild/win32-x64@0.25.12", "", { "os": "win32", "cpu": "x64" }, "sha512-alJC0uCZpTFrSL0CCDjcgleBXPnCrEAhTBILpeAp7M/OFgoqtAetfBzX0xM00MUsVVPpVjlPuMbREqnZCXaTnA=="],
+
+    "@grammyjs/storage-psql": ["@grammyjs/storage-psql@2.5.1", "", {}, "sha512-60O5UJQ7pmsQULp5yQ7dDdYvqOJqTpTqfY9Kk5pfldPMc8RA/3OvKMvLBbH/xfxfA5//RpDU+Psl7K2VxN2OcQ=="],
 
     "@grammyjs/types": ["@grammyjs/types@3.28.0", "", {}, "sha512-4JvXCdxRZHCje0M4gHzLwtB4bLno3WD28xd8CNfk4POWIu73BFnSvGeW6OQ5gPem4eYTEwkD9yDaXssixl6tMQ=="],
 

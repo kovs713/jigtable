@@ -8,6 +8,7 @@
     "start": "bun src/main.ts"
   },
   "dependencies": {
+    "@grammyjs/storage-psql": "^2.5.1",
     "drizzle-orm": "^0.45.2",
     "grammy": "^1.44.0",
     "pg": "^8.22.0"
