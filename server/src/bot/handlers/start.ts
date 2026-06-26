@@ -1,6 +1,8 @@
-import type { CommandContext, Context } from "grammy";
+import type { CommandContext } from "grammy";
 
-export function handleStart(ctx: CommandContext<Context>) {
+import type { BotContext } from "../types";
+
+export function handleStart(ctx: CommandContext<BotContext>) {
   ctx.reply(`
 кидай свои шакальные высеры
 сделаю один большой шакальный высер.
