@@ -1,6 +1,9 @@
 import { s3Client } from "../infra/storage";
 
-export async function uploadPhoto(fileUrl: string, fileId: string) {
+export async function uploadPhoto(
+  fileUrl: string,
+  fileId: string,
+): Promise<void> {
   const response = await fetch(fileUrl);
   if (!response.ok) {
     throw new Error(`Failed to download an image: ${response.status}`);

@@ -10,7 +10,9 @@ const getSessionKey = (ctx: Context): string | undefined =>
 
 bot.use(
   session({
-    initial: (): SessionData => ({}),
+    initial: (): SessionData => ({
+      step: 0,
+    }),
     storage: drizzleSessionStorage<SessionData>(),
     getSessionKey,
   }),

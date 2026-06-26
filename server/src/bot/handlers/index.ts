@@ -1,11 +1,11 @@
 import type { Bot } from "grammy";
 
+import type { BotContext } from "../types";
 import { handleNew } from "./new";
 import { handlePhoto } from "./photo";
 import { handleReset } from "./reset";
 import { handleStart } from "./start";
 import { handleSticker } from "./sticker";
-import type { BotContext } from "../types";
 
 export async function registerHandlers(bot: Bot<BotContext>) {
   await bot.api.setMyCommands([
