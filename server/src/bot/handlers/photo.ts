@@ -1,8 +1,5 @@
-import type { Context, Filter } from "grammy";
-
 import { uploadPhoto } from "../../features/upload-photo";
-
-type PhotoContext = Filter<Context, "message:photo">;
+import type { PhotoContext } from "../types";
 
 export async function handlePhoto(ctx: PhotoContext) {
   // telegram send array of different photo sizes

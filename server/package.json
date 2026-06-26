@@ -5,7 +5,8 @@
   "private": true,
   "scripts": {
     "dev": "bun --watch src/main.ts",
-    "start": "bun src/main.ts"
+    "start": "bun src/main.ts",
+    "db:push": "bunx --bun drizzle-kit push"
   },
   "dependencies": {
     "@grammyjs/storage-psql": "^2.5.1",
