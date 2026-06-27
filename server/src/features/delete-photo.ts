@@ -1,8 +1,14 @@
 import { s3Client } from "../infra/storage";
+import { photoObjectKey } from "./photo-object-key";
 
-export async function deletePhoto(fileId: string): Promise<void> {
-  const isExist = await s3Client.exists(fileId);
+export async function deletePhoto(
+  chatId: number,
+  userId: number,
+  fileId: string,
+): Promise<void> {
+  const objectKey = photoObjectKey(chatId, userId, fileId);
+  const isExist = await s3Client.exists(objectKey);
   if (isExist) {
-    await s3Client.delete(fileId);
+    await s3Client.delete(objectKey);
   }
 }
