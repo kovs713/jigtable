@@ -1,8 +1,8 @@
-import type { CommandContext } from "grammy";
-import type { BotContext } from "../types";
+import type { CommandContext } from "grammy"
+import type { BotContext } from "../types"
 
 export async function handleList(
-  ctx: CommandContext<BotContext>,
+  ctx: CommandContext<BotContext>
 ): Promise<void> {
-  await ctx.reply("ну да /list и че");
+  await ctx.reply("ну да /list и че")
 }

@@ -1,5 +1,5 @@
-import { Bot } from "grammy";
+import { Bot } from "grammy"
 
-import type { BotContext } from "./types";
+import type { BotContext } from "./types"
 
-export const bot = new Bot<BotContext>(process.env.BOT_TOKEN);
+export const bot = new Bot<BotContext>(process.env.BOT_TOKEN)

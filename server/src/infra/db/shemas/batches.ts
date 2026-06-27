@@ -1,4 +1,4 @@
-import { pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import { pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core"
 
 export const PhotoBatchStatus = {
   Collecting: "collecting",
@@ -7,10 +7,10 @@ export const PhotoBatchStatus = {
   Completed: "completed",
   Failed: "failed",
   Canceled: "canceled",
-} as const;
+} as const
 
 export type PhotoBatchStatus =
-  (typeof PhotoBatchStatus)[keyof typeof PhotoBatchStatus];
+  (typeof PhotoBatchStatus)[keyof typeof PhotoBatchStatus]
 
 export const batchesSchema = pgTable("batches", {
   batchId: uuid("batch_id").primaryKey().defaultRandom(),
@@ -19,4 +19,4 @@ export const batchesSchema = pgTable("batches", {
     .default(PhotoBatchStatus.Collecting)
     .$type<PhotoBatchStatus>(),
   createdAt: timestamp("created_at").defaultNow(),
-});
+})

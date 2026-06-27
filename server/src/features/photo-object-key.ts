@@ -1,7 +1,7 @@
 export function photoObjectKey(
   chatId: number,
   userId: number,
-  fileId: string,
+  fileId: string
 ): string {
-  return `photos/${chatId}/${userId}__${encodeURIComponent(fileId)}`;
+  return `photos/${chatId}/${userId}__${encodeURIComponent(fileId)}`
 }
