@@ -5,9 +5,9 @@ import {
   timestamp,
   uuid,
   type AnyPgColumn,
-} from "drizzle-orm/pg-core";
+} from "drizzle-orm/pg-core"
 
-import { batchesSchema } from "./batches";
+import { batchesSchema } from "./batches"
 
 export const batchPhotosSchema = pgTable("batch_photos", {
   fileId: text("file_id").primaryKey(),
@@ -19,4 +19,4 @@ export const batchPhotosSchema = pgTable("batch_photos", {
   width: integer("width").notNull(),
   height: integer("height").notNull(),
   createdAt: timestamp("created_at").defaultNow(),
-});
+})

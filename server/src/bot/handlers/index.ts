@@ -1,14 +1,14 @@
-import type { Bot } from "grammy";
+import type { Bot } from "grammy"
 
-import type { BotContext } from "../types";
-import { handleCommit } from "./commit";
-import { handleList } from "./list";
-import { handleNew } from "./new";
-import { handlePhoto } from "./photo";
-import { handleReset } from "./reset";
-import { handleStart } from "./start";
-import { handleStatus } from "./status";
-import { handleSticker } from "./sticker";
+import type { BotContext } from "../types"
+import { handleCommit } from "./commit"
+import { handleList } from "./list"
+import { handleNew } from "./new"
+import { handlePhoto } from "./photo"
+import { handleReset } from "./reset"
+import { handleStart } from "./start"
+import { handleStatus } from "./status"
+import { handleSticker } from "./sticker"
 
 export async function registerHandlers(bot: Bot<BotContext>) {
   await bot.api.setMyCommands([
@@ -18,20 +18,19 @@ export async function registerHandlers(bot: Bot<BotContext>) {
     { command: "commit", description: "подтвердить подачу шлака" },
     { command: "status", description: "узнать статус подачи шлака" },
     { command: "list", description: "посмотреть свои готовые сборки шлака" },
-  ]);
+  ])
 
   // commands
-  bot.command("start", handleStart);
-  bot.command("new", handleNew);
-  bot.command("reset", handleReset);
-  bot.command("status", handleStatus);
-  bot.command("commit", handleCommit);
-  // TODO: пагинация сообщения списьки письки и тд
-  bot.command("list", handleList);
+  bot.command("start", handleStart)
+  bot.command("new", handleNew)
+  bot.command("reset", handleReset)
+  bot.command("status", handleStatus)
+  bot.command("commit", handleCommit)
+  bot.command("list", handleList)
 
   // service
-  bot.on("message:photo", handlePhoto);
+  bot.on("message:photo", handlePhoto)
 
   // fun
-  bot.on("message:sticker", handleSticker);
+  bot.on("message:sticker", handleSticker)
 }

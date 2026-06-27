@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "bun --watch src/main.ts",
     "start": "bun src/main.ts",
-    "db:push": "bunx --bun drizzle-kit push"
+    "db:push": "bunx --bun drizzle-kit push",
+    "format": "prettier --write \"**/*.{ts,tsx,json,md}\""
   },
   "dependencies": {
     "@grammyjs/menu": "^1.3.1",
@@ -18,7 +19,8 @@
   "devDependencies": {
     "@types/bun": "latest",
     "@types/pg": "^8.20.0",
-    "drizzle-kit": "^0.31.10"
+    "drizzle-kit": "^0.31.10",
+    "prettier": "^3.9.0"
   },
   "peerDependencies": {
     "typescript": "^6.0.3"

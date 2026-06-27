@@ -1,12 +1,12 @@
-import { Context, session } from "grammy";
+import { Context, session } from "grammy"
 
-import { bot } from "./bot";
-import { registerHandlers } from "./bot/handlers";
-import { drizzleSessionStorage } from "./bot/session-storage";
-import type { SessionData } from "./bot/types";
+import { bot } from "./bot"
+import { registerHandlers } from "./bot/handlers"
+import { drizzleSessionStorage } from "./bot/session-storage"
+import type { SessionData } from "./bot/types"
 
 const getSessionKey = (ctx: Context): string | undefined =>
-  ctx.chat?.id.toString();
+  ctx.chat?.id.toString()
 
 bot.use(
   session({
@@ -16,13 +16,13 @@ bot.use(
     }),
     storage: drizzleSessionStorage<SessionData>(),
     getSessionKey,
-  }),
-);
+  })
+)
 
-await registerHandlers(bot);
+await registerHandlers(bot)
 
 bot.catch((err) => {
-  console.error("Bot error", err);
-});
+  console.error("Bot error", err)
+})
 
-bot.start();
+bot.start()
