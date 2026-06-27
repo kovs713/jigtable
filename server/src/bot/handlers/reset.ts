@@ -5,11 +5,18 @@ import type { BotContext } from "../types";
 
 export async function handleReset(ctx: CommandContext<BotContext>) {
   await ctx.reply("command reset и че бля");
+
+  if (!ctx.from) {
+    await ctx.reply("ну и иди нахуй");
+    return;
+  }
+
   ctx.session.isStarted = false;
+
   if (ctx.session.photos.length) {
-    ctx.session.photos = [];
     for (const photo of ctx.session.photos) {
-      await deletePhoto(photo);
+      await deletePhoto(ctx.chat.id, ctx.from.id, photo);
     }
+    ctx.session.photos = [];
   }
 }

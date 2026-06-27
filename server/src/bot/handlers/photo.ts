@@ -16,11 +16,7 @@ export async function handlePhoto(ctx: PhotoContext) {
     ctx.session.photos.push(bestPhoto.file_id);
 
     const fileUrl = `https://api.telegram.org/file/bot${process.env.BOT_TOKEN}/${file.file_path}`;
-    await uploadPhoto(fileUrl, bestPhoto.file_id);
-
-    await ctx.replyWithPhoto(bestPhoto.file_id, {
-      caption: "ну и говно",
-    });
+    await uploadPhoto(ctx.chat.id, ctx.from.id, fileUrl, bestPhoto.file_id);
   } else {
     await ctx.reply("бля всему учить нада, далбаеб сначала /new нажми");
   }
