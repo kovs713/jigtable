@@ -1,32 +1,12 @@
-import { Context, session } from "grammy"
-
-import { bot } from "./bot"
-import { registerHandlers } from "./bot/handlers"
-import { drizzleSessionStorage } from "./bot/session-storage"
-import type { SessionData } from "./bot/types"
 import { startApiServer } from "./api"
+import { createBot, startBot } from "./bot"
 
-const getSessionKey = (ctx: Context): string | undefined =>
-  ctx.chat?.id.toString()
+async function main(): Promise<void> {
+  const bot = await createBot()
 
-bot.use(
-  session({
-    initial: (): SessionData => ({
-      photos: [],
-      isStarted: false,
-      activeBatchId: undefined,
-    }),
-    storage: drizzleSessionStorage<SessionData>(),
-    getSessionKey,
-  })
-)
+  await startBot(bot)
 
-await registerHandlers(bot)
+  startApiServer()
+}
 
-startApiServer()
-
-bot.catch((err) => {
-  console.error("Bot error", err)
-})
-
-bot.start()
+void main()

@@ -1,34 +1,39 @@
+import { serve } from "bun"
 import { and, asc, eq } from "drizzle-orm"
 import sharp from "sharp"
 
+import type {
+  CreateJigsawRoomResponse,
+  JigsawSession,
+} from "@puzzle-shuffle/jigsaw-core"
 import {
   readAuthToken,
   TelegramAuthService,
   validateTelegramLoginWidget,
   validateTelegramWebAppInitData,
 } from "../auth/telegram"
-import { renderLayout } from "../features/render-layout"
-import { normalizeRenderFormat } from "../features/render-layout"
-import { clientJigsawRoomUrl } from "../features/urls"
-import { publicApiUrl } from "../features/urls"
+import { normalizeRenderFormat, renderLayout } from "../features/render-layout"
+import { clientJigsawRoomUrl, publicApiUrl } from "../features/urls"
 import { db } from "../infra/db"
 import {
-  batchPhotosSchema,
   batchesSchema,
+  batchPhotosSchema,
   PhotoBatchStatus,
 } from "../infra/db/shemas"
 import { s3Client } from "../infra/storage"
-import { JigsawRoomManager } from "../jigsaw-room/room-manager"
 import {
   createJigsawSafeAssetRef,
   JigsawHistoryStore,
 } from "../jigsaw-room/history-store"
-import { JigsawSessionStore } from "../jigsaw-room/session-store"
-import { toSessionResponse } from "../jigsaw-room/session-store"
-import type { CreateJigsawRoomInput } from "../jigsaw-room/room-manager"
-import type { JigsawSocketData } from "../jigsaw-room/room-manager"
-import type { CreateJigsawRoomResponse } from "@puzzle-shuffle/jigsaw-core"
-import type { JigsawSession } from "@puzzle-shuffle/jigsaw-core"
+import type {
+  CreateJigsawRoomInput,
+  JigsawSocketData,
+} from "../jigsaw-room/room-manager"
+import { JigsawRoomManager } from "../jigsaw-room/room-manager"
+import {
+  JigsawSessionStore,
+  toSessionResponse,
+} from "../jigsaw-room/session-store"
 import type { ShuffleItem, ShuffleResult } from "../shuffle"
 
 interface ApiBatchLayout {
@@ -58,7 +63,7 @@ export function startApiServer(): void {
   const telegramAuth = new TelegramAuthService()
   const jigsawRooms = new JigsawRoomManager(jigsawSessions, jigsawHistory)
 
-  const server = Bun.serve<JigsawSocketData>({
+  const server = serve<JigsawSocketData>({
     port,
     fetch(request, server) {
       const url = new URL(request.url)
