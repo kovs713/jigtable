@@ -41,7 +41,9 @@ export async function handleStatus(
 
   const photos = ctx.session.photos
   if (photos.length) {
-    await ctx.reply(`сейчас в меня засовано ${photos.length} шлака`)
+    await ctx.reply(
+      `batch ${ctx.session.activeBatchId}: сейчас в меня засовано ${photos.length} шлака`
+    )
     return
   }
 
