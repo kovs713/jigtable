@@ -1,0 +1,16 @@
+{
+  "name": "@puzzle-shuffle/jigsaw-core",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./puzzle/config": "./src/puzzle/config.ts",
+    "./puzzle/generate-puzzle": "./src/puzzle/generate-puzzle.ts",
+    "./puzzle/groups": "./src/puzzle/groups.ts",
+    "./puzzle/scatter": "./src/puzzle/scatter.ts",
+    "./puzzle/snap": "./src/puzzle/snap.ts",
+    "./puzzle/types": "./src/puzzle/types.ts",
+    "./multiplayer/protocol": "./src/multiplayer/protocol.ts"
+  }
+}

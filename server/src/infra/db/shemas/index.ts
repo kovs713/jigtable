@@ -1,3 +1,7 @@
+export * from "./auth-sessions"
 export * from "./batch-photos"
 export * from "./batches"
+export * from "./jigsaw-room-participants"
+export * from "./jigsaw-room-results"
 export * from "./sessions"
+export * from "./users"
