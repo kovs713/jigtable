@@ -1,5 +1,5 @@
 {
-  "name": "@puzzle-shuffle/jigsaw-core",
+  "name": "@puzzle-shuffle/puzzle-core",
   "version": "0.0.0",
   "private": true,
   "type": "module",
