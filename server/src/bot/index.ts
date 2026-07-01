@@ -1,8 +1,8 @@
 import { Bot, session, type Context } from "grammy"
 
-import { registerHandlers } from "./handlers"
-import { drizzleSessionStorage } from "./session-storage"
-import type { BotContext, SessionData } from "./types"
+import { registerHandlers } from "@/bot/handlers"
+import { drizzleSessionStorage } from "@/bot/session-storage"
+import type { BotContext, SessionData } from "@/bot/types"
 
 const getSessionKey = (ctx: Context): string | undefined =>
   ctx.chat?.id.toString()

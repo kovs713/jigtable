@@ -1,9 +1,9 @@
 import type { CommandContext } from "grammy"
 
-import { db } from "../../infra/db"
-import { batchesSchema } from "../../infra/db/shemas"
-import type { BotContext } from "../types"
-import { keyboard } from "../ui"
+import { keyboard } from "@/bot/ui"
+import type { BotContext } from "@/bot/types"
+import { db } from "@/infra/db"
+import { batchesSchema } from "@/infra/db/shemas"
 
 export async function handleNew(ctx: CommandContext<BotContext>) {
   if (!ctx.from) {

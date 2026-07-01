@@ -1,10 +1,10 @@
 import type { CommandContext } from "grammy"
 import { desc, eq } from "drizzle-orm"
 
-import { clientLayoutUrl } from "../../features/urls"
-import { db } from "../../infra/db"
-import { batchesSchema, PhotoBatchStatus } from "../../infra/db/shemas"
-import type { BotContext } from "../types"
+import type { BotContext } from "@/bot/types"
+import { clientLayoutUrl } from "@/features/urls"
+import { db } from "@/infra/db"
+import { batchesSchema, PhotoBatchStatus } from "@/infra/db/shemas"
 
 export async function handleList(
   ctx: CommandContext<BotContext>

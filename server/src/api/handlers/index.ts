@@ -12,35 +12,35 @@ import {
   validateTelegramLoginWidget,
   validateTelegramWebAppInitData,
   type TelegramAuthService,
-} from "../../auth/telegram"
+} from "@/auth/telegram"
 import {
   normalizeRenderFormat,
   renderLayout,
-} from "../../features/render-layout"
-import { clientPuzzleRoomUrl, publicApiUrl } from "../../features/urls"
-import { db } from "../../infra/db"
+} from "@/features/render-layout"
+import { clientPuzzleRoomUrl, publicApiUrl } from "@/features/urls"
+import { db } from "@/infra/db"
 import {
   batchesSchema,
   batchPhotosSchema,
   PhotoBatchStatus,
-} from "../../infra/db/shemas"
-import { s3Client } from "../../infra/storage"
+} from "@/infra/db/shemas"
+import { s3Client } from "@/infra/storage"
 import {
   createPuzzleSafeAssetRef,
   type PuzzleHistoryStore,
-} from "../../puzzle-room/history-store"
+} from "@/puzzle-room/history-store"
 import type {
   CreatePuzzleRoomInput,
   PuzzleRoomManager,
-} from "../../puzzle-room/room-manager"
+} from "@/puzzle-room/room-manager"
 import {
   toSessionResponse,
   type PuzzleSessionStore,
-} from "../../puzzle-room/session-store"
-import type { ShuffleItem, ShuffleResult } from "../../shuffle"
-import { CORS_HEADERS } from "../constants"
-import { ApiError } from "../types"
-import { json, readErrorMessage } from "../utils"
+} from "@/puzzle-room/session-store"
+import type { ShuffleItem, ShuffleResult } from "@/shuffle"
+import { CORS_HEADERS } from "@/api/constants"
+import { ApiError } from "@/api/types"
+import { json, readErrorMessage } from "@/api/utils"
 
 interface ApiBatchLayout {
   batchId: string

@@ -1,7 +1,7 @@
 import sharp from "sharp"
 
-import { s3Client } from "../infra/storage"
-import type { ShuffleResult } from "../shuffle"
+import { s3Client } from "@/infra/storage"
+import type { ShuffleResult } from "@/shuffle"
 import { batchRenderObjectKey } from "./object-keys"
 
 export type RenderFormat = "png" | "jpg" | "jpeg"

@@ -1,8 +1,8 @@
-import { db } from "../../infra/db"
-import { batchPhotosSchema } from "../../infra/db/shemas"
-import { batchPhotoObjectKey } from "../../features/object-keys"
-import { uploadPhotoToObjectKey } from "../../features/upload-photo"
-import type { PhotoContext } from "../types"
+import { batchPhotoObjectKey } from "@/features/object-keys"
+import { uploadPhotoToObjectKey } from "@/features/upload-photo"
+import { db } from "@/infra/db"
+import { batchPhotosSchema } from "@/infra/db/shemas"
+import type { PhotoContext } from "@/bot/types"
 
 export async function handlePhoto(ctx: PhotoContext) {
   const photos = ctx.message.photo

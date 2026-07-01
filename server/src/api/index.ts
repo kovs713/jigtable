@@ -1,10 +1,10 @@
 import { serve, type BunRequest } from "bun"
 
-import { TelegramAuthService } from "../auth/telegram"
-import { PuzzleHistoryStore } from "../puzzle-room/history-store"
-import type { PuzzleSocketData } from "../puzzle-room/room-manager"
-import { PuzzleRoomManager } from "../puzzle-room/room-manager"
-import { PuzzleSessionStore } from "../puzzle-room/session-store"
+import { TelegramAuthService } from "@/auth/telegram"
+import { PuzzleHistoryStore } from "@/puzzle-room/history-store"
+import type { PuzzleSocketData } from "@/puzzle-room/room-manager"
+import { PuzzleRoomManager } from "@/puzzle-room/room-manager"
+import { PuzzleSessionStore } from "@/puzzle-room/session-store"
 import { CORS_HEADERS } from "./constants"
 import {
   handleAuthLogout,

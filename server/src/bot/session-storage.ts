@@ -1,8 +1,8 @@
 import { eq } from "drizzle-orm"
 import { type StorageAdapter } from "grammy"
 
-import { db } from "../infra/db"
-import { tgSessionsShema } from "../infra/db/shemas"
+import { db } from "@/infra/db"
+import { tgSessionsShema } from "@/infra/db/shemas"
 
 export function drizzleSessionStorage<T>(): StorageAdapter<T> {
   return {

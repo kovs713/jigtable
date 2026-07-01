@@ -1,14 +1,14 @@
 import type { CommandContext } from "grammy"
 import { eq } from "drizzle-orm"
 
-import { s3Client } from "../../infra/storage"
-import { db } from "../../infra/db"
+import { s3Client } from "@/infra/storage"
+import { db } from "@/infra/db"
 import {
   batchPhotosSchema,
   batchesSchema,
   PhotoBatchStatus,
-} from "../../infra/db/shemas"
-import type { BotContext } from "../types"
+} from "@/infra/db/shemas"
+import type { BotContext } from "@/bot/types"
 
 export async function handleReset(ctx: CommandContext<BotContext>) {
   await ctx.reply("command reset и че бля")

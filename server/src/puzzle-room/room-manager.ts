@@ -24,7 +24,7 @@ import {
   snapDroppedGroup,
 } from "@puzzle-shuffle/puzzle-core"
 
-import type { PuzzleSafeAssetRef } from "../infra/db/shemas"
+import type { PuzzleSafeAssetRef } from "@/infra/db/shemas"
 import type { PuzzleHistoryStore } from "./history-store"
 import type { PuzzleSessionStore } from "./session-store"
 
