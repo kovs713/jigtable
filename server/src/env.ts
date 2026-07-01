@@ -1,5 +1,10 @@
 declare module "bun" {
   interface Env {
+    PORT: string
+    CLIENT_URL: string
+    PUBLIC_API_URL: string
+    NODE_ENV?: string
+
     BOT_TOKEN: string
 
     S3_ACCESS_KEY_ID: string
@@ -12,9 +17,5 @@ declare module "bun" {
     DB_DATABASE: string
     DB_PORT: string
     DB_URL: string
-
-    PORT: string
-    CLIENT_URL: string
-    PUBLIC_API_URL?: string
   }
 }

@@ -16,5 +16,5 @@ export function clientPuzzleRoomUrl(roomId: string): string {
 }
 
 export function publicApiUrl(): string {
-  return process.env.PUBLIC_API_URL ?? `http://localhost:${process.env.PORT}`
+  return process.env.PUBLIC_API_URL
 }

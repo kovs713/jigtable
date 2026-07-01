@@ -1,4 +1,4 @@
-import { serve } from "bun"
+import { serve, type BunRequest } from "bun"
 import { and, asc, eq } from "drizzle-orm"
 import sharp from "sharp"
 
@@ -59,14 +59,25 @@ interface PuzzleServices {
 
 export function startApiServer(): void {
   const port = Number(process.env.PORT)
-  const puzzleSessions = new PuzzleSessionStore()
-  const puzzleHistory = new PuzzleHistoryStore()
-  const telegramAuth = new TelegramAuthService()
-  const puzzleRooms = new PuzzleRoomManager(puzzleSessions, puzzleHistory)
+
+  const puzzleSessionsService = new PuzzleSessionStore()
+  const puzzleHistoryService = new PuzzleHistoryStore()
+  const puzzleRoomsService = new PuzzleRoomManager(
+    puzzleSessionsService,
+    puzzleHistoryService
+  )
+  const authService = new TelegramAuthService()
+  const puzzle = {
+    rooms: puzzleRoomsService,
+    sessions: puzzleSessionsService,
+    history: puzzleHistoryService,
+    auth: authService,
+  }
 
   const server = serve<PuzzleSocketData>({
     port,
-    fetch(request, server) {
+
+    fetch(request: BunRequest, server) {
       const url = new URL(request.url)
 
       if (url.pathname === "/api/puzzle/ws") {
@@ -77,35 +88,107 @@ export function startApiServer(): void {
         return json({ error: "WebSocket upgrade failed" }, 400)
       }
 
-      return handleRequest(request, {
-        rooms: puzzleRooms,
-        sessions: puzzleSessions,
-        history: puzzleHistory,
-        auth: telegramAuth,
-      }).catch((error) => {
-        console.error("API fatal error", error)
-        return json(
-          { error: error instanceof Error ? error.message : "Internal error" },
-          500
-        )
-      })
+      return json({ error: "Not found" }, 404)
     },
-    routes: {},
+
+    routes: {
+      "": {
+        OPTIONS: new Response(null, { headers: CORS_HEADERS }),
+      },
+
+      "/api/health": {
+        GET: json({ ok: true }),
+      },
+
+      "/api/auth/telegram-webapp": {
+        POST: route((request: BunRequest) =>
+          handleTelegramWebAppAuth(request, puzzle)
+        ),
+      },
+
+      "/api/auth/telegram-widget": {
+        POST: route((request: BunRequest) =>
+          handleTelegramWidgetAuth(request, puzzle)
+        ),
+      },
+
+      "/api/auth/me": {
+        GET: route((request: BunRequest) =>
+          handleGetAuthMe(request, authService)
+        ),
+      },
+
+      "/api/auth/logout": {
+        POST: route((request: BunRequest) =>
+          handleAuthLogout(request, authService)
+        ),
+      },
+
+      "/api/me/puzzle-history": {
+        GET: route((request: BunRequest) =>
+          handleGetPuzzleHistory(request, puzzle)
+        ),
+      },
+
+      "/api/puzzle/sessions": {
+        POST: route((request: BunRequest) =>
+          handleRestorePuzzleSession(request, puzzleSessionsService)
+        ),
+      },
+
+      "/api/puzzle/sessions/current": {
+        GET: route((request: BunRequest) =>
+          handleGetPuzzleSession(request, puzzleSessionsService)
+        ),
+        PATCH: route((request: BunRequest) =>
+          handlePatchPuzzleSession(request, puzzle)
+        ),
+      },
+
+      "/api/puzzle/rooms": {
+        POST: route((request: BunRequest) =>
+          handleCreatePuzzleRoom(request, puzzleRoomsService)
+        ),
+      },
+
+      "/api/puzzle/rooms/:roomId": {
+        GET: route((request: BunRequest) =>
+          handleGetPuzzleRoom(request, puzzleRoomsService)
+        ),
+      },
+      "/api/:batchId/layout": {
+        GET: handleGetLayout,
+        PATCH: route(handlePatchLayout),
+      },
+      "/api/:batchId/images/:fileId": {
+        GET: route(handleGetImage),
+      },
+      "/api/:batchId/render": {
+        POST: route(handleRender),
+      },
+      "/api/:batchId/rendered": {
+        GET: route(handleGetRendered),
+      },
+    },
+
     websocket: {
       message(socket, message) {
-        void puzzleRooms.handleMessage(socket, message).catch((error) => {
-          console.error("Puzzle websocket error", error)
-          socket.send(
-            JSON.stringify({
-              type: "error",
-              code: "internal_error",
-              message: "Internal error",
-            })
-          )
-        })
+        void puzzleRoomsService
+          .handleMessage(socket, message)
+          .catch((error) => {
+            console.error("Puzzle websocket error", error)
+            socket.send(
+              JSON.stringify({
+                type: "error",
+                code: "internal_error",
+                message: "Internal error",
+              })
+            )
+          })
       },
+
       close(socket) {
-        puzzleRooms.handleClose(socket)
+        puzzleRoomsService.handleClose(socket)
       },
     },
   })
@@ -113,114 +196,15 @@ export function startApiServer(): void {
   console.log(`API listening on :${server.port}`)
 }
 
-async function handleRequest(
-  request: Request,
-  puzzle: PuzzleServices
-): Promise<Response> {
-  if (request.method === "OPTIONS") {
-    return new Response(null, { headers: CORS_HEADERS })
-  }
+function route(handler: (request: BunRequest) => Response | Promise<Response>) {
+  return async (request: BunRequest) => {
+    try {
+      return await handler(request)
+    } catch (error) {
+      console.error("API fatal error", error)
 
-  try {
-    const url = new URL(request.url)
-    const parts = url.pathname.split("/").filter(Boolean)
-
-    if (url.pathname === "/api/health") {
-      return json({ ok: true })
+      return json({ error: readErrorMessage(error) }, 500)
     }
-
-    if (parts[0] === "api" && parts[1] === "auth") {
-      if (request.method === "POST" && parts[2] === "telegram-webapp") {
-        return handleTelegramWebAppAuth(request, puzzle)
-      }
-
-      if (request.method === "POST" && parts[2] === "telegram-widget") {
-        return handleTelegramWidgetAuth(request, puzzle)
-      }
-
-      if (request.method === "GET" && parts[2] === "me") {
-        return handleGetAuthMe(request, puzzle.auth)
-      }
-
-      if (request.method === "POST" && parts[2] === "logout") {
-        return handleAuthLogout(request, puzzle.auth)
-      }
-    }
-
-    if (
-      parts[0] === "api" &&
-      parts[1] === "me" &&
-      parts[2] === "puzzle-history" &&
-      request.method === "GET"
-    ) {
-      return handleGetPuzzleHistory(request, puzzle)
-    }
-
-    if (parts[0] === "api" && parts[1] === "puzzle") {
-      if (parts[2] === "sessions") {
-        if (request.method === "POST" && !parts[3]) {
-          return handleRestorePuzzleSession(request, puzzle.sessions)
-        }
-
-        if (request.method === "GET" && parts[3] === "current") {
-          return handleGetPuzzleSession(request, puzzle.sessions)
-        }
-
-        if (request.method === "PATCH" && parts[3] === "current") {
-          return handlePatchPuzzleSession(request, puzzle)
-        }
-      }
-
-      if (parts[2] === "rooms") {
-        if (request.method === "POST" && !parts[3]) {
-          return handleCreatePuzzleRoom(request, puzzle.rooms)
-        }
-
-        if (request.method === "GET" && parts[3]) {
-          return handleGetPuzzleRoom(decodeURIComponent(parts[3]), puzzle.rooms)
-        }
-      }
-    }
-
-    if (parts[0] !== "api" || parts[1] !== "batches" || !parts[2]) {
-      return json({ error: "Not found" }, 404)
-    }
-
-    const batchId = parts[2]
-
-    if (parts[3] === "layout") {
-      if (request.method === "GET") {
-        return handleGetLayout(batchId, url)
-      }
-
-      if (request.method === "PATCH") {
-        return handlePatchLayout(batchId, url, request)
-      }
-    }
-
-    if (parts[3] === "images" && parts[4] && request.method === "GET") {
-      return handleGetImage(batchId, decodeURIComponent(parts[4]), url)
-    }
-
-    if (parts[3] === "render" && request.method === "POST") {
-      return handleRender(batchId, url, request)
-    }
-
-    if (parts[3] === "rendered" && request.method === "GET") {
-      return handleGetRendered(batchId, url)
-    }
-
-    return json({ error: "Not found" }, 404)
-  } catch (error) {
-    if (error instanceof ApiError) {
-      return json({ error: error.message }, error.status)
-    }
-
-    console.error("API error", error)
-    return json(
-      { error: error instanceof Error ? error.message : "Internal error" },
-      500
-    )
   }
 }
 
@@ -270,10 +254,11 @@ async function handleCreatePuzzleRoom(
 }
 
 async function handleGetPuzzleRoom(
-  roomId: string,
+  request: BunRequest,
   puzzleRooms: PuzzleRoomManager
 ): Promise<Response> {
-  const state = puzzleRooms.getRoomSnapshot(roomId)
+  const roomId = new URL(request.url).searchParams.get("roomId")
+  const state = puzzleRooms.getRoomSnapshot(roomId ?? "")
 
   if (!state) {
     return json({ error: "Room not found or expired" }, 404)
@@ -435,11 +420,10 @@ async function handleGetLayout(batchId: string, url: URL): Promise<Response> {
   return json(toApiBatchLayout(batch, batch.layout))
 }
 
-async function handlePatchLayout(
-  batchId: string,
-  url: URL,
-  request: Request
-): Promise<Response> {
+async function handlePatchLayout(request: BunRequest): Promise<Response> {
+  const url = new URL(request.url)
+  const batchId = url.searchParams.get("batchId") ?? ""
+
   const { batch, photos } = await requireBatch(batchId, url)
   const layout = normalizeLayout(await request.json(), photos)
 
@@ -451,11 +435,11 @@ async function handlePatchLayout(
   return json(toApiBatchLayout(batch, layout))
 }
 
-async function handleGetImage(
-  batchId: string,
-  fileId: string,
-  url: URL
-): Promise<Response> {
+async function handleGetImage(request: BunRequest): Promise<Response> {
+  const url = new URL(request.url)
+  const batchId = url.searchParams.get("batchId") ?? ""
+  const fileId = url.searchParams.get("fileId") ?? ""
+
   const { photos } = await requireBatch(batchId, url)
   const photo = photos.find((item) => item.fileId === fileId)
 
@@ -472,11 +456,10 @@ async function handleGetImage(
   })
 }
 
-async function handleRender(
-  batchId: string,
-  url: URL,
-  request: Request
-): Promise<Response> {
+async function handleRender(request: BunRequest): Promise<Response> {
+  const url = new URL(request.url)
+  const batchId = url.searchParams.get("batchId") ?? ""
+
   const { batch, photos } = await requireBatch(batchId, url)
   const body = await readOptionalJson(request)
   const layout = body?.layout
@@ -524,7 +507,10 @@ async function handleRender(
   })
 }
 
-async function handleGetRendered(batchId: string, url: URL): Promise<Response> {
+async function handleGetRendered(request: BunRequest): Promise<Response> {
+  const url = new URL(request.url)
+  const batchId = url.searchParams.get("batchId") ?? ""
+
   const { batch } = await requireBatch(batchId, url)
 
   if (!batch.outputKey) {
@@ -698,10 +684,7 @@ async function readImageSize(
     return { width: 3168, height: 1782 }
   }
 
-  const url = new URL(
-    imageUrl,
-    process.env.CLIENT_URL ?? "http://localhost:5173"
-  )
+  const url = new URL(imageUrl, process.env.CLIENT_URL)
 
   if (url.pathname.startsWith("/api/batches/")) {
     const parts = url.pathname.split("/").filter(Boolean)
@@ -898,7 +881,7 @@ function readPuzzleProfileInput(value: unknown): {
 }
 
 function readErrorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : "Request failed"
+  return error instanceof Error ? error.message : "Internal error"
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

@@ -1,8 +1,10 @@
+import { SHA256 } from "bun"
 import { and, eq, gt } from "drizzle-orm"
-import { createHash, createHmac, randomBytes, timingSafeEqual } from "node:crypto"
+import { createHmac, randomBytes, timingSafeEqual } from "node:crypto"
 
 import { db } from "../infra/db"
 import { authSessionsSchema, usersSchema } from "../infra/db/shemas"
+import { colorFromSeed } from "../features/color-from-seed"
 
 const AUTH_SESSION_DAYS = 30
 const TELEGRAM_AUTH_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000
@@ -34,14 +36,14 @@ export interface AuthSessionResult {
 export class TelegramAuthService {
   async login(profile: TelegramAuthProfile, anonProfile?: UserProfileInput) {
     const user = await upsertTelegramUser(profile, anonProfile)
-    const token = createAuthToken()
+    const token = randomBytes(32).toString("base64url")
     const now = new Date()
     const expiresAt = new Date(
       now.getTime() + AUTH_SESSION_DAYS * 24 * 60 * 60 * 1000
     )
 
     await db.insert(authSessionsSchema).values({
-      tokenHash: hashToken(token),
+      tokenHash: SHA256.hash(token, "hex"),
       userId: user.id,
       createdAt: now,
       updatedAt: now,
@@ -52,7 +54,7 @@ export class TelegramAuthService {
   }
 
   async getUser(token: string): Promise<AuthenticatedUser | null> {
-    const tokenHash = hashToken(token)
+    const tokenHash = SHA256.hash(token, "hex")
     const sessionRows = await db
       .select()
       .from(authSessionsSchema)
@@ -91,7 +93,7 @@ export class TelegramAuthService {
   async logout(token: string): Promise<void> {
     await db
       .delete(authSessionsSchema)
-      .where(eq(authSessionsSchema.tokenHash, hashToken(token)))
+      .where(eq(authSessionsSchema.tokenHash, SHA256.hash(token, "hex")))
   }
 }
 
@@ -103,7 +105,6 @@ export interface UserProfileInput {
 export function validateTelegramWebAppInitData(
   initData: string
 ): TelegramAuthProfile {
-  const botToken = requireBotToken()
   const params = new URLSearchParams(initData)
   const hash = params.get("hash")
 
@@ -113,7 +114,9 @@ export function validateTelegramWebAppInitData(
 
   const authDate = readAuthDate(params.get("auth_date"))
   const dataCheckString = createTelegramCheckString(params)
-  const secret = createHmac("sha256", "WebAppData").update(botToken).digest()
+  const secret = createHmac("sha256", "WebAppData")
+    .update(process.env.BOT_TOKEN)
+    .digest()
   const expected = createHmac("sha256", secret)
     .update(dataCheckString)
     .digest("hex")
@@ -133,7 +136,6 @@ export function validateTelegramWebAppInitData(
 export function validateTelegramLoginWidget(
   payload: Record<string, unknown>
 ): TelegramAuthProfile {
-  const botToken = requireBotToken()
   const hash = readString(payload.hash)
 
   if (!hash) {
@@ -151,8 +153,10 @@ export function validateTelegramLoginWidget(
     .map(([key, value]) => [key, String(value)] as const)
     .sort(([left], [right]) => left.localeCompare(right))
   const authDate = readAuthDate(readEntry(entries, "auth_date"))
-  const dataCheckString = entries.map(([key, value]) => `${key}=${value}`).join("\n")
-  const secret = createHash("sha256").update(botToken).digest()
+  const dataCheckString = entries
+    .map(([key, value]) => `${key}=${value}`)
+    .join("\n")
+  const secret = SHA256.hash(process.env.BOT_TOKEN)
   const expected = createHmac("sha256", secret)
     .update(dataCheckString)
     .digest("hex")
@@ -195,7 +199,9 @@ function createTelegramCheckString(params: URLSearchParams): string {
     .join("\n")
 }
 
-function parseTelegramUserJson(value: string | null): TelegramAuthProfile | null {
+function parseTelegramUserJson(
+  value: string | null
+): TelegramAuthProfile | null {
   if (!value) {
     return null
   }
@@ -255,7 +261,8 @@ async function upsertTelegramUser(
   }
 
   const displayName = normalizeName(anonProfile?.name) ?? profileName(profile)
-  const color = normalizeColor(anonProfile?.color) ?? colorFromSeed(profile.telegramId)
+  const color =
+    normalizeColor(anonProfile?.color) ?? colorFromSeed(profile.telegramId)
   const insertedRows = await db
     .insert(usersSchema)
     .values({
@@ -280,7 +287,9 @@ async function upsertTelegramUser(
   return toAuthenticatedUser(inserted)
 }
 
-function toAuthenticatedUser(user: typeof usersSchema.$inferSelect): AuthenticatedUser {
+function toAuthenticatedUser(
+  user: typeof usersSchema.$inferSelect
+): AuthenticatedUser {
   return {
     id: user.id,
     telegramId: user.telegramId,
@@ -330,7 +339,10 @@ function readAuthDate(value: string | null | undefined): Date {
   return new Date(seconds * 1000)
 }
 
-function readEntry(entries: readonly (readonly [string, string])[], key: string) {
+function readEntry(
+  entries: readonly (readonly [string, string])[],
+  key: string
+) {
   return entries.find(([entryKey]) => entryKey === key)?.[1]
 }
 
@@ -352,57 +364,6 @@ function normalizeColor(value: string | undefined): string | null {
   const color = value?.trim().toLowerCase()
 
   return color && /^#[0-9a-f]{6}$/.test(color) ? color : null
-}
-
-function colorFromSeed(seed: string): string {
-  let hash = 0
-
-  for (let index = 0; index < seed.length; index++) {
-    hash = (hash * 31 + seed.charCodeAt(index)) >>> 0
-  }
-
-  return hslToHex((hash % 360) / 360, 0.72, 0.58)
-}
-
-function hslToHex(hue: number, saturation: number, lightness: number): string {
-  const chroma = (1 - Math.abs(2 * lightness - 1)) * saturation
-  const x = chroma * (1 - Math.abs(((hue * 6) % 2) - 1))
-  const match = lightness - chroma / 2
-  const sector = Math.floor(hue * 6)
-  const [red, green, blue] =
-    sector === 0
-      ? [chroma, x, 0]
-      : sector === 1
-        ? [x, chroma, 0]
-        : sector === 2
-          ? [0, chroma, x]
-          : sector === 3
-            ? [0, x, chroma]
-            : sector === 4
-              ? [x, 0, chroma]
-              : [chroma, 0, x]
-
-  return `#${toHex(red + match)}${toHex(green + match)}${toHex(blue + match)}`
-}
-
-function toHex(value: number): string {
-  return Math.round(value * 255).toString(16).padStart(2, "0")
-}
-
-function createAuthToken(): string {
-  return randomBytes(32).toString("base64url")
-}
-
-function hashToken(token: string): string {
-  return createHash("sha256").update(token).digest("hex")
-}
-
-function requireBotToken(): string {
-  if (!process.env.BOT_TOKEN) {
-    throw new Error("BOT_TOKEN is required")
-  }
-
-  return process.env.BOT_TOKEN
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
