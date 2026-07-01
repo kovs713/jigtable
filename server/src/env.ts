@@ -10,11 +10,11 @@ declare module "bun" {
     DB_USERNAME: string
     DB_PASSWORD: string
     DB_DATABASE: string
-    DB_PORT: number
+    DB_PORT: string
     DB_URL: string
 
-    PORT?: string
-    CLIENT_URL?: string
+    PORT: string
+    CLIENT_URL: string
     PUBLIC_API_URL?: string
   }
 }

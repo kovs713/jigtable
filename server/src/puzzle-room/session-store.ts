@@ -1,14 +1,15 @@
 import { eq } from "drizzle-orm"
 
-import { db } from "../infra/db"
-import { sessionsShema } from "../infra/db/shemas"
-import type { JigsawPlayer, JigsawSession } from "@puzzle-shuffle/jigsaw-core"
+import type { PuzzlePlayer, PuzzleSession } from "@puzzle-shuffle/puzzle-core"
 
-export interface StoredJigsawSession extends JigsawSession {
+import { db } from "../infra/db"
+import { puzzleSessionsSchema } from "../infra/db/shemas"
+
+export interface StoredPuzzleSession extends PuzzleSession {
   userId?: string
 }
 
-const SESSION_KEY_PREFIX = "jigsaw:session:"
+const SESSION_KEY_PREFIX = "puzzle:session:"
 const DEFAULT_PLAYER_NAME = "Player"
 const PLAYER_NAME_MAX_LENGTH = 24
 
@@ -23,16 +24,17 @@ interface UpdateSessionInput {
   color?: string
 }
 
-export class JigsawSessionStore {
-  private readonly sessions = new Map<string, StoredJigsawSession>()
+export class PuzzleSessionStore {
+  private readonly sessions = new Map<string, StoredPuzzleSession>()
 
   async restoreSession(
     input: RestoreSessionInput = {}
-  ): Promise<StoredJigsawSession> {
+  ): Promise<StoredPuzzleSession> {
     const token = normalizeToken(input.token)
 
     if (token) {
-      const existing = this.sessions.get(token) ?? (await this.readSession(token))
+      const existing =
+        this.sessions.get(token) ?? (await this.readSession(token))
 
       if (existing) {
         this.sessions.set(existing.token, existing)
@@ -43,7 +45,7 @@ export class JigsawSessionStore {
     return this.createSession(input)
   }
 
-  async getSession(token: string): Promise<StoredJigsawSession | null> {
+  async getSession(token: string): Promise<StoredPuzzleSession | null> {
     const safeToken = normalizeToken(token)
 
     if (!safeToken) {
@@ -68,7 +70,7 @@ export class JigsawSessionStore {
   async updateSession(
     token: string,
     input: UpdateSessionInput
-  ): Promise<StoredJigsawSession | null> {
+  ): Promise<StoredPuzzleSession | null> {
     const current = await this.getSession(token)
 
     if (!current) {
@@ -84,7 +86,7 @@ export class JigsawSessionStore {
       ...current,
       player,
       updatedAt: Date.now(),
-    } satisfies StoredJigsawSession
+    } satisfies StoredPuzzleSession
 
     await this.writeSession(session)
     this.sessions.set(session.token, session)
@@ -95,7 +97,7 @@ export class JigsawSessionStore {
   async linkSessionToUser(
     token: string,
     userId: string
-  ): Promise<StoredJigsawSession | null> {
+  ): Promise<StoredPuzzleSession | null> {
     const current = await this.getSession(token)
 
     if (!current) {
@@ -106,7 +108,7 @@ export class JigsawSessionStore {
       ...current,
       userId,
       updatedAt: Date.now(),
-    } satisfies StoredJigsawSession
+    } satisfies StoredPuzzleSession
 
     await this.writeSession(session)
     this.sessions.set(session.token, session)
@@ -116,7 +118,7 @@ export class JigsawSessionStore {
 
   private async createSession(
     input: RestoreSessionInput
-  ): Promise<StoredJigsawSession> {
+  ): Promise<StoredPuzzleSession> {
     const now = Date.now()
     const playerId = createId("player")
     const session = {
@@ -128,7 +130,7 @@ export class JigsawSessionStore {
       }),
       createdAt: now,
       updatedAt: now,
-    } satisfies StoredJigsawSession
+    } satisfies StoredPuzzleSession
 
     await this.writeSession(session)
     this.sessions.set(session.token, session)
@@ -136,11 +138,13 @@ export class JigsawSessionStore {
     return session
   }
 
-  private async readSession(token: string): Promise<StoredJigsawSession | null> {
+  private async readSession(
+    token: string
+  ): Promise<StoredPuzzleSession | null> {
     const result = await db
       .select()
-      .from(sessionsShema)
-      .where(eq(sessionsShema.key, sessionKey(token)))
+      .from(puzzleSessionsSchema)
+      .where(eq(puzzleSessionsSchema.key, sessionKey(token)))
       .limit(1)
     const value = result[0]?.value
 
@@ -151,22 +155,22 @@ export class JigsawSessionStore {
     return parseStoredSession(token, value)
   }
 
-  private async writeSession(session: StoredJigsawSession): Promise<void> {
+  private async writeSession(session: StoredPuzzleSession): Promise<void> {
     await db
-      .insert(sessionsShema)
+      .insert(puzzleSessionsSchema)
       .values({
         key: sessionKey(session.token),
         value: session,
         updatedAt: new Date(),
       })
       .onConflictDoUpdate({
-        target: sessionsShema.key,
+        target: puzzleSessionsSchema.key,
         set: { value: session, updatedAt: new Date() },
       })
   }
 }
 
-export function toSessionResponse(session: JigsawSession): JigsawSession {
+export function toSessionResponse(session: PuzzleSession): PuzzleSession {
   return {
     token: session.token,
     player: session.player,
@@ -178,7 +182,7 @@ export function toSessionResponse(session: JigsawSession): JigsawSession {
 function parseStoredSession(
   fallbackToken: string,
   value: Record<string, unknown>
-): StoredJigsawSession | null {
+): StoredPuzzleSession | null {
   const player = isRecord(value.player) ? normalizePlayer(value.player) : null
 
   if (!player) {
@@ -194,10 +198,11 @@ function parseStoredSession(
   }
 }
 
-function normalizePlayer(value: Record<string, unknown>): JigsawPlayer {
+function normalizePlayer(value: Record<string, unknown>): PuzzlePlayer {
   const id = readNonEmptyString(value.id) ?? createId("player")
   const name = normalizePlayerName(readNonEmptyString(value.name))
-  const color = normalizeColor(readNonEmptyString(value.color)) ?? colorFromSeed(id)
+  const color =
+    normalizeColor(readNonEmptyString(value.color)) ?? colorFromSeed(id)
 
   return { id, name, color }
 }
@@ -254,11 +259,15 @@ function hslToHex(hue: number, saturation: number, lightness: number): string {
 }
 
 function toHex(value: number): string {
-  return Math.round(value * 255).toString(16).padStart(2, "0")
+  return Math.round(value * 255)
+    .toString(16)
+    .padStart(2, "0")
 }
 
 function readTimestamp(value: unknown): number {
-  return typeof value === "number" && Number.isFinite(value) ? value : Date.now()
+  return typeof value === "number" && Number.isFinite(value)
+    ? value
+    : Date.now()
 }
 
 function readNonEmptyString(value: unknown): string | null {
