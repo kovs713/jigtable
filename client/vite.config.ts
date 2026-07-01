@@ -8,9 +8,9 @@ export default defineConfig({
   plugins: [react(), tailwindcss()],
   resolve: {
     alias: {
-      "@puzzle-shuffle/jigsaw-core": path.resolve(
+      "@puzzle-shuffle/puzzle-core": path.resolve(
         __dirname,
-        "../packages/jigsaw-core/src"
+        "../packages/puzzle-core/src"
       ),
       "@": path.resolve(__dirname, "./src"),
     },

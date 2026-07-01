@@ -13,7 +13,7 @@
   },
   "dependencies": {
     "@fontsource-variable/inter": "^5.2.8",
-    "@puzzle-shuffle/jigsaw-core": "workspace:*",
+    "@puzzle-shuffle/puzzle-core": "workspace:*",
     "@tailwindcss/vite": "^4",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
