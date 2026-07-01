@@ -1,6 +1,6 @@
 import { jsonb, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core"
 
-import type { ShuffleResult } from "../../../shuffle"
+import type { ShuffleResult } from "@/shuffle"
 
 export const PhotoBatchStatus = {
   Collecting: "collecting",

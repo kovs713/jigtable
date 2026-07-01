@@ -2,8 +2,8 @@ import { eq } from "drizzle-orm"
 
 import type { PuzzlePlayer, PuzzleSession } from "@puzzle-shuffle/puzzle-core"
 
-import { db } from "../infra/db"
-import { puzzleSessionsSchema } from "../infra/db/shemas"
+import { db } from "@/infra/db"
+import { puzzleSessionsSchema } from "@/infra/db/shemas"
 
 export interface StoredPuzzleSession extends PuzzleSession {
   userId?: string

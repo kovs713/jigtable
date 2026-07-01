@@ -1,7 +1,7 @@
 import { InputFile, type CommandContext } from "grammy"
 
-import { COOL_IMAGE_S3_URL } from "../constants"
-import type { BotContext } from "../types"
+import { COOL_IMAGE_S3_URL } from "@/bot/constants"
+import type { BotContext } from "@/bot/types"
 
 let coolImageFileId: string | null = null
 

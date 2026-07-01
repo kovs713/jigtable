@@ -2,9 +2,9 @@ import { SHA256 } from "bun"
 import { and, eq, gt } from "drizzle-orm"
 import { createHmac, randomBytes, timingSafeEqual } from "node:crypto"
 
-import { db } from "../infra/db"
-import { authSessionsSchema, usersSchema } from "../infra/db/shemas"
-import { colorFromSeed } from "../features/color-from-seed"
+import { colorFromSeed } from "@/features/color-from-seed"
+import { db } from "@/infra/db"
+import { authSessionsSchema, usersSchema } from "@/infra/db/shemas"
 
 const AUTH_SESSION_DAYS = 30
 const TELEGRAM_AUTH_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000

@@ -3,14 +3,14 @@ import { and, desc, eq, inArray } from "drizzle-orm"
 
 import type { PuzzlePlayer } from "@puzzle-shuffle/puzzle-core"
 
-import { db } from "../infra/db"
+import { db } from "@/infra/db"
 import {
   puzzleRoomParticipantsSchema,
   puzzleRoomResultsSchema,
   usersSchema,
   type PuzzleResultParticipant,
   type PuzzleSafeAssetRef,
-} from "../infra/db/shemas"
+} from "@/infra/db/shemas"
 import type { StoredPuzzleSession } from "./session-store"
 
 export interface PuzzleHistoryRoomInfo {

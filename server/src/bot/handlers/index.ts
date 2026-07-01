@@ -1,6 +1,6 @@
 import type { Bot } from "grammy"
 
-import type { BotContext } from "../types"
+import type { BotContext } from "@/bot/types"
 import { handleCommit } from "./commit"
 import { handleList } from "./list"
 import { handleNew } from "./new"

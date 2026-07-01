@@ -1,4 +1,4 @@
-import { s3Client } from "../infra/storage"
+import { s3Client } from "@/infra/storage"
 import { photoObjectKey } from "./photo-object-key"
 
 export interface UploadedPhoto {
