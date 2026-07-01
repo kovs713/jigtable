@@ -3,9 +3,10 @@ import { and, asc, eq } from "drizzle-orm"
 import sharp from "sharp"
 
 import type {
-  CreateJigsawRoomResponse,
-  JigsawSession,
-} from "@puzzle-shuffle/jigsaw-core"
+  CreatePuzzleRoomResponse,
+  PuzzleSession,
+} from "@puzzle-shuffle/puzzle-core"
+
 import {
   readAuthToken,
   TelegramAuthService,
@@ -13,7 +14,7 @@ import {
   validateTelegramWebAppInitData,
 } from "../auth/telegram"
 import { normalizeRenderFormat, renderLayout } from "../features/render-layout"
-import { clientJigsawRoomUrl, publicApiUrl } from "../features/urls"
+import { clientPuzzleRoomUrl, publicApiUrl } from "../features/urls"
 import { db } from "../infra/db"
 import {
   batchesSchema,
@@ -22,18 +23,18 @@ import {
 } from "../infra/db/shemas"
 import { s3Client } from "../infra/storage"
 import {
-  createJigsawSafeAssetRef,
-  JigsawHistoryStore,
-} from "../jigsaw-room/history-store"
+  createPuzzleSafeAssetRef,
+  PuzzleHistoryStore,
+} from "../puzzle-room/history-store"
 import type {
-  CreateJigsawRoomInput,
-  JigsawSocketData,
-} from "../jigsaw-room/room-manager"
-import { JigsawRoomManager } from "../jigsaw-room/room-manager"
+  CreatePuzzleRoomInput,
+  PuzzleSocketData,
+} from "../puzzle-room/room-manager"
+import { PuzzleRoomManager } from "../puzzle-room/room-manager"
 import {
-  JigsawSessionStore,
+  PuzzleSessionStore,
   toSessionResponse,
-} from "../jigsaw-room/session-store"
+} from "../puzzle-room/session-store"
 import type { ShuffleItem, ShuffleResult } from "../shuffle"
 
 interface ApiBatchLayout {
@@ -49,26 +50,26 @@ const CORS_HEADERS = {
   "Access-Control-Allow-Methods": "GET,POST,PATCH,OPTIONS",
 }
 
-interface JigsawServices {
-  rooms: JigsawRoomManager
-  sessions: JigsawSessionStore
-  history: JigsawHistoryStore
+interface PuzzleServices {
+  rooms: PuzzleRoomManager
+  sessions: PuzzleSessionStore
+  history: PuzzleHistoryStore
   auth: TelegramAuthService
 }
 
 export function startApiServer(): void {
-  const port = Number(process.env.PORT ?? 3000)
-  const jigsawSessions = new JigsawSessionStore()
-  const jigsawHistory = new JigsawHistoryStore()
+  const port = Number(process.env.PORT)
+  const puzzleSessions = new PuzzleSessionStore()
+  const puzzleHistory = new PuzzleHistoryStore()
   const telegramAuth = new TelegramAuthService()
-  const jigsawRooms = new JigsawRoomManager(jigsawSessions, jigsawHistory)
+  const puzzleRooms = new PuzzleRoomManager(puzzleSessions, puzzleHistory)
 
-  const server = serve<JigsawSocketData>({
+  const server = serve<PuzzleSocketData>({
     port,
     fetch(request, server) {
       const url = new URL(request.url)
 
-      if (url.pathname === "/api/jigsaw/ws") {
+      if (url.pathname === "/api/puzzle/ws") {
         if (server.upgrade(request, { data: {} })) {
           return undefined
         }
@@ -77,9 +78,9 @@ export function startApiServer(): void {
       }
 
       return handleRequest(request, {
-        rooms: jigsawRooms,
-        sessions: jigsawSessions,
-        history: jigsawHistory,
+        rooms: puzzleRooms,
+        sessions: puzzleSessions,
+        history: puzzleHistory,
         auth: telegramAuth,
       }).catch((error) => {
         console.error("API fatal error", error)
@@ -89,10 +90,11 @@ export function startApiServer(): void {
         )
       })
     },
+    routes: {},
     websocket: {
       message(socket, message) {
-        void jigsawRooms.handleMessage(socket, message).catch((error) => {
-          console.error("Jigsaw websocket error", error)
+        void puzzleRooms.handleMessage(socket, message).catch((error) => {
+          console.error("Puzzle websocket error", error)
           socket.send(
             JSON.stringify({
               type: "error",
@@ -103,7 +105,7 @@ export function startApiServer(): void {
         })
       },
       close(socket) {
-        jigsawRooms.handleClose(socket)
+        puzzleRooms.handleClose(socket)
       },
     },
   })
@@ -113,7 +115,7 @@ export function startApiServer(): void {
 
 async function handleRequest(
   request: Request,
-  jigsaw: JigsawServices
+  puzzle: PuzzleServices
 ): Promise<Response> {
   if (request.method === "OPTIONS") {
     return new Response(null, { headers: CORS_HEADERS })
@@ -129,53 +131,53 @@ async function handleRequest(
 
     if (parts[0] === "api" && parts[1] === "auth") {
       if (request.method === "POST" && parts[2] === "telegram-webapp") {
-        return handleTelegramWebAppAuth(request, jigsaw)
+        return handleTelegramWebAppAuth(request, puzzle)
       }
 
       if (request.method === "POST" && parts[2] === "telegram-widget") {
-        return handleTelegramWidgetAuth(request, jigsaw)
+        return handleTelegramWidgetAuth(request, puzzle)
       }
 
       if (request.method === "GET" && parts[2] === "me") {
-        return handleGetAuthMe(request, jigsaw.auth)
+        return handleGetAuthMe(request, puzzle.auth)
       }
 
       if (request.method === "POST" && parts[2] === "logout") {
-        return handleAuthLogout(request, jigsaw.auth)
+        return handleAuthLogout(request, puzzle.auth)
       }
     }
 
     if (
       parts[0] === "api" &&
       parts[1] === "me" &&
-      parts[2] === "jigsaw-history" &&
+      parts[2] === "puzzle-history" &&
       request.method === "GET"
     ) {
-      return handleGetJigsawHistory(request, jigsaw)
+      return handleGetPuzzleHistory(request, puzzle)
     }
 
-    if (parts[0] === "api" && parts[1] === "jigsaw") {
+    if (parts[0] === "api" && parts[1] === "puzzle") {
       if (parts[2] === "sessions") {
         if (request.method === "POST" && !parts[3]) {
-          return handleRestoreJigsawSession(request, jigsaw.sessions)
+          return handleRestorePuzzleSession(request, puzzle.sessions)
         }
 
         if (request.method === "GET" && parts[3] === "current") {
-          return handleGetJigsawSession(request, jigsaw.sessions)
+          return handleGetPuzzleSession(request, puzzle.sessions)
         }
 
         if (request.method === "PATCH" && parts[3] === "current") {
-          return handlePatchJigsawSession(request, jigsaw)
+          return handlePatchPuzzleSession(request, puzzle)
         }
       }
 
       if (parts[2] === "rooms") {
         if (request.method === "POST" && !parts[3]) {
-          return handleCreateJigsawRoom(request, jigsaw.rooms)
+          return handleCreatePuzzleRoom(request, puzzle.rooms)
         }
 
         if (request.method === "GET" && parts[3]) {
-          return handleGetJigsawRoom(decodeURIComponent(parts[3]), jigsaw.rooms)
+          return handleGetPuzzleRoom(decodeURIComponent(parts[3]), puzzle.rooms)
         }
       }
     }
@@ -222,9 +224,9 @@ async function handleRequest(
   }
 }
 
-async function handleCreateJigsawRoom(
+async function handleCreatePuzzleRoom(
   request: Request,
-  jigsawRooms: JigsawRoomManager
+  puzzleRooms: PuzzleRoomManager
 ): Promise<Response> {
   const body = await readOptionalJson(request)
   const imageUrl = (
@@ -254,24 +256,24 @@ async function handleCreateJigsawRoom(
   const input = {
     imageUrl,
     assetId,
-    assetRef: createJigsawSafeAssetRef({ imageUrl, assetId }),
+    assetRef: createPuzzleSafeAssetRef({ imageUrl, assetId }),
     sourceSize,
     pieceCount,
-  } satisfies CreateJigsawRoomInput
-  const state = jigsawRooms.createRoom(input)
+  } satisfies CreatePuzzleRoomInput
+  const state = puzzleRooms.createRoom(input)
 
   return json({
     roomId: state.roomId,
-    joinUrl: clientJigsawRoomUrl(state.roomId),
+    joinUrl: clientPuzzleRoomUrl(state.roomId),
     state,
-  } satisfies CreateJigsawRoomResponse)
+  } satisfies CreatePuzzleRoomResponse)
 }
 
-async function handleGetJigsawRoom(
+async function handleGetPuzzleRoom(
   roomId: string,
-  jigsawRooms: JigsawRoomManager
+  puzzleRooms: PuzzleRoomManager
 ): Promise<Response> {
-  const state = jigsawRooms.getRoomSnapshot(roomId)
+  const state = puzzleRooms.getRoomSnapshot(roomId)
 
   if (!state) {
     return json({ error: "Room not found or expired" }, 404)
@@ -282,7 +284,7 @@ async function handleGetJigsawRoom(
 
 async function handleTelegramWebAppAuth(
   request: Request,
-  jigsaw: JigsawServices
+  puzzle: PuzzleServices
 ): Promise<Response> {
   const body = await readOptionalJson(request)
   const initData = readOptionalNonEmptyString(body?.initData, "initData")
@@ -294,7 +296,7 @@ async function handleTelegramWebAppAuth(
   try {
     const profile = validateTelegramWebAppInitData(initData)
 
-    return handleTelegramLogin(body, jigsaw, profile)
+    return handleTelegramLogin(body, puzzle, profile)
   } catch (error) {
     throw new ApiError(readErrorMessage(error), 401)
   }
@@ -302,7 +304,7 @@ async function handleTelegramWebAppAuth(
 
 async function handleTelegramWidgetAuth(
   request: Request,
-  jigsaw: JigsawServices
+  puzzle: PuzzleServices
 ): Promise<Response> {
   const body = await readOptionalJson(request)
 
@@ -313,7 +315,7 @@ async function handleTelegramWidgetAuth(
   try {
     const profile = validateTelegramLoginWidget(body)
 
-    return handleTelegramLogin(body, jigsaw, profile)
+    return handleTelegramLogin(body, puzzle, profile)
   } catch (error) {
     throw new ApiError(readErrorMessage(error), 401)
   }
@@ -321,7 +323,7 @@ async function handleTelegramWidgetAuth(
 
 async function handleTelegramLogin(
   body: Record<string, unknown> | null,
-  jigsaw: JigsawServices,
+  puzzle: PuzzleServices,
   profile: ReturnType<typeof validateTelegramWebAppInitData>
 ): Promise<Response> {
   const anonSessionToken = readOptionalNonEmptyString(
@@ -329,16 +331,16 @@ async function handleTelegramLogin(
     "anonSessionToken"
   )?.trim()
   const anonSession = anonSessionToken
-    ? await jigsaw.sessions.getSession(anonSessionToken)
+    ? await puzzle.sessions.getSession(anonSessionToken)
     : null
-  const auth = await jigsaw.auth.login(profile, {
+  const auth = await puzzle.auth.login(profile, {
     name: anonSession?.player.name,
     color: anonSession?.player.color,
   })
 
   if (anonSessionToken) {
-    await jigsaw.sessions.linkSessionToUser(anonSessionToken, auth.user.id)
-    await jigsaw.history.linkAnonSessionToUser(anonSessionToken, auth.user.id)
+    await puzzle.sessions.linkSessionToUser(anonSessionToken, auth.user.id)
+    await puzzle.history.linkAnonSessionToUser(anonSessionToken, auth.user.id)
   }
 
   return json(auth)
@@ -366,22 +368,22 @@ async function handleAuthLogout(
   return json({ ok: true })
 }
 
-async function handleGetJigsawHistory(
+async function handleGetPuzzleHistory(
   request: Request,
-  jigsaw: JigsawServices
+  puzzle: PuzzleServices
 ): Promise<Response> {
-  const user = await requireAuthenticatedUser(request, jigsaw.auth)
-  const history = await jigsaw.history.getUserHistory(user.id)
+  const user = await requireAuthenticatedUser(request, puzzle.auth)
+  const history = await puzzle.history.getUserHistory(user.id)
 
   return json({ history })
 }
 
-async function handleRestoreJigsawSession(
+async function handleRestorePuzzleSession(
   request: Request,
-  sessions: JigsawSessionStore
+  sessions: PuzzleSessionStore
 ): Promise<Response> {
   const body = await readOptionalJson(request)
-  const profile = readJigsawProfileInput(body)
+  const profile = readPuzzleProfileInput(body)
   const session = await sessions.restoreSession({
     token: readOptionalNonEmptyString(body?.token, "token")?.trim(),
     name: profile.name,
@@ -391,34 +393,34 @@ async function handleRestoreJigsawSession(
   return json(toSessionResponse(session))
 }
 
-async function handleGetJigsawSession(
+async function handleGetPuzzleSession(
   request: Request,
-  sessions: JigsawSessionStore
+  sessions: PuzzleSessionStore
 ): Promise<Response> {
-  const session = await requireJigsawSession(request, sessions)
+  const session = await requirePuzzleSession(request, sessions)
 
   return json(toSessionResponse(session))
 }
 
-async function handlePatchJigsawSession(
+async function handlePatchPuzzleSession(
   request: Request,
-  jigsaw: JigsawServices
+  puzzle: PuzzleServices
 ): Promise<Response> {
-  const token = readJigsawAuthToken(request)
+  const token = readPuzzleAuthToken(request)
 
   if (!token) {
-    throw new ApiError("Jigsaw session token required", 401)
+    throw new ApiError("Puzzle session token required", 401)
   }
 
   const body = await readOptionalJson(request)
-  const profile = readJigsawProfileInput(body)
-  const session = await jigsaw.sessions.updateSession(token, profile)
+  const profile = readPuzzleProfileInput(body)
+  const session = await puzzle.sessions.updateSession(token, profile)
 
   if (!session) {
-    throw new ApiError("Jigsaw session not found", 401)
+    throw new ApiError("Puzzle session not found", 401)
   }
 
-  await jigsaw.rooms.updateSessionPlayer(session.token, session.player)
+  await puzzle.rooms.updateSessionPlayer(session.token, session.player)
 
   return json(toSessionResponse(session))
 }
@@ -830,20 +832,20 @@ function readOptionalBoundedInteger(
   return number
 }
 
-async function requireJigsawSession(
+async function requirePuzzleSession(
   request: Request,
-  sessions: JigsawSessionStore
-): Promise<JigsawSession> {
-  const token = readJigsawAuthToken(request)
+  sessions: PuzzleSessionStore
+): Promise<PuzzleSession> {
+  const token = readPuzzleAuthToken(request)
 
   if (!token) {
-    throw new ApiError("Jigsaw session token required", 401)
+    throw new ApiError("Puzzle session token required", 401)
   }
 
   const session = await sessions.getSession(token)
 
   if (!session) {
-    throw new ApiError("Jigsaw session not found", 401)
+    throw new ApiError("Puzzle session not found", 401)
   }
 
   return session
@@ -868,7 +870,7 @@ async function requireAuthenticatedUser(
   return user
 }
 
-function readJigsawAuthToken(request: Request): string | null {
+function readPuzzleAuthToken(request: Request): string | null {
   const authorization = request.headers.get("authorization")
 
   if (authorization?.toLowerCase().startsWith("bearer ")) {
@@ -882,7 +884,7 @@ function readJigsawAuthToken(request: Request): string | null {
   return token || null
 }
 
-function readJigsawProfileInput(value: unknown): {
+function readPuzzleProfileInput(value: unknown): {
   name?: string
   color?: string
 } {

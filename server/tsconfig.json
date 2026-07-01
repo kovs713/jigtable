@@ -18,11 +18,11 @@
     "verbatimModuleSyntax": true,
     "noEmit": true,
     "paths": {
-      "@puzzle-shuffle/jigsaw-core": [
-        "../packages/jigsaw-core/src/index.ts"
+      "@puzzle-shuffle/puzzle-core": [
+        "../packages/puzzle-core/src/index.ts"
       ],
-      "@puzzle-shuffle/jigsaw-core/*": [
-        "../packages/jigsaw-core/src/*"
+      "@puzzle-shuffle/puzzle-core/*": [
+        "../packages/puzzle-core/src/*"
       ]
     },
     // Best practices

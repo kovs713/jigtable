@@ -1,54 +1,55 @@
+import { CryptoHasher } from "bun"
 import { and, desc, eq, inArray } from "drizzle-orm"
-import { createHash } from "node:crypto"
+
+import type { PuzzlePlayer } from "@puzzle-shuffle/puzzle-core"
 
 import { db } from "../infra/db"
 import {
-  jigsawRoomParticipantsSchema,
-  jigsawRoomResultsSchema,
+  puzzleRoomParticipantsSchema,
+  puzzleRoomResultsSchema,
   usersSchema,
-  type JigsawResultParticipant,
-  type JigsawSafeAssetRef,
+  type PuzzleResultParticipant,
+  type PuzzleSafeAssetRef,
 } from "../infra/db/shemas"
-import type { JigsawPlayer } from "@puzzle-shuffle/jigsaw-core"
-import type { StoredJigsawSession } from "./session-store"
+import type { StoredPuzzleSession } from "./session-store"
 
-export interface JigsawHistoryRoomInfo {
+export interface PuzzleHistoryRoomInfo {
   roomId: string
-  assetRef: JigsawSafeAssetRef
+  assetRef: PuzzleSafeAssetRef
   elapsedMs: number
   pieceCount: number
   snapCount: number
   completedAt: Date
 }
 
-export interface JigsawHistoryItem {
+export interface PuzzleHistoryItem {
   roomId: string
   completedAt: Date
   elapsedMs: number
   pieceCount: number
   snapCount: number
   source: {
-    kind: JigsawSafeAssetRef["kind"]
+    kind: PuzzleSafeAssetRef["kind"]
     label: string
   }
-  participants: JigsawResultParticipant[]
+  participants: PuzzleResultParticipant[]
 }
 
-export class JigsawHistoryStore {
+export class PuzzleHistoryStore {
   async upsertParticipant({
     roomId,
     session,
   }: {
     roomId: string
-    session: StoredJigsawSession
+    session: StoredPuzzleSession
   }): Promise<void> {
     const existingRows = await db
       .select()
-      .from(jigsawRoomParticipantsSchema)
+      .from(puzzleRoomParticipantsSchema)
       .where(
         and(
-          eq(jigsawRoomParticipantsSchema.roomId, roomId),
-          eq(jigsawRoomParticipantsSchema.playerId, session.player.id)
+          eq(puzzleRoomParticipantsSchema.roomId, roomId),
+          eq(puzzleRoomParticipantsSchema.playerId, session.player.id)
         )
       )
       .limit(1)
@@ -64,13 +65,13 @@ export class JigsawHistoryStore {
 
     if (existingRows[0]) {
       await db
-        .update(jigsawRoomParticipantsSchema)
+        .update(puzzleRoomParticipantsSchema)
         .set(values)
-        .where(eq(jigsawRoomParticipantsSchema.id, existingRows[0].id))
+        .where(eq(puzzleRoomParticipantsSchema.id, existingRows[0].id))
       return
     }
 
-    await db.insert(jigsawRoomParticipantsSchema).values({
+    await db.insert(puzzleRoomParticipantsSchema).values({
       roomId,
       playerId: session.player.id,
       ...values,
@@ -82,12 +83,12 @@ export class JigsawHistoryStore {
     const now = new Date()
 
     await db
-      .update(jigsawRoomParticipantsSchema)
+      .update(puzzleRoomParticipantsSchema)
       .set({ leftAt: now, lastSeenAt: now })
       .where(
         and(
-          eq(jigsawRoomParticipantsSchema.roomId, roomId),
-          eq(jigsawRoomParticipantsSchema.playerId, playerId)
+          eq(puzzleRoomParticipantsSchema.roomId, roomId),
+          eq(puzzleRoomParticipantsSchema.playerId, playerId)
         )
       )
   }
@@ -98,32 +99,37 @@ export class JigsawHistoryStore {
     userId,
   }: {
     sessionToken: string
-    player: JigsawPlayer
+    player: PuzzlePlayer
     userId?: string
   }): Promise<void> {
     await db
-      .update(jigsawRoomParticipantsSchema)
+      .update(puzzleRoomParticipantsSchema)
       .set({
         userId: userId ?? null,
         name: player.name,
         color: player.color,
         lastSeenAt: new Date(),
       })
-      .where(eq(jigsawRoomParticipantsSchema.anonSessionHash, hashToken(sessionToken)))
+      .where(
+        eq(
+          puzzleRoomParticipantsSchema.anonSessionHash,
+          hashToken(sessionToken)
+        )
+      )
   }
 
   async linkAnonSessionToUser(token: string, userId: string): Promise<void> {
     await db
-      .update(jigsawRoomParticipantsSchema)
+      .update(puzzleRoomParticipantsSchema)
       .set({ userId, lastSeenAt: new Date() })
-      .where(eq(jigsawRoomParticipantsSchema.anonSessionHash, hashToken(token)))
+      .where(eq(puzzleRoomParticipantsSchema.anonSessionHash, hashToken(token)))
   }
 
-  async recordCompletion(room: JigsawHistoryRoomInfo): Promise<void> {
+  async recordCompletion(room: PuzzleHistoryRoomInfo): Promise<void> {
     const participants = await this.readResultParticipants(room.roomId)
 
     await db
-      .insert(jigsawRoomResultsSchema)
+      .insert(puzzleRoomResultsSchema)
       .values({
         roomId: room.roomId,
         assetRef: room.assetRef,
@@ -133,14 +139,14 @@ export class JigsawHistoryStore {
         snapCount: room.snapCount,
         completedAt: room.completedAt,
       })
-      .onConflictDoNothing({ target: jigsawRoomResultsSchema.roomId })
+      .onConflictDoNothing({ target: puzzleRoomResultsSchema.roomId })
   }
 
-  async getUserHistory(userId: string): Promise<JigsawHistoryItem[]> {
+  async getUserHistory(userId: string): Promise<PuzzleHistoryItem[]> {
     const participantRows = await db
       .select()
-      .from(jigsawRoomParticipantsSchema)
-      .where(eq(jigsawRoomParticipantsSchema.userId, userId))
+      .from(puzzleRoomParticipantsSchema)
+      .where(eq(puzzleRoomParticipantsSchema.userId, userId))
     const roomIds = [...new Set(participantRows.map((row) => row.roomId))]
 
     if (!roomIds.length) {
@@ -149,9 +155,9 @@ export class JigsawHistoryStore {
 
     const rows = await db
       .select()
-      .from(jigsawRoomResultsSchema)
-      .where(inArray(jigsawRoomResultsSchema.roomId, roomIds))
-      .orderBy(desc(jigsawRoomResultsSchema.completedAt))
+      .from(puzzleRoomResultsSchema)
+      .where(inArray(puzzleRoomResultsSchema.roomId, roomIds))
+      .orderBy(desc(puzzleRoomResultsSchema.completedAt))
 
     return rows.map((row) => ({
       roomId: row.roomId,
@@ -166,16 +172,21 @@ export class JigsawHistoryStore {
 
   private async readResultParticipants(
     roomId: string
-  ): Promise<JigsawResultParticipant[]> {
+  ): Promise<PuzzleResultParticipant[]> {
     const participants = await db
       .select()
-      .from(jigsawRoomParticipantsSchema)
-      .where(eq(jigsawRoomParticipantsSchema.roomId, roomId))
+      .from(puzzleRoomParticipantsSchema)
+      .where(eq(puzzleRoomParticipantsSchema.roomId, roomId))
     const userIds = [
-      ...new Set(participants.flatMap((row) => (row.userId ? [row.userId] : []))),
+      ...new Set(
+        participants.flatMap((row) => (row.userId ? [row.userId] : []))
+      ),
     ]
     const users = userIds.length
-      ? await db.select().from(usersSchema).where(inArray(usersSchema.id, userIds))
+      ? await db
+          .select()
+          .from(usersSchema)
+          .where(inArray(usersSchema.id, userIds))
       : []
     const usersById = new Map(users.map((user) => [user.id, user]))
 
@@ -194,14 +205,17 @@ export class JigsawHistoryStore {
   }
 }
 
-export function createJigsawSafeAssetRef({
+export function createPuzzleSafeAssetRef({
   imageUrl,
   assetId,
 }: {
   imageUrl: string
   assetId: string
-}): JigsawSafeAssetRef {
-  const url = new URL(imageUrl, process.env.CLIENT_URL ?? "http://localhost:5173")
+}): PuzzleSafeAssetRef {
+  const url = new URL(
+    imageUrl,
+    process.env.CLIENT_URL ?? "http://localhost:5173"
+  )
 
   if (url.pathname === "/test_puzzle.png") {
     return { kind: "dev", assetId }
@@ -223,7 +237,9 @@ export function createJigsawSafeAssetRef({
   }
 }
 
-function summarizeAssetRef(assetRef: JigsawSafeAssetRef): JigsawHistoryItem["source"] {
+function summarizeAssetRef(
+  assetRef: PuzzleSafeAssetRef
+): PuzzleHistoryItem["source"] {
   if (assetRef.kind === "dev") {
     return { kind: assetRef.kind, label: "Test puzzle" }
   }
@@ -234,10 +250,12 @@ function summarizeAssetRef(assetRef: JigsawSafeAssetRef): JigsawHistoryItem["sou
 
   return {
     kind: assetRef.kind,
-    label: assetRef.origin ? `External image from ${assetRef.origin}` : "External image",
+    label: assetRef.origin
+      ? `External image from ${assetRef.origin}`
+      : "External image",
   }
 }
 
 function hashToken(token: string): string {
-  return createHash("sha256").update(token).digest("hex")
+  return new CryptoHasher("sha256").update(token).digest("hex")
 }
