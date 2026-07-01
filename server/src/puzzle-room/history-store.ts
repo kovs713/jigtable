@@ -212,10 +212,7 @@ export function createPuzzleSafeAssetRef({
   imageUrl: string
   assetId: string
 }): PuzzleSafeAssetRef {
-  const url = new URL(
-    imageUrl,
-    process.env.CLIENT_URL ?? "http://localhost:5173"
-  )
+  const url = new URL(imageUrl, process.env.CLIENT_URL)
 
   if (url.pathname === "/test_puzzle.png") {
     return { kind: "dev", assetId }
