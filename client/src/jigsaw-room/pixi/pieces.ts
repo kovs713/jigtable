@@ -13,6 +13,7 @@ import type {
 const ATLAS_SIZE = 2048
 const MAX_TOTAL_ATLAS_PIXELS = 80_000_000
 const HIT_ASSIST_RADIUS = 4
+const HIGHLIGHT_SPRITE_ALPHA = 0.72
 
 export interface PieceView {
   id: PieceId
@@ -57,6 +58,7 @@ export function createPieceViews(
     metrics,
     highlightColor
   )
+  let allHighlighted = false
 
   atlasTextures.push(...atlas.atlasTextures)
 
@@ -164,7 +166,8 @@ export function createPieceViews(
       piece.y - metrics.margin
     )
     view.sprite.alpha = piece.locked ? 1 : 0.97
-    view.highlightSprite.alpha = piece.locked ? 1 : 0.97
+    view.highlightSprite.alpha = HIGHLIGHT_SPRITE_ALPHA
+    view.highlightSprite.visible = allHighlighted && isPieceHighlightable(pieceId)
   }
 
   function syncPieces(pieceIds: PieceId[]): void {
@@ -174,9 +177,19 @@ export function createPieceViews(
   }
 
   function setAllHighlighted(highlighted: boolean): void {
+    allHighlighted = highlighted
+
     for (const view of byId.values()) {
-      view.highlightSprite.visible = highlighted
+      view.highlightSprite.visible = highlighted && isPieceHighlightable(view.id)
     }
+  }
+
+  function isPieceHighlightable(pieceId: PieceId): boolean {
+    const piece = state.pieces[pieceId]
+
+    return Boolean(
+      piece && !piece.locked && !state.groups[piece.groupId]?.locked
+    )
   }
 
   function syncAll(): void {
@@ -329,11 +342,11 @@ function createPieceAtlas(
       highlightContext.scale(metrics.scale, metrics.scale)
       highlightContext.lineJoin = "round"
       highlightContext.lineCap = "round"
-      highlightContext.strokeStyle = colorToCanvasRgba(highlightColor, 0.32)
-      highlightContext.lineWidth = 5
+      highlightContext.strokeStyle = colorToCanvasRgba(highlightColor, 0.18)
+      highlightContext.lineWidth = 3.2
       highlightContext.stroke(hitPath)
-      highlightContext.strokeStyle = colorToCanvasRgba(highlightColor, 0.98)
-      highlightContext.lineWidth = 2.4
+      highlightContext.strokeStyle = colorToCanvasRgba(highlightColor, 0.58)
+      highlightContext.lineWidth = 1.4
       highlightContext.stroke(hitPath)
       highlightContext.restore()
 

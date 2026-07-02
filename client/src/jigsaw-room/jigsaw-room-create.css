@@ -1,0 +1,256 @@
+.jigsaw-room--create {
+  display: grid;
+  place-items: center;
+  padding: 24px;
+}
+
+.jigsaw-room__create-panel {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(320px, 1.1fr);
+  width: min(980px, 100%);
+  border: 0.5px solid var(--jigsaw-panel-border);
+  background: var(--jigsaw-panel);
+  box-shadow: 0 24px 80px color-mix(in oklch, black, transparent 74%);
+  backdrop-filter: blur(18px);
+}
+
+.jigsaw-room__create-copy {
+  display: grid;
+  align-content: end;
+  gap: 14px;
+  min-height: 420px;
+  padding: 28px;
+  border-right: 0.5px solid var(--jigsaw-panel-border);
+  background:
+    linear-gradient(
+      135deg,
+      color-mix(in oklch, var(--primary), transparent 78%),
+      transparent 58%
+    ),
+    var(--jigsaw-panel-strong);
+}
+
+.jigsaw-room__create-copy h1 {
+  margin: 0;
+  font-size: clamp(2.3rem, 8vw, 6.4rem);
+  line-height: 0.82;
+  letter-spacing: -0.08em;
+  text-transform: uppercase;
+}
+
+.jigsaw-room__create-copy p {
+  max-width: 34ch;
+  margin: 0;
+  color: var(--muted-foreground);
+}
+
+.jigsaw-room__create-kicker {
+  color: var(--foreground) !important;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.jigsaw-room__create-form {
+  display: grid;
+  gap: 18px;
+  padding: 28px;
+}
+
+.jigsaw-room__create-form label,
+.jigsaw-room__create-form fieldset {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.jigsaw-room__create-form span,
+.jigsaw-room__create-form legend,
+.jigsaw-room__share-box span {
+  color: var(--jigsaw-panel-muted);
+  font-size: 0.64rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.jigsaw-room__create-form input {
+  height: 42px;
+  border: 0.5px solid var(--jigsaw-panel-border);
+  border-radius: 0;
+  color: var(--foreground);
+  background: var(--background);
+  padding-inline: 12px;
+  font: inherit;
+  transition:
+    border-color 0.2s,
+    box-shadow 0.2s;
+}
+
+.jigsaw-room__create-form input:focus-visible {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px color-mix(in oklch, var(--primary), transparent 75%);
+}
+
+.jigsaw-room__image-preview {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 180px;
+  border: 0.5px solid var(--jigsaw-panel-border);
+  background: var(--jigsaw-panel-strong);
+  overflow: hidden;
+}
+
+.jigsaw-room__image-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.jigsaw-room__image-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  padding: 16px;
+  color: var(--muted-foreground);
+  font-size: 0.8rem;
+  text-align: center;
+}
+
+.jigsaw-room__image-placeholder--error {
+  color: var(--destructive);
+}
+
+.jigsaw-room__piece-options {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  border: 0.5px solid var(--jigsaw-panel-border);
+}
+
+.jigsaw-room__piece-options button {
+  min-height: 54px;
+  border: 0;
+  border-right: 0.5px solid var(--jigsaw-panel-border);
+  border-bottom: 0.5px solid var(--jigsaw-panel-border);
+  border-radius: 0;
+  color: var(--foreground);
+  background: transparent;
+  font: inherit;
+  font-weight: 750;
+  cursor: pointer;
+  transition:
+    background-color 0.2s ease,
+    color 0.2s ease;
+}
+
+.jigsaw-room__piece-options button:nth-child(4n) {
+  border-right: 0;
+}
+
+.jigsaw-room__piece-options button:nth-last-child(-n + 4) {
+  border-bottom: 0;
+}
+
+.jigsaw-room__piece-options button:hover:not(.is-selected) {
+  background: color-mix(in oklch, var(--primary), transparent 90%);
+}
+
+.jigsaw-room__piece-options button.is-selected {
+  color: var(--primary-foreground);
+  background: var(--primary);
+}
+
+.jigsaw-room__piece-options button:focus-visible {
+  outline: none;
+  box-shadow: inset 0 0 0 2px
+    color-mix(in oklch, var(--primary), transparent 50%);
+}
+
+.jigsaw-room__create-status {
+  min-height: 1.2em;
+  margin: 0;
+  color: var(--muted-foreground);
+  font-size: 0.78rem;
+  transition: color 0.2s;
+}
+
+.jigsaw-room__create-status--error {
+  color: var(--destructive);
+}
+
+.jigsaw-room__share-box {
+  grid-column: 1 / -1;
+  display: grid;
+  gap: 12px;
+  padding: 18px 28px 24px;
+  border-top: 0.5px solid var(--jigsaw-panel-border);
+  background: color-mix(in oklch, var(--primary), transparent 95%);
+}
+
+.jigsaw-room__share-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.jigsaw-room__share-box code {
+  overflow: hidden;
+  padding: 10px 12px;
+  border: 0.5px solid var(--jigsaw-panel-border);
+  background: var(--background);
+  font-size: 0.78rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.jigsaw-room__share-box p {
+  margin: 0;
+  color: var(--muted-foreground);
+  font-size: 0.78rem;
+}
+
+.jigsaw-room__share-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+@media (max-width: 760px) {
+  .jigsaw-room--create {
+    place-items: stretch;
+    padding: 12px;
+  }
+
+  .jigsaw-room__create-panel {
+    grid-template-columns: 1fr;
+    overflow: auto;
+  }
+
+  .jigsaw-room__create-copy {
+    min-height: 220px;
+    border-right: 0;
+    border-bottom: 0.5px solid var(--jigsaw-panel-border);
+  }
+
+  .jigsaw-room__piece-options {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .jigsaw-room__piece-options button:nth-child(4n) {
+    border-right: 0.5px solid var(--jigsaw-panel-border);
+  }
+
+  .jigsaw-room__piece-options button:nth-child(2n) {
+    border-right: 0;
+  }
+}

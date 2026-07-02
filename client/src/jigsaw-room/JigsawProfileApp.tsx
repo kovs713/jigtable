@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 
-import "./index.css"
 import {
   fetchAuthMe,
   fetchJigsawHistory,
@@ -16,6 +15,9 @@ import {
 } from "./multiplayer/auth"
 import { readLocalJigsawSession } from "./multiplayer/client"
 import { formatDate, formatDuration } from "./time"
+
+import "./jigsaw-room.css"
+import "./jigsaw-room-profile.css"
 
 export function JigsawProfileApp() {
   const widgetRef = useRef<HTMLDivElement | null>(null)
@@ -177,20 +179,36 @@ export function JigsawProfileApp() {
     <main className="jigsaw-room jigsaw-room--profile">
       <section className="jigsaw-room__profile-shell">
         <div className="jigsaw-room__profile-hero">
-          <p>Player ledger</p>
+          <p className="jigsaw-room__profile-kicker">Player ledger</p>
           <h1>{authSession?.user.displayName ?? "Guest profile"}</h1>
-          <span>{status}</span>
-          <div>
-            <a href="/jigsaw">Open room</a>
+          <span className="jigsaw-room__profile-status" aria-live="polite">
+            {status}
+          </span>
+
+          <div className="jigsaw-room__profile-actions">
+            <a
+              href="/jigsaw"
+              className="jigsaw-room__btn jigsaw-room__btn--outline"
+            >
+              Open room
+            </a>
             <button
               type="button"
+              className="jigsaw-room__btn jigsaw-room__btn--primary"
               disabled={loading}
               onClick={loginWithTelegram}
             >
-              {authSession ? "Relink Telegram" : "Telegram login"}
+              {loading
+                ? "Loading..."
+                : authSession
+                  ? "Relink Telegram"
+                  : "Telegram login"}
             </button>
           </div>
-          {widgetVisible ? <div ref={widgetRef} /> : null}
+
+          {widgetVisible ? (
+            <div ref={widgetRef} className="jigsaw-room__telegram-widget" />
+          ) : null}
         </div>
 
         <dl className="jigsaw-room__profile-scoreboard">
@@ -232,11 +250,12 @@ export function JigsawProfileApp() {
                   key={item.roomId}
                   className="jigsaw-room__history-card"
                 >
-                  <div>
+                  <div className="jigsaw-room__history-card-header">
                     <span>{item.source.label}</span>
                     <strong>{formatDate(item.completedAt)}</strong>
                   </div>
-                  <dl>
+
+                  <dl className="jigsaw-room__history-card-stats">
                     <div>
                       <dt>Pieces</dt>
                       <dd>{item.pieceCount}</dd>
@@ -250,11 +269,16 @@ export function JigsawProfileApp() {
                       <dd>{item.snapCount}</dd>
                     </div>
                   </dl>
+
                   <div className="jigsaw-room__history-people">
                     {item.participants.map((participant, index) => (
                       <span
                         key={`${item.roomId}-${participant.telegramId ?? participant.name}-${index}`}
-                        style={{ borderColor: participant.color }}
+                        className="jigsaw-room__participant-chip"
+                        style={{
+                          borderLeftColor: participant.color,
+                          color: participant.color,
+                        }}
                       >
                         {participant.name}
                       </span>
@@ -264,10 +288,12 @@ export function JigsawProfileApp() {
               ))}
             </div>
           ) : (
-            <p className="jigsaw-room__history-empty">
-              Finish a jigsaw room while linked with Telegram. Safe refs keep
-              raw image URLs and tokens out of history.
-            </p>
+            <div className="jigsaw-room__history-empty">
+              <p>
+                Finish a jigsaw room while linked with Telegram. Safe refs keep
+                raw image URLs and tokens out of history.
+              </p>
+            </div>
           )}
         </section>
       </section>

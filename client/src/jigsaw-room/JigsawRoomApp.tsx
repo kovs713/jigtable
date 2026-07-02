@@ -1,5 +1,6 @@
 import type { Application } from "pixi.js"
-import { useEffect, useRef, useState, type FormEvent } from "react"
+import type * as React from "react"
+import { useEffect, useRef, useState } from "react"
 
 import {
   createImageJigsawConfig,
@@ -28,7 +29,6 @@ import type {
   ServerToClientMessage,
 } from "@jigtable/jigsaw-core/multiplayer/protocol"
 import { loadImageTexture } from "./image-texture"
-import "./index.css"
 import {
   fetchAuthMe,
   fetchJigsawHistory,
@@ -74,6 +74,9 @@ import {
   formatElapsedTime,
   getTimerElapsedMs,
 } from "./time"
+
+import "./jigsaw-room-game.css"
+import "./jigsaw-room.css"
 
 const JIGSAW_IMAGE_URL = "/test_jigsaw.png"
 const ACTIVE_JIGSAW_CONFIG = JIGSAW_CONFIG_2000
@@ -560,7 +563,9 @@ export function JigsawRoomApp({ roomId }: JigsawRoomAppProps) {
     })
   }
 
-  async function saveProfile(event: FormEvent<HTMLFormElement>): Promise<void> {
+  async function saveProfile(
+    event: React.SubmitEvent<HTMLFormElement>
+  ): Promise<void> {
     event.preventDefault()
 
     const name = profileForm.name.trim()
@@ -902,18 +907,18 @@ export function JigsawRoomApp({ roomId }: JigsawRoomAppProps) {
           >
             Highlight
           </button>
-          <button
-            type="button"
-            onClick={shuffleUnsolved}
-            disabled={!ready || connectionStatus === "connected"}
-            title={
-              connectionStatus === "connected"
-                ? "Shuffle is local-only for now"
-                : undefined
-            }
-          >
-            {connectionStatus === "connected" ? "Shuffle off" : "Shuffle"}
-          </button>
+          {/* <button */}
+          {/*   type="button" */}
+          {/*   onClick={shuffleUnsolved} */}
+          {/*   disabled={!ready || connectionStatus === "connected"} */}
+          {/*   title={ */}
+          {/*     connectionStatus === "connected" */}
+          {/*       ? "Shuffle is local-only for now" */}
+          {/*       : undefined */}
+          {/*   } */}
+          {/* > */}
+          {/*   {connectionStatus === "connected" ? "Shuffle off" : "Shuffle"} */}
+          {/* </button> */}
           <button
             type="button"
             onClick={() => {
@@ -1053,7 +1058,12 @@ export function JigsawRoomApp({ roomId }: JigsawRoomAppProps) {
         </div>
       </div>
 
-      {!ready && <div className="jigsaw-room__loading">{roomStatus}</div>}
+      {!ready && (
+        <div className="jigsaw-room__loading">
+          <span className="jigsaw-room__spinner" aria-hidden="true" />
+          {roomStatus}
+        </div>
+      )}
     </div>
   )
 }
