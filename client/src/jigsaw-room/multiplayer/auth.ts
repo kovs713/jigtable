@@ -1,4 +1,5 @@
-const AUTH_SESSION_STORAGE_KEY = "jigsaw-room-auth"
+const AUTH_SESSION_STORAGE_KEY = "puzzle-room-auth"
+const LEGACY_AUTH_SESSION_STORAGE_KEY = "jigsaw-room-auth"
 const API_BASE_URL = import.meta.env.VITE_API_URL ?? "http://localhost:3000"
 const TELEGRAM_BOT_USERNAME = import.meta.env.VITE_TELEGRAM_BOT_USERNAME
 
@@ -50,7 +51,9 @@ declare global {
 
 export function readLocalAuthSession(): AuthSession | null {
   try {
-    const raw = localStorage.getItem(AUTH_SESSION_STORAGE_KEY)
+    const raw =
+      localStorage.getItem(AUTH_SESSION_STORAGE_KEY) ??
+      localStorage.getItem(LEGACY_AUTH_SESSION_STORAGE_KEY)
     const value = raw ? JSON.parse(raw) : null
 
     return parseAuthSession(value)
@@ -61,6 +64,7 @@ export function readLocalAuthSession(): AuthSession | null {
 
 export function saveLocalAuthSession(session: AuthSession): void {
   localStorage.setItem(AUTH_SESSION_STORAGE_KEY, JSON.stringify(session))
+  localStorage.removeItem(LEGACY_AUTH_SESSION_STORAGE_KEY)
 }
 
 export function hasTelegramWebAppInitData(): boolean {
@@ -128,7 +132,7 @@ export async function fetchAuthMe(token: string): Promise<AuthSession> {
 export async function fetchJigsawHistory(
   token: string
 ): Promise<JigsawHistoryItem[]> {
-  const response = await fetch(`${API_BASE_URL}/api/me/jigsaw-history`, {
+  const response = await fetch(`${API_BASE_URL}/api/me/puzzle-history`, {
     headers: authHeaders(token),
   })
   const payload = await readJson(response)
@@ -228,7 +232,10 @@ function normalizeTelegramBotUsername(value: unknown): string {
   }
 
   const withoutProtocol = trimmed.replace(/^https?:\/\//i, "")
-  const withoutTelegramHost = withoutProtocol.replace(/^(t\.me|telegram\.me)\//i, "")
+  const withoutTelegramHost = withoutProtocol.replace(
+    /^(t\.me|telegram\.me)\//i,
+    ""
+  )
 
   return withoutTelegramHost.replace(/^@/, "").split(/[/?#]/)[0] ?? ""
 }

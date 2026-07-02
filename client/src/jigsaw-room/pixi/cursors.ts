@@ -1,9 +1,9 @@
 import { Container, Graphics, Text } from "pixi.js"
 
-import type { JigsawMultiplayerClient } from "../multiplayer/client"
-import type { JigsawPlayerCursor } from "../multiplayer/protocol"
-import type { CameraController } from "./camera"
+import type { JigsawPlayerCursor } from "@jigtable/jigsaw-core/multiplayer/protocol"
 import type { Application } from "pixi.js"
+import type { JigsawMultiplayerClient } from "../multiplayer/client"
+import type { CameraController } from "./camera"
 
 const CURSOR_SEND_INTERVAL_MS = 50
 
@@ -162,7 +162,8 @@ export function setupCursorBroadcast({
 }
 
 function createCursorView(cursor: JigsawPlayerCursor): RemoteCursorView {
-  const color = colorToNumber(cursor.color) ?? colorFromPlayerId(cursor.playerId)
+  const color =
+    colorToNumber(cursor.color) ?? colorFromPlayerId(cursor.playerId)
   const container = new Container({ label: `cursor-${cursor.playerId}` })
   const pointer = new Graphics()
   const label = new Text({
@@ -199,7 +200,8 @@ function updateCursorView(
   view: RemoteCursorView,
   cursor: JigsawPlayerCursor
 ): void {
-  const color = colorToNumber(cursor.color) ?? colorFromPlayerId(cursor.playerId)
+  const color =
+    colorToNumber(cursor.color) ?? colorFromPlayerId(cursor.playerId)
 
   if (view.playerName === cursor.playerName && view.color === color) {
     return
@@ -236,7 +238,9 @@ function drawCursorView(view: RemoteCursorView): void {
 function colorToNumber(color: string): number | null {
   const normalized = color.trim().replace(/^#/, "")
 
-  return /^[0-9a-f]{6}$/i.test(normalized) ? Number.parseInt(normalized, 16) : null
+  return /^[0-9a-f]{6}$/i.test(normalized)
+    ? Number.parseInt(normalized, 16)
+    : null
 }
 
 function colorFromPlayerId(playerId: string): number {

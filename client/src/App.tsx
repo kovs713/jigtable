@@ -1033,7 +1033,7 @@ export function App() {
       <header className="flex flex-wrap items-center gap-2 border-b border-border bg-card px-3 py-2 text-card-foreground">
         <div className="min-w-56">
           <h1 className="text-sm font-semibold tracking-tight">
-            Puzzle editor
+            Jigsaw editor
           </h1>
           <p className="font-mono text-[11px] text-muted-foreground">
             {layout.items.length
@@ -1098,7 +1098,7 @@ export function App() {
           {remoteBatch?.outputUrl ? (
             <Button asChild size="sm">
               <a href={jigsawCreateUrl(remoteBatch.outputUrl, layout.canvas)}>
-                Create puzzle room
+                Create jigsaw room
               </a>
             </Button>
           ) : null}

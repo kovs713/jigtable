@@ -7,14 +7,15 @@ import {
   getTelegramBotUsername,
   getTelegramLoginWidgetBlocker,
   hasTelegramWebAppInitData,
-  loginTelegramWidget,
   loginTelegramWebApp,
+  loginTelegramWidget,
   readLocalAuthSession,
   saveLocalAuthSession,
   type AuthSession,
   type JigsawHistoryItem,
 } from "./multiplayer/auth"
 import { readLocalJigsawSession } from "./multiplayer/client"
+import { formatDate, formatDuration } from "./time"
 
 export function JigsawProfileApp() {
   const widgetRef = useRef<HTMLDivElement | null>(null)
@@ -35,13 +36,15 @@ export function JigsawProfileApp() {
 
     setAuthSession(session)
     setHistory(nextHistory)
-    setStatus(nextHistory.length ? "History synced" : "No solved puzzles yet")
+    setStatus(nextHistory.length ? "History synced" : "No solved jigsaws yet")
   }
 
   async function loginWithTelegram(): Promise<void> {
     if (!hasTelegramWebAppInitData()) {
       if (!getTelegramBotUsername()) {
-        setStatus("Set VITE_TELEGRAM_BOT_USERNAME to bot username ending with bot")
+        setStatus(
+          "Set VITE_TELEGRAM_BOT_USERNAME to bot username ending with bot"
+        )
         return
       }
 
@@ -94,7 +97,9 @@ export function JigsawProfileApp() {
         saveLocalAuthSession(session)
         setAuthSession(session)
         setHistory(nextHistory)
-        setStatus(nextHistory.length ? "History synced" : "No solved puzzles yet")
+        setStatus(
+          nextHistory.length ? "History synced" : "No solved jigsaws yet"
+        )
       } catch (error) {
         if (!disposed) {
           setStatus(readErrorMessage(error))
@@ -141,7 +146,9 @@ export function JigsawProfileApp() {
           setAuthSession(session)
           setHistory(nextHistory)
           setWidgetVisible(false)
-          setStatus(nextHistory.length ? "History synced" : "No solved puzzles yet")
+          setStatus(
+            nextHistory.length ? "History synced" : "No solved jigsaws yet"
+          )
         })
         .catch((error) => {
           setStatus(readErrorMessage(error))
@@ -175,7 +182,11 @@ export function JigsawProfileApp() {
           <span>{status}</span>
           <div>
             <a href="/jigsaw">Open room</a>
-            <button type="button" disabled={loading} onClick={loginWithTelegram}>
+            <button
+              type="button"
+              disabled={loading}
+              onClick={loginWithTelegram}
+            >
               {authSession ? "Relink Telegram" : "Telegram login"}
             </button>
           </div>
@@ -205,16 +216,22 @@ export function JigsawProfileApp() {
           </div>
         </dl>
 
-        <section className="jigsaw-room__history-panel" aria-label="Puzzle history">
+        <section
+          className="jigsaw-room__history-panel"
+          aria-label="Jigsaw history"
+        >
           <div className="jigsaw-room__history-heading">
-            <span>Saved puzzle history</span>
+            <span>Saved jigsaw history</span>
             <strong>{history.length} records</strong>
           </div>
 
           {history.length ? (
             <div className="jigsaw-room__history-list">
               {history.map((item) => (
-                <article key={item.roomId} className="jigsaw-room__history-card">
+                <article
+                  key={item.roomId}
+                  className="jigsaw-room__history-card"
+                >
                   <div>
                     <span>{item.source.label}</span>
                     <strong>{formatDate(item.completedAt)}</strong>
@@ -248,8 +265,8 @@ export function JigsawProfileApp() {
             </div>
           ) : (
             <p className="jigsaw-room__history-empty">
-              Finish a jigsaw room while linked with Telegram. Safe refs keep raw
-              image URLs and tokens out of history.
+              Finish a jigsaw room while linked with Telegram. Safe refs keep
+              raw image URLs and tokens out of history.
             </p>
           )}
         </section>
@@ -274,32 +291,6 @@ function createProfileStats(history: JigsawHistoryItem[]) {
     snaps: history.reduce((sum, item) => sum + item.snapCount, 0),
     partners: partners.size,
   }
-}
-
-function formatDuration(milliseconds: number): string {
-  const totalSeconds = Math.floor(milliseconds / 1000)
-  const hours = Math.floor(totalSeconds / 3600)
-  const minutes = Math.floor((totalSeconds % 3600) / 60)
-  const seconds = totalSeconds % 60
-
-  if (hours) {
-    return `${hours}h ${minutes}m`
-  }
-
-  if (minutes) {
-    return `${minutes}m ${seconds}s`
-  }
-
-  return `${seconds}s`
-}
-
-function formatDate(value: string): string {
-  return new Intl.DateTimeFormat(undefined, {
-    month: "short",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(new Date(value))
 }
 
 function readErrorMessage(error: unknown): string {

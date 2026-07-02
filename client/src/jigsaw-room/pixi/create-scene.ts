@@ -1,12 +1,12 @@
+import type { Application, Texture } from "pixi.js"
 import { Container, Graphics, Sprite } from "pixi.js"
 
-import { getPuzzleBounds } from "../puzzle/config"
+import { getJigsawBounds } from "@jigtable/jigsaw-core/jigsaw/config"
 import type {
+  JigsawState,
   PieceEdgePoint,
   PieceEdgeShape,
-  PuzzleState,
-} from "../puzzle/types"
-import type { Application, Texture } from "pixi.js"
+} from "@jigtable/jigsaw-core/jigsaw/types"
 
 export interface SceneColors {
   boardFill: number
@@ -28,7 +28,7 @@ export interface JigsawScene {
 
 export function createJigsawScene(
   app: Application,
-  state: PuzzleState,
+  state: JigsawState,
   imageTexture: Texture,
   colors: SceneColors
 ): JigsawScene {
@@ -73,8 +73,8 @@ export function readSceneColors(root: HTMLElement): SceneColors {
   }
 }
 
-function createSolutionArea(state: PuzzleState, colors: SceneColors): Graphics {
-  const board = getPuzzleBounds(state.config)
+function createSolutionArea(state: JigsawState, colors: SceneColors): Graphics {
+  const board = getJigsawBounds(state.config)
   const area = new Graphics()
 
   area
@@ -88,7 +88,7 @@ function createSolutionArea(state: PuzzleState, colors: SceneColors): Graphics {
   return area
 }
 
-function drawSolutionCutLines(area: Graphics, state: PuzzleState): void {
+function drawSolutionCutLines(area: Graphics, state: JigsawState): void {
   const definitions = Object.values(state.definitions)
 
   for (const definition of definitions) {
@@ -210,11 +210,11 @@ function edgePointToWorld(
 }
 
 function createPreviewOverlay(
-  state: PuzzleState,
+  state: JigsawState,
   imageTexture: Texture,
   colors: SceneColors
 ): Container {
-  const board = getPuzzleBounds(state.config)
+  const board = getJigsawBounds(state.config)
   const preview = new Container({ label: "jigsaw-preview" })
   const image = new Sprite({ texture: imageTexture })
   const grid = new Graphics()

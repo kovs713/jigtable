@@ -1,14 +1,14 @@
+import type { Container } from "pixi.js"
 import { Rectangle, Sprite, Texture } from "pixi.js"
 
 import type {
   GroupId,
+  JigsawState,
   PieceDefinition,
   PieceEdgePoint,
   PieceEdgeShape,
   PieceId,
-  PuzzleState,
-} from "../puzzle/types"
-import type { Container } from "pixi.js"
+} from "@jigtable/jigsaw-core/jigsaw/types"
 
 const ATLAS_SIZE = 2048
 const MAX_TOTAL_ATLAS_PIXELS = 80_000_000
@@ -38,7 +38,7 @@ export interface PieceViewSet {
 
 export function createPieceViews(
   layer: Container,
-  state: PuzzleState,
+  state: JigsawState,
   imageTexture: Texture,
   highlightColor: number
 ): PieceViewSet {
@@ -246,7 +246,7 @@ interface AtlasPieceTexture {
 
 function createPieceAtlas(
   imageTexture: Texture,
-  state: PuzzleState,
+  state: JigsawState,
   definitions: PieceDefinition[],
   metrics: ShapeMetrics,
   highlightColor: number
@@ -380,7 +380,7 @@ function colorToCanvasRgba(color: number, alpha: number): string {
   return `rgba(${red}, ${green}, ${blue}, ${alpha})`
 }
 
-function createShapeMetrics(state: PuzzleState): ShapeMetrics {
+function createShapeMetrics(state: JigsawState): ShapeMetrics {
   const t = state.config.tabSizePercent / 200
   const j = state.config.jitterPercent / 100
   const maxTabDepth =
@@ -401,7 +401,7 @@ function createShapeMetrics(state: PuzzleState): ShapeMetrics {
 }
 
 function getEffectiveTextureScale(
-  state: PuzzleState,
+  state: JigsawState,
   textureWidth: number,
   textureHeight: number
 ): number {
