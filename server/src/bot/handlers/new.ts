@@ -3,7 +3,7 @@ import type { CommandContext } from "grammy"
 import { keyboard } from "@/bot/ui"
 import type { BotContext } from "@/bot/types"
 import { db } from "@/infra/db"
-import { batchesSchema } from "@/infra/db/shemas"
+import { batchesSchema } from "@/infra/db/schemas"
 
 export async function handleNew(ctx: CommandContext<BotContext>) {
   if (!ctx.from) {

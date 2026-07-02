@@ -3,31 +3,31 @@ import type {
   GroupState,
   PieceId,
   PieceState,
-  PuzzleConfig,
-  PuzzleState,
-} from "../puzzle/types"
+  JigsawConfig,
+  JigsawState,
+} from "../jigsaw/types"
 
-export interface PuzzlePlayer {
+export interface JigsawPlayer {
   id: string
   name: string
   color: string
 }
 
-export interface PuzzleSession {
+export interface JigsawSession {
   token: string
-  player: PuzzlePlayer
+  player: JigsawPlayer
   createdAt: number
   updatedAt: number
 }
 
-export interface PuzzleGroupLock {
+export interface JigsawGroupLock {
   groupId: GroupId
   playerId: string
   playerName: string
   lockedAt: number
 }
 
-export interface PuzzlePlayerCursor {
+export interface JigsawPlayerCursor {
   playerId: string
   playerName: string
   color: string
@@ -36,7 +36,7 @@ export interface PuzzlePlayerCursor {
   updatedAt: number
 }
 
-export interface PuzzleRoomTimer {
+export interface JigsawRoomTimer {
   elapsedMs: number
   paused: boolean
   updatedAt: number
@@ -44,7 +44,7 @@ export interface PuzzleRoomTimer {
   pausedByPlayerName?: string
 }
 
-export interface PuzzleRoomStats {
+export interface JigsawRoomStats {
   totalPieces: number
   placedPieces: number
   groupsCount: number
@@ -52,25 +52,25 @@ export interface PuzzleRoomStats {
   snapCount: number
 }
 
-export interface PuzzleRoomSnapshot {
+export interface JigsawRoomSnapshot {
   roomId: string
-  puzzle: {
+  jigsaw: {
     assetId: string
     imageUrl: string
-    config: PuzzleConfig
+    config: JigsawConfig
   }
-  pieces: PuzzleState["pieces"]
-  groups: PuzzleState["groups"]
-  players: PuzzlePlayer[]
-  locks: PuzzleGroupLock[]
-  cursors: PuzzlePlayerCursor[]
-  timer: PuzzleRoomTimer
-  stats: PuzzleRoomStats
+  pieces: JigsawState["pieces"]
+  groups: JigsawState["groups"]
+  players: JigsawPlayer[]
+  locks: JigsawGroupLock[]
+  cursors: JigsawPlayerCursor[]
+  timer: JigsawRoomTimer
+  stats: JigsawRoomStats
   createdAt: number
   updatedAt: number
 }
 
-export interface CreatePuzzleRoomRequest {
+export interface CreateJigsawRoomRequest {
   imageUrl: string
   assetId?: string
   pieceCount: number
@@ -78,10 +78,10 @@ export interface CreatePuzzleRoomRequest {
   sourceHeight?: number
 }
 
-export interface CreatePuzzleRoomResponse {
+export interface CreateJigsawRoomResponse {
   roomId: string
   joinUrl: string
-  state: PuzzleRoomSnapshot
+  state: JigsawRoomSnapshot
 }
 
 export type ClientToServerMessage =
@@ -97,15 +97,15 @@ export type ClientToServerMessage =
   | { type: "session:resume" }
 
 export type ServerToClientMessage =
-  | { type: "room:state"; state: PuzzleRoomSnapshot }
-  | { type: "player:joined"; player: PuzzlePlayer; playersCount: number }
-  | { type: "player:updated"; player: PuzzlePlayer }
+  | { type: "room:state"; state: JigsawRoomSnapshot }
+  | { type: "player:joined"; player: JigsawPlayer; playersCount: number }
+  | { type: "player:updated"; player: JigsawPlayer }
   | { type: "player:left"; playerId: string; playersCount: number }
-  | { type: "cursor:moved"; cursor: PuzzlePlayerCursor }
+  | { type: "cursor:moved"; cursor: JigsawPlayerCursor }
   | { type: "cursor:hidden"; playerId: string }
-  | { type: "session:paused"; timer: PuzzleRoomTimer }
-  | { type: "session:resumed"; timer: PuzzleRoomTimer }
-  | { type: "group:locked"; lock: PuzzleGroupLock }
+  | { type: "session:paused"; timer: JigsawRoomTimer }
+  | { type: "session:resumed"; timer: JigsawRoomTimer }
+  | { type: "group:locked"; lock: JigsawGroupLock }
   | { type: "group:unlocked"; groupId: GroupId; playerId: string }
   | {
       type: "group:moved"
@@ -131,5 +131,5 @@ export type ServerToClientMessage =
       groups: Record<GroupId, GroupState>
       snapCount: number
     }
-  | { type: "stats:updated"; stats: PuzzleRoomStats }
+  | { type: "stats:updated"; stats: JigsawRoomStats }
   | { type: "error"; code: string; message: string }

@@ -46,7 +46,7 @@ interface NativeShuffleModule {
   shuffleImages(input: ShuffleInput, options?: ShuffleOptions): ShuffleResult
 }
 
-const native = require("./puzzle_shuffle_native.node") as NativeShuffleModule
+const native = require("./image_shuffle_native.node") as NativeShuffleModule
 
 export function shuffleImages(
   input: ShuffleInput,

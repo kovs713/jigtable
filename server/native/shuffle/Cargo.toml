@@ -1,5 +1,5 @@
 [package]
-name = "puzzle_shuffle_native"
+name = "image_shuffle_native"
 version = "0.1.0"
 edition = "2021"
 

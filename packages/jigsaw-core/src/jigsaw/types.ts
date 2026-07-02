@@ -65,7 +65,7 @@ export interface GroupState {
   locked: boolean
 }
 
-export interface PuzzleConfig {
+export interface JigsawConfig {
   rows: number
   cols: number
   pieceWidth: number
@@ -84,8 +84,8 @@ export interface PuzzleConfig {
   seed: number
 }
 
-export interface PuzzleState {
-  config: PuzzleConfig
+export interface JigsawState {
+  config: JigsawConfig
   definitions: Record<PieceId, PieceDefinition>
   pieces: Record<PieceId, PieceState>
   groups: Record<GroupId, GroupState>
@@ -93,7 +93,7 @@ export interface PuzzleState {
   snapCount: number
 }
 
-export interface PuzzleStats {
+export interface JigsawStats {
   fps: number
   zoom: number
   totalPieces: number

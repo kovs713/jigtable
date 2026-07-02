@@ -3,44 +3,41 @@ import { and, asc, eq } from "drizzle-orm"
 import sharp from "sharp"
 
 import type {
-  CreatePuzzleRoomResponse,
-  PuzzleSession,
-} from "@puzzle-shuffle/puzzle-core"
+  CreateJigsawRoomResponse,
+  JigsawSession,
+} from "@jigtable/jigsaw-core"
 
+import { CORS_HEADERS } from "@/api/constants"
+import { ApiError } from "@/api/types"
+import { json, readErrorMessage } from "@/api/utils"
 import {
   readAuthToken,
   validateTelegramLoginWidget,
   validateTelegramWebAppInitData,
   type TelegramAuthService,
 } from "@/auth/telegram"
-import {
-  normalizeRenderFormat,
-  renderLayout,
-} from "@/features/render-layout"
-import { clientPuzzleRoomUrl, publicApiUrl } from "@/features/urls"
+import { normalizeRenderFormat, renderLayout } from "@/features/render-layout"
+import { clientJigsawRoomUrl, publicApiUrl } from "@/features/urls"
 import { db } from "@/infra/db"
 import {
   batchesSchema,
   batchPhotosSchema,
   PhotoBatchStatus,
-} from "@/infra/db/shemas"
+} from "@/infra/db/schemas"
 import { s3Client } from "@/infra/storage"
 import {
-  createPuzzleSafeAssetRef,
-  type PuzzleHistoryStore,
-} from "@/puzzle-room/history-store"
+  createJigsawSafeAssetRef,
+  type JigsawHistoryStore,
+} from "@/jigsaw-room/history-store"
 import type {
-  CreatePuzzleRoomInput,
-  PuzzleRoomManager,
-} from "@/puzzle-room/room-manager"
+  CreateJigsawRoomInput,
+  JigsawRoomManager,
+} from "@/jigsaw-room/room-manager"
 import {
   toSessionResponse,
-  type PuzzleSessionStore,
-} from "@/puzzle-room/session-store"
+  type JigsawSessionStore,
+} from "@/jigsaw-room/session-store"
 import type { ShuffleItem, ShuffleResult } from "@/shuffle"
-import { CORS_HEADERS } from "@/api/constants"
-import { ApiError } from "@/api/types"
-import { json, readErrorMessage } from "@/api/utils"
 
 interface ApiBatchLayout {
   batchId: string
@@ -49,20 +46,20 @@ interface ApiBatchLayout {
   outputUrl: string | null
 }
 
-interface PuzzleServices {
-  rooms: PuzzleRoomManager
-  sessions: PuzzleSessionStore
-  history: PuzzleHistoryStore
+interface JigsawServices {
+  rooms: JigsawRoomManager
+  sessions: JigsawSessionStore
+  history: JigsawHistoryStore
   auth: TelegramAuthService
 }
 
 export async function handleCreatePuzzleRoom(
   request: Request,
-  puzzleRooms: PuzzleRoomManager
+  rooms: JigsawRoomManager
 ): Promise<Response> {
   const body = await readOptionalJson(request)
   const imageUrl = (
-    readOptionalNonEmptyString(body?.imageUrl, "imageUrl") ?? "/test_puzzle.png"
+    readOptionalNonEmptyString(body?.imageUrl, "imageUrl") ?? "/test_jigsaw.png"
   ).trim()
   const pieceCount = readOptionalBoundedInteger(
     body?.pieceCount,
@@ -88,25 +85,25 @@ export async function handleCreatePuzzleRoom(
   const input = {
     imageUrl,
     assetId,
-    assetRef: createPuzzleSafeAssetRef({ imageUrl, assetId }),
+    assetRef: createJigsawSafeAssetRef({ imageUrl, assetId }),
     sourceSize,
     pieceCount,
-  } satisfies CreatePuzzleRoomInput
-  const state = puzzleRooms.createRoom(input)
+  } satisfies CreateJigsawRoomInput
+  const state = rooms.createRoom(input)
 
   return json({
     roomId: state.roomId,
-    joinUrl: clientPuzzleRoomUrl(state.roomId),
+    joinUrl: clientJigsawRoomUrl(state.roomId),
     state,
-  } satisfies CreatePuzzleRoomResponse)
+  } satisfies CreateJigsawRoomResponse)
 }
 
 export async function handleGetPuzzleRoom(
   request: BunRequest,
-  puzzleRooms: PuzzleRoomManager
+  puzzleRooms: JigsawRoomManager
 ): Promise<Response> {
-  const roomId = new URL(request.url).searchParams.get("roomId")
-  const state = puzzleRooms.getRoomSnapshot(roomId ?? "")
+  const roomId = request.params.roomId ?? ""
+  const state = puzzleRooms.getRoomSnapshot(roomId)
 
   if (!state) {
     return json({ error: "Room not found or expired" }, 404)
@@ -117,7 +114,7 @@ export async function handleGetPuzzleRoom(
 
 export async function handleTelegramWebAppAuth(
   request: Request,
-  puzzle: PuzzleServices
+  services: JigsawServices
 ): Promise<Response> {
   const body = await readOptionalJson(request)
   const initData = readOptionalNonEmptyString(body?.initData, "initData")
@@ -129,7 +126,7 @@ export async function handleTelegramWebAppAuth(
   try {
     const profile = validateTelegramWebAppInitData(initData)
 
-    return handleTelegramLogin(body, puzzle, profile)
+    return handleTelegramLogin(body, services, profile)
   } catch (error) {
     throw new ApiError(readErrorMessage(error), 401)
   }
@@ -137,7 +134,7 @@ export async function handleTelegramWebAppAuth(
 
 export async function handleTelegramWidgetAuth(
   request: Request,
-  puzzle: PuzzleServices
+  services: JigsawServices
 ): Promise<Response> {
   const body = await readOptionalJson(request)
 
@@ -148,7 +145,7 @@ export async function handleTelegramWidgetAuth(
   try {
     const profile = validateTelegramLoginWidget(body)
 
-    return handleTelegramLogin(body, puzzle, profile)
+    return handleTelegramLogin(body, services, profile)
   } catch (error) {
     throw new ApiError(readErrorMessage(error), 401)
   }
@@ -156,7 +153,7 @@ export async function handleTelegramWidgetAuth(
 
 async function handleTelegramLogin(
   body: Record<string, unknown> | null,
-  puzzle: PuzzleServices,
+  services: JigsawServices,
   profile: ReturnType<typeof validateTelegramWebAppInitData>
 ): Promise<Response> {
   const anonSessionToken = readOptionalNonEmptyString(
@@ -164,16 +161,16 @@ async function handleTelegramLogin(
     "anonSessionToken"
   )?.trim()
   const anonSession = anonSessionToken
-    ? await puzzle.sessions.getSession(anonSessionToken)
+    ? await services.sessions.getSession(anonSessionToken)
     : null
-  const auth = await puzzle.auth.login(profile, {
+  const auth = await services.auth.login(profile, {
     name: anonSession?.player.name,
     color: anonSession?.player.color,
   })
 
   if (anonSessionToken) {
-    await puzzle.sessions.linkSessionToUser(anonSessionToken, auth.user.id)
-    await puzzle.history.linkAnonSessionToUser(anonSessionToken, auth.user.id)
+    await services.sessions.linkSessionToUser(anonSessionToken, auth.user.id)
+    await services.history.linkAnonSessionToUser(anonSessionToken, auth.user.id)
   }
 
   return json(auth)
@@ -203,17 +200,17 @@ export async function handleAuthLogout(
 
 export async function handleGetPuzzleHistory(
   request: Request,
-  puzzle: PuzzleServices
+  services: JigsawServices
 ): Promise<Response> {
-  const user = await requireAuthenticatedUser(request, puzzle.auth)
-  const history = await puzzle.history.getUserHistory(user.id)
+  const user = await requireAuthenticatedUser(request, services.auth)
+  const history = await services.history.getUserHistory(user.id)
 
   return json({ history })
 }
 
 export async function handleRestorePuzzleSession(
   request: Request,
-  sessions: PuzzleSessionStore
+  sessions: JigsawSessionStore
 ): Promise<Response> {
   const body = await readOptionalJson(request)
   const profile = readPuzzleProfileInput(body)
@@ -228,40 +225,40 @@ export async function handleRestorePuzzleSession(
 
 export async function handleGetPuzzleSession(
   request: Request,
-  sessions: PuzzleSessionStore
+  sessions: JigsawSessionStore
 ): Promise<Response> {
-  const session = await requirePuzzleSession(request, sessions)
+  const session = await requireJigsawSession(request, sessions)
 
   return json(toSessionResponse(session))
 }
 
 export async function handlePatchPuzzleSession(
   request: Request,
-  puzzle: PuzzleServices
+  services: JigsawServices
 ): Promise<Response> {
   const token = readPuzzleAuthToken(request)
 
   if (!token) {
-    throw new ApiError("Puzzle session token required", 401)
+    throw new ApiError("Jigsaw session token required", 401)
   }
 
   const body = await readOptionalJson(request)
   const profile = readPuzzleProfileInput(body)
-  const session = await puzzle.sessions.updateSession(token, profile)
+  const session = await services.sessions.updateSession(token, profile)
 
   if (!session) {
-    throw new ApiError("Puzzle session not found", 401)
+    throw new ApiError("Jigsaw session not found", 401)
   }
 
-  await puzzle.rooms.updateSessionPlayer(session.token, session.player)
+  await services.rooms.updateSessionPlayer(session.token, session.player)
 
   return json(toSessionResponse(session))
 }
 
-export async function handleGetLayout(
-  batchId: string,
-  url: URL
-): Promise<Response> {
+export async function handleGetLayout(request: BunRequest): Promise<Response> {
+  const url = new URL(request.url)
+  const batchId = request.params.batchId ?? ""
+
   const { batch } = await requireBatch(batchId, url)
 
   if (!batch.layout) {
@@ -275,7 +272,7 @@ export async function handlePatchLayout(
   request: BunRequest
 ): Promise<Response> {
   const url = new URL(request.url)
-  const batchId = url.searchParams.get("batchId") ?? ""
+  const batchId = request.params.batchId ?? ""
 
   const { batch, photos } = await requireBatch(batchId, url)
   const layout = normalizeLayout(await request.json(), photos)
@@ -290,8 +287,8 @@ export async function handlePatchLayout(
 
 export async function handleGetImage(request: BunRequest): Promise<Response> {
   const url = new URL(request.url)
-  const batchId = url.searchParams.get("batchId") ?? ""
-  const fileId = url.searchParams.get("fileId") ?? ""
+  const batchId = request.params.batchId ?? ""
+  const fileId = request.params.fileId ?? ""
 
   const { photos } = await requireBatch(batchId, url)
   const photo = photos.find((item) => item.fileId === fileId)
@@ -311,7 +308,7 @@ export async function handleGetImage(request: BunRequest): Promise<Response> {
 
 export async function handleRender(request: BunRequest): Promise<Response> {
   const url = new URL(request.url)
-  const batchId = url.searchParams.get("batchId") ?? ""
+  const batchId = request.params.batchId ?? ""
 
   const { batch, photos } = await requireBatch(batchId, url)
   const body = await readOptionalJson(request)
@@ -364,7 +361,7 @@ export async function handleGetRendered(
   request: BunRequest
 ): Promise<Response> {
   const url = new URL(request.url)
-  const batchId = url.searchParams.get("batchId") ?? ""
+  const batchId = request.params.batchId ?? ""
 
   const { batch } = await requireBatch(batchId, url)
 
@@ -380,7 +377,7 @@ export async function handleGetRendered(
     headers: {
       ...CORS_HEADERS,
       "Content-Type": contentType,
-      "Content-Disposition": `attachment; filename="puzzle-${batch.batchId}.${extension}"`,
+      "Content-Disposition": `attachment; filename="jigsaw-${batch.batchId}.${extension}"`,
       "Cache-Control": "private, max-age=3600",
     },
   })
@@ -418,20 +415,20 @@ async function requireAuthenticatedUser(
   return user
 }
 
-async function requirePuzzleSession(
+async function requireJigsawSession(
   request: Request,
-  sessions: PuzzleSessionStore
-): Promise<PuzzleSession> {
+  sessions: JigsawSessionStore
+): Promise<JigsawSession> {
   const token = readPuzzleAuthToken(request)
 
   if (!token) {
-    throw new ApiError("Puzzle session token required", 401)
+    throw new ApiError("Jigsaw session token required", 401)
   }
 
   const session = await sessions.getSession(token)
 
   if (!session) {
-    throw new ApiError("Puzzle session not found", 401)
+    throw new ApiError("Jigsaw session not found", 401)
   }
 
   return session
@@ -514,7 +511,7 @@ async function readOptionalJson(
 async function readImageSize(
   imageUrl: string
 ): Promise<{ width: number; height: number }> {
-  if (imageUrl === "/test_puzzle.png") {
+  if (imageUrl === "/test_jigsaw.png") {
     return { width: 3168, height: 1782 }
   }
 
@@ -537,14 +534,14 @@ async function readImageSize(
   const response = await fetch(url)
 
   if (!response.ok) {
-    throw new ApiError("Puzzle image is not reachable", 400)
+    throw new ApiError("Jigsaw image is not reachable", 400)
   }
 
   const buffer = Buffer.from(await response.arrayBuffer())
   const metadata = await sharp(buffer).metadata()
 
   if (!metadata.width || !metadata.height) {
-    throw new ApiError("Puzzle image dimensions are not readable", 400)
+    throw new ApiError("Jigsaw image dimensions are not readable", 400)
   }
 
   return { width: metadata.width, height: metadata.height }
@@ -557,7 +554,7 @@ async function readStoredImageSize(
   const metadata = await sharp(buffer).metadata()
 
   if (!metadata.width || !metadata.height) {
-    throw new ApiError("Puzzle image dimensions are not readable", 400)
+    throw new ApiError("Jigsaw image dimensions are not readable", 400)
   }
 
   return { width: metadata.width, height: metadata.height }
@@ -676,6 +673,10 @@ function readString(value: unknown, name: string): string {
 
 async function requireBatch(batchId: string, url: URL) {
   const token = url.searchParams.get("token")
+
+  if (!batchId) {
+    throw new ApiError("Batch id is required", 400)
+  }
 
   if (!token) {
     throw new ApiError("Token is required", 401)

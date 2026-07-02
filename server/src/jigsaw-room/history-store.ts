@@ -1,55 +1,55 @@
 import { CryptoHasher } from "bun"
 import { and, desc, eq, inArray } from "drizzle-orm"
 
-import type { PuzzlePlayer } from "@puzzle-shuffle/puzzle-core"
+import type { JigsawPlayer } from "@jigtable/jigsaw-core"
 
 import { db } from "@/infra/db"
 import {
-  puzzleRoomParticipantsSchema,
-  puzzleRoomResultsSchema,
+  jigsawRoomParticipantsSchema,
+  jigsawRoomResultsSchema,
   usersSchema,
-  type PuzzleResultParticipant,
-  type PuzzleSafeAssetRef,
-} from "@/infra/db/shemas"
-import type { StoredPuzzleSession } from "./session-store"
+  type JigsawResultParticipant,
+  type JigsawSafeAssetRef,
+} from "@/infra/db/schemas"
+import type { StoredJigsawSession } from "./session-store"
 
-export interface PuzzleHistoryRoomInfo {
+export interface JigsawHistoryRoomInfo {
   roomId: string
-  assetRef: PuzzleSafeAssetRef
+  assetRef: JigsawSafeAssetRef
   elapsedMs: number
   pieceCount: number
   snapCount: number
   completedAt: Date
 }
 
-export interface PuzzleHistoryItem {
+export interface JigsawHistoryItem {
   roomId: string
   completedAt: Date
   elapsedMs: number
   pieceCount: number
   snapCount: number
   source: {
-    kind: PuzzleSafeAssetRef["kind"]
+    kind: JigsawSafeAssetRef["kind"]
     label: string
   }
-  participants: PuzzleResultParticipant[]
+  participants: JigsawResultParticipant[]
 }
 
-export class PuzzleHistoryStore {
+export class JigsawHistoryStore {
   async upsertParticipant({
     roomId,
     session,
   }: {
     roomId: string
-    session: StoredPuzzleSession
+    session: StoredJigsawSession
   }): Promise<void> {
     const existingRows = await db
       .select()
-      .from(puzzleRoomParticipantsSchema)
+      .from(jigsawRoomParticipantsSchema)
       .where(
         and(
-          eq(puzzleRoomParticipantsSchema.roomId, roomId),
-          eq(puzzleRoomParticipantsSchema.playerId, session.player.id)
+          eq(jigsawRoomParticipantsSchema.roomId, roomId),
+          eq(jigsawRoomParticipantsSchema.playerId, session.player.id)
         )
       )
       .limit(1)
@@ -65,13 +65,13 @@ export class PuzzleHistoryStore {
 
     if (existingRows[0]) {
       await db
-        .update(puzzleRoomParticipantsSchema)
+        .update(jigsawRoomParticipantsSchema)
         .set(values)
-        .where(eq(puzzleRoomParticipantsSchema.id, existingRows[0].id))
+        .where(eq(jigsawRoomParticipantsSchema.id, existingRows[0].id))
       return
     }
 
-    await db.insert(puzzleRoomParticipantsSchema).values({
+    await db.insert(jigsawRoomParticipantsSchema).values({
       roomId,
       playerId: session.player.id,
       ...values,
@@ -83,12 +83,12 @@ export class PuzzleHistoryStore {
     const now = new Date()
 
     await db
-      .update(puzzleRoomParticipantsSchema)
+      .update(jigsawRoomParticipantsSchema)
       .set({ leftAt: now, lastSeenAt: now })
       .where(
         and(
-          eq(puzzleRoomParticipantsSchema.roomId, roomId),
-          eq(puzzleRoomParticipantsSchema.playerId, playerId)
+          eq(jigsawRoomParticipantsSchema.roomId, roomId),
+          eq(jigsawRoomParticipantsSchema.playerId, playerId)
         )
       )
   }
@@ -99,11 +99,11 @@ export class PuzzleHistoryStore {
     userId,
   }: {
     sessionToken: string
-    player: PuzzlePlayer
+    player: JigsawPlayer
     userId?: string
   }): Promise<void> {
     await db
-      .update(puzzleRoomParticipantsSchema)
+      .update(jigsawRoomParticipantsSchema)
       .set({
         userId: userId ?? null,
         name: player.name,
@@ -112,7 +112,7 @@ export class PuzzleHistoryStore {
       })
       .where(
         eq(
-          puzzleRoomParticipantsSchema.anonSessionHash,
+          jigsawRoomParticipantsSchema.anonSessionHash,
           hashToken(sessionToken)
         )
       )
@@ -120,16 +120,16 @@ export class PuzzleHistoryStore {
 
   async linkAnonSessionToUser(token: string, userId: string): Promise<void> {
     await db
-      .update(puzzleRoomParticipantsSchema)
+      .update(jigsawRoomParticipantsSchema)
       .set({ userId, lastSeenAt: new Date() })
-      .where(eq(puzzleRoomParticipantsSchema.anonSessionHash, hashToken(token)))
+      .where(eq(jigsawRoomParticipantsSchema.anonSessionHash, hashToken(token)))
   }
 
-  async recordCompletion(room: PuzzleHistoryRoomInfo): Promise<void> {
+  async recordCompletion(room: JigsawHistoryRoomInfo): Promise<void> {
     const participants = await this.readResultParticipants(room.roomId)
 
     await db
-      .insert(puzzleRoomResultsSchema)
+      .insert(jigsawRoomResultsSchema)
       .values({
         roomId: room.roomId,
         assetRef: room.assetRef,
@@ -139,14 +139,14 @@ export class PuzzleHistoryStore {
         snapCount: room.snapCount,
         completedAt: room.completedAt,
       })
-      .onConflictDoNothing({ target: puzzleRoomResultsSchema.roomId })
+      .onConflictDoNothing({ target: jigsawRoomResultsSchema.roomId })
   }
 
-  async getUserHistory(userId: string): Promise<PuzzleHistoryItem[]> {
+  async getUserHistory(userId: string): Promise<JigsawHistoryItem[]> {
     const participantRows = await db
       .select()
-      .from(puzzleRoomParticipantsSchema)
-      .where(eq(puzzleRoomParticipantsSchema.userId, userId))
+      .from(jigsawRoomParticipantsSchema)
+      .where(eq(jigsawRoomParticipantsSchema.userId, userId))
     const roomIds = [...new Set(participantRows.map((row) => row.roomId))]
 
     if (!roomIds.length) {
@@ -155,9 +155,9 @@ export class PuzzleHistoryStore {
 
     const rows = await db
       .select()
-      .from(puzzleRoomResultsSchema)
-      .where(inArray(puzzleRoomResultsSchema.roomId, roomIds))
-      .orderBy(desc(puzzleRoomResultsSchema.completedAt))
+      .from(jigsawRoomResultsSchema)
+      .where(inArray(jigsawRoomResultsSchema.roomId, roomIds))
+      .orderBy(desc(jigsawRoomResultsSchema.completedAt))
 
     return rows.map((row) => ({
       roomId: row.roomId,
@@ -172,11 +172,11 @@ export class PuzzleHistoryStore {
 
   private async readResultParticipants(
     roomId: string
-  ): Promise<PuzzleResultParticipant[]> {
+  ): Promise<JigsawResultParticipant[]> {
     const participants = await db
       .select()
-      .from(puzzleRoomParticipantsSchema)
-      .where(eq(puzzleRoomParticipantsSchema.roomId, roomId))
+      .from(jigsawRoomParticipantsSchema)
+      .where(eq(jigsawRoomParticipantsSchema.roomId, roomId))
     const userIds = [
       ...new Set(
         participants.flatMap((row) => (row.userId ? [row.userId] : []))
@@ -205,16 +205,16 @@ export class PuzzleHistoryStore {
   }
 }
 
-export function createPuzzleSafeAssetRef({
+export function createJigsawSafeAssetRef({
   imageUrl,
   assetId,
 }: {
   imageUrl: string
   assetId: string
-}): PuzzleSafeAssetRef {
+}): JigsawSafeAssetRef {
   const url = new URL(imageUrl, process.env.CLIENT_URL)
 
-  if (url.pathname === "/test_puzzle.png") {
+  if (url.pathname === "/test_jigsaw.png") {
     return { kind: "dev", assetId }
   }
 
@@ -235,10 +235,10 @@ export function createPuzzleSafeAssetRef({
 }
 
 function summarizeAssetRef(
-  assetRef: PuzzleSafeAssetRef
-): PuzzleHistoryItem["source"] {
+  assetRef: JigsawSafeAssetRef
+): JigsawHistoryItem["source"] {
   if (assetRef.kind === "dev") {
-    return { kind: assetRef.kind, label: "Test puzzle" }
+    return { kind: assetRef.kind, label: "Test jigsaw" }
   }
 
   if (assetRef.kind === "batch_render") {

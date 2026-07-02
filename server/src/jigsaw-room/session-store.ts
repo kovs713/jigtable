@@ -1,15 +1,15 @@
 import { eq } from "drizzle-orm"
 
-import type { PuzzlePlayer, PuzzleSession } from "@puzzle-shuffle/puzzle-core"
+import type { JigsawSession, JigsawPlayer } from "@jigtable/jigsaw-core"
 
 import { db } from "@/infra/db"
-import { puzzleSessionsSchema } from "@/infra/db/shemas"
+import { jigsawSessionsSchema } from "@/infra/db/schemas"
 
-export interface StoredPuzzleSession extends PuzzleSession {
+export interface StoredJigsawSession extends JigsawSession {
   userId?: string
 }
 
-const SESSION_KEY_PREFIX = "puzzle:session:"
+const SESSION_KEY_PREFIX = "jigsaw:session:"
 const DEFAULT_PLAYER_NAME = "Player"
 const PLAYER_NAME_MAX_LENGTH = 24
 
@@ -24,12 +24,12 @@ interface UpdateSessionInput {
   color?: string
 }
 
-export class PuzzleSessionStore {
-  private readonly sessions = new Map<string, StoredPuzzleSession>()
+export class JigsawSessionStore {
+  private readonly sessions = new Map<string, StoredJigsawSession>()
 
   async restoreSession(
     input: RestoreSessionInput = {}
-  ): Promise<StoredPuzzleSession> {
+  ): Promise<StoredJigsawSession> {
     const token = normalizeToken(input.token)
 
     if (token) {
@@ -45,7 +45,7 @@ export class PuzzleSessionStore {
     return this.createSession(input)
   }
 
-  async getSession(token: string): Promise<StoredPuzzleSession | null> {
+  async getSession(token: string): Promise<StoredJigsawSession | null> {
     const safeToken = normalizeToken(token)
 
     if (!safeToken) {
@@ -70,7 +70,7 @@ export class PuzzleSessionStore {
   async updateSession(
     token: string,
     input: UpdateSessionInput
-  ): Promise<StoredPuzzleSession | null> {
+  ): Promise<StoredJigsawSession | null> {
     const current = await this.getSession(token)
 
     if (!current) {
@@ -86,7 +86,7 @@ export class PuzzleSessionStore {
       ...current,
       player,
       updatedAt: Date.now(),
-    } satisfies StoredPuzzleSession
+    } satisfies StoredJigsawSession
 
     await this.writeSession(session)
     this.sessions.set(session.token, session)
@@ -97,7 +97,7 @@ export class PuzzleSessionStore {
   async linkSessionToUser(
     token: string,
     userId: string
-  ): Promise<StoredPuzzleSession | null> {
+  ): Promise<StoredJigsawSession | null> {
     const current = await this.getSession(token)
 
     if (!current) {
@@ -108,7 +108,7 @@ export class PuzzleSessionStore {
       ...current,
       userId,
       updatedAt: Date.now(),
-    } satisfies StoredPuzzleSession
+    } satisfies StoredJigsawSession
 
     await this.writeSession(session)
     this.sessions.set(session.token, session)
@@ -118,7 +118,7 @@ export class PuzzleSessionStore {
 
   private async createSession(
     input: RestoreSessionInput
-  ): Promise<StoredPuzzleSession> {
+  ): Promise<StoredJigsawSession> {
     const now = Date.now()
     const playerId = createId("player")
     const session = {
@@ -130,7 +130,7 @@ export class PuzzleSessionStore {
       }),
       createdAt: now,
       updatedAt: now,
-    } satisfies StoredPuzzleSession
+    } satisfies StoredJigsawSession
 
     await this.writeSession(session)
     this.sessions.set(session.token, session)
@@ -140,11 +140,11 @@ export class PuzzleSessionStore {
 
   private async readSession(
     token: string
-  ): Promise<StoredPuzzleSession | null> {
+  ): Promise<StoredJigsawSession | null> {
     const result = await db
       .select()
-      .from(puzzleSessionsSchema)
-      .where(eq(puzzleSessionsSchema.key, sessionKey(token)))
+      .from(jigsawSessionsSchema)
+      .where(eq(jigsawSessionsSchema.key, sessionKey(token)))
       .limit(1)
     const value = result[0]?.value
 
@@ -155,22 +155,22 @@ export class PuzzleSessionStore {
     return parseStoredSession(token, value)
   }
 
-  private async writeSession(session: StoredPuzzleSession): Promise<void> {
+  private async writeSession(session: StoredJigsawSession): Promise<void> {
     await db
-      .insert(puzzleSessionsSchema)
+      .insert(jigsawSessionsSchema)
       .values({
         key: sessionKey(session.token),
         value: session,
         updatedAt: new Date(),
       })
       .onConflictDoUpdate({
-        target: puzzleSessionsSchema.key,
+        target: jigsawSessionsSchema.key,
         set: { value: session, updatedAt: new Date() },
       })
   }
 }
 
-export function toSessionResponse(session: PuzzleSession): PuzzleSession {
+export function toSessionResponse(session: JigsawSession): JigsawSession {
   return {
     token: session.token,
     player: session.player,
@@ -182,7 +182,7 @@ export function toSessionResponse(session: PuzzleSession): PuzzleSession {
 function parseStoredSession(
   fallbackToken: string,
   value: Record<string, unknown>
-): StoredPuzzleSession | null {
+): StoredJigsawSession | null {
   const player = isRecord(value.player) ? normalizePlayer(value.player) : null
 
   if (!player) {
@@ -198,7 +198,7 @@ function parseStoredSession(
   }
 }
 
-function normalizePlayer(value: Record<string, unknown>): PuzzlePlayer {
+function normalizePlayer(value: Record<string, unknown>): JigsawPlayer {
   const id = readNonEmptyString(value.id) ?? createId("player")
   const name = normalizePlayerName(readNonEmptyString(value.name))
   const color =

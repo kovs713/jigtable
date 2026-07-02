@@ -4,38 +4,38 @@ import type {
   ClientToServerMessage,
   GroupId,
   GroupState,
-  PuzzleGroupLock,
-  PuzzlePlayer,
-  PuzzlePlayerCursor,
-  PuzzleRoomSnapshot,
-  PuzzleRoomStats,
-  PuzzleRoomTimer,
+  JigsawGroupLock,
+  JigsawPlayer,
+  JigsawPlayerCursor,
+  JigsawRoomSnapshot,
+  JigsawRoomStats,
+  JigsawRoomTimer,
+  JigsawState,
   PieceId,
   PieceState,
-  PuzzleState,
   ServerToClientMessage,
-} from "@puzzle-shuffle/puzzle-core"
+} from "@jigtable/jigsaw-core"
 import {
-  createImagePuzzleConfig,
-  createPuzzleState,
+  createImageJigsawConfig,
+  createJigsawState,
+  JIGSAW_CONFIG_2000,
   moveGroupToAnchor,
-  PUZZLE_CONFIG_2000,
   scatterAllPieces,
   snapDroppedGroup,
-} from "@puzzle-shuffle/puzzle-core"
+} from "@jigtable/jigsaw-core"
 
-import type { PuzzleSafeAssetRef } from "@/infra/db/shemas"
-import type { PuzzleHistoryStore } from "./history-store"
-import type { PuzzleSessionStore } from "./session-store"
+import type { JigsawSafeAssetRef } from "@/infra/db/schemas"
+import type { JigsawHistoryStore } from "./history-store"
+import type { JigsawSessionStore } from "./session-store"
 
-const DEV_ASSET_ID = "test_puzzle"
-const DEV_IMAGE_URL = "/test_puzzle.png"
+const DEV_ASSET_ID = "test_jigsaw"
+const DEV_IMAGE_URL = "/test_jigsaw.png"
 const DEV_IMAGE_SIZE = { width: 3168, height: 1782 }
 const DEV_ROOM_ID = "dev-room"
 const MIN_PIECE_COUNT = 4
 const MAX_PIECE_COUNT = 2_000
 
-export interface CreatePuzzleRoomInput {
+export interface CreateJigsawRoomInput {
   imageUrl: string
   assetId?: string
   sourceSize: {
@@ -43,42 +43,42 @@ export interface CreatePuzzleRoomInput {
     height: number
   }
   pieceCount: number
-  assetRef: PuzzleSafeAssetRef
+  assetRef: JigsawSafeAssetRef
 }
 
-export interface PuzzleSocketData {
+export interface JigsawSocketData {
   roomId?: string
   sessionToken?: string
-  player?: PuzzlePlayer
+  player?: JigsawPlayer
 }
 
-export type PuzzleSocket = ServerWebSocket<PuzzleSocketData>
+export type JigsawSocket = ServerWebSocket<JigsawSocketData>
 
-interface PuzzleRoom {
+interface JigsawRoom {
   roomId: string
   assetId: string
-  assetRef: PuzzleSafeAssetRef
+  assetRef: JigsawSafeAssetRef
   imageUrl: string
-  state: PuzzleState
-  players: Map<string, PuzzlePlayer>
-  cursors: Map<string, PuzzlePlayerCursor>
-  sockets: Set<PuzzleSocket>
-  locks: Map<GroupId, PuzzleGroupLock>
-  timer: PuzzleRoomTimer
+  state: JigsawState
+  players: Map<string, JigsawPlayer>
+  cursors: Map<string, JigsawPlayerCursor>
+  sockets: Set<JigsawSocket>
+  locks: Map<GroupId, JigsawGroupLock>
+  timer: JigsawRoomTimer
   createdAt: number
   updatedAt: number
   completedAt?: number
 }
 
-export class PuzzleRoomManager {
-  private readonly rooms = new Map<string, PuzzleRoom>()
+export class JigsawRoomManager {
+  private readonly rooms = new Map<string, JigsawRoom>()
 
   constructor(
-    private readonly sessionStore: PuzzleSessionStore,
-    private readonly historyStore: PuzzleHistoryStore
+    private readonly sessionStore: JigsawSessionStore,
+    private readonly historyStore: JigsawHistoryStore
   ) {}
 
-  createRoom(input: CreatePuzzleRoomInput): PuzzleRoomSnapshot {
+  createRoom(input: CreateJigsawRoomInput): JigsawRoomSnapshot {
     const room = this.createRoomRecord({
       roomId: createRoomId(),
       assetId: input.assetId ?? "room-image",
@@ -91,14 +91,14 @@ export class PuzzleRoomManager {
     return toSnapshot(room)
   }
 
-  getRoomSnapshot(roomId: string): PuzzleRoomSnapshot | null {
+  getRoomSnapshot(roomId: string): JigsawRoomSnapshot | null {
     const room = this.getRoomForJoin(roomId)
 
     return room ? toSnapshot(room) : null
   }
 
   async handleMessage(
-    socket: PuzzleSocket,
+    socket: JigsawSocket,
     rawMessage: string | Buffer
   ): Promise<void> {
     const message = parseClientMessage(rawMessage)
@@ -181,7 +181,7 @@ export class PuzzleRoomManager {
     }
   }
 
-  handleClose(socket: PuzzleSocket): void {
+  handleClose(socket: JigsawSocket): void {
     const roomId = socket.data.roomId
     const player = socket.data.player
 
@@ -209,7 +209,7 @@ export class PuzzleRoomManager {
       void this.historyStore
         .markParticipantLeft(room.roomId, player.id)
         .catch((error) =>
-          console.error("Puzzle participant leave failed", error)
+          console.error("Jigsaw participant leave failed", error)
         )
       broadcast(room, { type: "cursor:hidden", playerId: player.id })
       broadcast(room, {
@@ -225,7 +225,7 @@ export class PuzzleRoomManager {
 
   async updateSessionPlayer(
     sessionToken: string,
-    player: PuzzlePlayer
+    player: JigsawPlayer
   ): Promise<void> {
     const session = await this.sessionStore.getSession(sessionToken)
 
@@ -259,7 +259,7 @@ export class PuzzleRoomManager {
   }
 
   private async joinRoom(
-    socket: PuzzleSocket,
+    socket: JigsawSocket,
     roomId: string,
     sessionToken: string
   ): Promise<void> {
@@ -269,7 +269,7 @@ export class PuzzleRoomManager {
       send(socket, {
         type: "error",
         code: "session_required",
-        message: "Puzzle session not found",
+        message: "Jigsaw session not found",
       })
       return
     }
@@ -313,9 +313,9 @@ export class PuzzleRoomManager {
   }
 
   private grabGroup(
-    socket: PuzzleSocket,
-    room: PuzzleRoom,
-    player: PuzzlePlayer,
+    socket: JigsawSocket,
+    room: JigsawRoom,
+    player: JigsawPlayer,
     groupId: GroupId
   ): void {
     if (room.timer.paused) {
@@ -354,7 +354,7 @@ export class PuzzleRoomManager {
       playerId: player.id,
       playerName: player.name,
       lockedAt: Date.now(),
-    } satisfies PuzzleGroupLock
+    } satisfies JigsawGroupLock
 
     room.locks.set(groupId, lock)
     room.updatedAt = Date.now()
@@ -362,9 +362,9 @@ export class PuzzleRoomManager {
   }
 
   private moveGroup(
-    socket: PuzzleSocket,
-    room: PuzzleRoom,
-    player: PuzzlePlayer,
+    socket: JigsawSocket,
+    room: JigsawRoom,
+    player: JigsawPlayer,
     groupId: GroupId,
     x: number,
     y: number
@@ -405,8 +405,8 @@ export class PuzzleRoomManager {
   }
 
   private dropGroup(
-    room: PuzzleRoom,
-    player: PuzzlePlayer,
+    room: JigsawRoom,
+    player: JigsawPlayer,
     groupId: GroupId,
     x: number,
     y: number
@@ -472,8 +472,8 @@ export class PuzzleRoomManager {
   }
 
   private releaseGroup(
-    room: PuzzleRoom,
-    player: PuzzlePlayer,
+    room: JigsawRoom,
+    player: JigsawPlayer,
     groupId: GroupId
   ): void {
     const lock = room.locks.get(groupId)
@@ -488,9 +488,9 @@ export class PuzzleRoomManager {
   }
 
   private moveCursor(
-    socket: PuzzleSocket,
-    room: PuzzleRoom,
-    player: PuzzlePlayer,
+    socket: JigsawSocket,
+    room: JigsawRoom,
+    player: JigsawPlayer,
     x: number,
     y: number
   ): void {
@@ -505,15 +505,15 @@ export class PuzzleRoomManager {
       x,
       y,
       updatedAt: Date.now(),
-    } satisfies PuzzlePlayerCursor
+    } satisfies JigsawPlayerCursor
 
     room.cursors.set(player.id, cursor)
     broadcastExcept(room, socket, { type: "cursor:moved", cursor })
   }
 
   private hideCursor(
-    socket: PuzzleSocket,
-    room: PuzzleRoom,
+    socket: JigsawSocket,
+    room: JigsawRoom,
     playerId: string
   ): void {
     if (!room.cursors.delete(playerId)) {
@@ -523,7 +523,7 @@ export class PuzzleRoomManager {
     broadcastExcept(room, socket, { type: "cursor:hidden", playerId })
   }
 
-  private pauseSession(room: PuzzleRoom, player: PuzzlePlayer): void {
+  private pauseSession(room: JigsawRoom, player: JigsawPlayer): void {
     if (room.timer.paused) {
       return
     }
@@ -542,7 +542,7 @@ export class PuzzleRoomManager {
     broadcast(room, { type: "session:paused", timer: room.timer })
   }
 
-  private resumeSession(room: PuzzleRoom): void {
+  private resumeSession(room: JigsawRoom): void {
     if (!room.timer.paused) {
       return
     }
@@ -557,7 +557,7 @@ export class PuzzleRoomManager {
     broadcast(room, { type: "session:resumed", timer: room.timer })
   }
 
-  private releaseAllLocks(room: PuzzleRoom): void {
+  private releaseAllLocks(room: JigsawRoom): void {
     for (const [groupId, lock] of room.locks) {
       room.locks.delete(groupId)
       broadcast(room, {
@@ -568,7 +568,7 @@ export class PuzzleRoomManager {
     }
   }
 
-  private releasePlayerLocks(room: PuzzleRoom, playerId: string): void {
+  private releasePlayerLocks(room: JigsawRoom, playerId: string): void {
     for (const [groupId, lock] of room.locks) {
       if (lock.playerId === playerId) {
         room.locks.delete(groupId)
@@ -578,14 +578,14 @@ export class PuzzleRoomManager {
   }
 
   private playerOwnsLock(
-    room: PuzzleRoom,
+    room: JigsawRoom,
     playerId: string,
     groupId: GroupId
   ): boolean {
     return room.locks.get(groupId)?.playerId === playerId
   }
 
-  private recordCompletionIfSolved(room: PuzzleRoom): void {
+  private recordCompletionIfSolved(room: JigsawRoom): void {
     if (room.completedAt) {
       return
     }
@@ -609,11 +609,11 @@ export class PuzzleRoomManager {
         completedAt: new Date(completedAt),
       })
       .catch((error) =>
-        console.error("Puzzle completion history failed", error)
+        console.error("Jigsaw completion history failed", error)
       )
   }
 
-  private getRoomForJoin(roomId: string): PuzzleRoom | null {
+  private getRoomForJoin(roomId: string): JigsawRoom | null {
     const existing = this.rooms.get(roomId)
 
     if (existing) {
@@ -630,7 +630,7 @@ export class PuzzleRoomManager {
       assetRef: { kind: "dev", assetId: DEV_ASSET_ID },
       imageUrl: DEV_IMAGE_URL,
       sourceSize: DEV_IMAGE_SIZE,
-      pieceCount: PUZZLE_CONFIG_2000.rows * PUZZLE_CONFIG_2000.cols,
+      pieceCount: JIGSAW_CONFIG_2000.rows * JIGSAW_CONFIG_2000.cols,
     })
   }
 
@@ -644,20 +644,20 @@ export class PuzzleRoomManager {
   }: {
     roomId: string
     assetId: string
-    assetRef: PuzzleSafeAssetRef
+    assetRef: JigsawSafeAssetRef
     imageUrl: string
     sourceSize: { width: number; height: number }
     pieceCount: number
-  }): PuzzleRoom {
+  }): JigsawRoom {
     const safePieceCount = clampPieceCount(pieceCount)
     const baseConfig = {
-      ...PUZZLE_CONFIG_2000,
+      ...JIGSAW_CONFIG_2000,
       rows: 1,
       cols: safePieceCount,
     }
 
-    const state = createPuzzleState(
-      createImagePuzzleConfig(baseConfig, sourceSize)
+    const state = createJigsawState(
+      createImageJigsawConfig(baseConfig, sourceSize)
     )
     scatterAllPieces(state)
 
@@ -668,10 +668,10 @@ export class PuzzleRoomManager {
       assetRef,
       imageUrl,
       state,
-      players: new Map<string, PuzzlePlayer>(),
-      cursors: new Map<string, PuzzlePlayerCursor>(),
-      sockets: new Set<PuzzleSocket>(),
-      locks: new Map<GroupId, PuzzleGroupLock>(),
+      players: new Map<string, JigsawPlayer>(),
+      cursors: new Map<string, JigsawPlayerCursor>(),
+      sockets: new Set<JigsawSocket>(),
+      locks: new Map<GroupId, JigsawGroupLock>(),
       timer: {
         elapsedMs: 0,
         paused: false,
@@ -679,7 +679,7 @@ export class PuzzleRoomManager {
       },
       createdAt: now,
       updatedAt: now,
-    } satisfies PuzzleRoom
+    } satisfies JigsawRoom
 
     this.rooms.set(roomId, room)
 
@@ -693,16 +693,16 @@ function createRoomId(): string {
 
 function clampPieceCount(value: number): number {
   if (!Number.isFinite(value)) {
-    return PUZZLE_CONFIG_2000.rows * PUZZLE_CONFIG_2000.cols
+    return JIGSAW_CONFIG_2000.rows * JIGSAW_CONFIG_2000.cols
   }
 
   return Math.max(MIN_PIECE_COUNT, Math.min(MAX_PIECE_COUNT, Math.round(value)))
 }
 
-function toSnapshot(room: PuzzleRoom): PuzzleRoomSnapshot {
+function toSnapshot(room: JigsawRoom): JigsawRoomSnapshot {
   return {
     roomId: room.roomId,
-    puzzle: {
+    jigsaw: {
       assetId: room.assetId,
       imageUrl: room.imageUrl,
       config: room.state.config,
@@ -719,7 +719,7 @@ function toSnapshot(room: PuzzleRoom): PuzzleRoomSnapshot {
   }
 }
 
-function getStats(room: PuzzleRoom): PuzzleRoomStats {
+function getStats(room: JigsawRoom): JigsawRoomStats {
   return {
     totalPieces: Object.keys(room.state.pieces).length,
     placedPieces: Object.values(room.state.pieces).filter(
@@ -731,7 +731,7 @@ function getStats(room: PuzzleRoom): PuzzleRoomStats {
   }
 }
 
-function updatePlayerLocks(room: PuzzleRoom, player: PuzzlePlayer): void {
+function updatePlayerLocks(room: JigsawRoom, player: JigsawPlayer): void {
   for (const [groupId, lock] of room.locks) {
     if (lock.playerId === player.id) {
       room.locks.set(groupId, { ...lock, playerName: player.name })
@@ -739,7 +739,7 @@ function updatePlayerLocks(room: PuzzleRoom, player: PuzzlePlayer): void {
   }
 }
 
-function updatePlayerCursor(room: PuzzleRoom, player: PuzzlePlayer): void {
+function updatePlayerCursor(room: JigsawRoom, player: JigsawPlayer): void {
   const cursor = room.cursors.get(player.id)
 
   if (!cursor) {
@@ -751,13 +751,13 @@ function updatePlayerCursor(room: PuzzleRoom, player: PuzzlePlayer): void {
     playerName: player.name,
     color: player.color,
     updatedAt: Date.now(),
-  } satisfies PuzzlePlayerCursor
+  } satisfies JigsawPlayerCursor
 
   room.cursors.set(player.id, nextCursor)
   broadcast(room, { type: "cursor:moved", cursor: nextCursor })
 }
 
-function getTimerElapsedMs(timer: PuzzleRoomTimer, now = Date.now()): number {
+function getTimerElapsedMs(timer: JigsawRoomTimer, now = Date.now()): number {
   if (timer.paused) {
     return timer.elapsedMs
   }
@@ -766,7 +766,7 @@ function getTimerElapsedMs(timer: PuzzleRoomTimer, now = Date.now()): number {
 }
 
 function pickPieces(
-  state: PuzzleState,
+  state: JigsawState,
   pieceIds: PieceId[]
 ): Record<PieceId, PieceState> {
   const pieces: Record<PieceId, PieceState> = {}
@@ -783,7 +783,7 @@ function pickPieces(
 }
 
 function pickGroupsForPieces(
-  state: PuzzleState,
+  state: JigsawState,
   pieceIds: PieceId[]
 ): Record<GroupId, GroupState> {
   const groups: Record<GroupId, GroupState> = {}
@@ -806,7 +806,7 @@ function pickGroupsForPieces(
 }
 
 function getGroupAnchorPosition(
-  state: PuzzleState,
+  state: JigsawState,
   groupId: GroupId
 ): { x: number; y: number } | null {
   const group = state.groups[groupId]
@@ -816,11 +816,11 @@ function getGroupAnchorPosition(
   return piece ? { x: piece.x, y: piece.y } : null
 }
 
-function send(socket: PuzzleSocket, message: ServerToClientMessage): void {
+function send(socket: JigsawSocket, message: ServerToClientMessage): void {
   socket.send(JSON.stringify(message))
 }
 
-function broadcast(room: PuzzleRoom, message: ServerToClientMessage): void {
+function broadcast(room: JigsawRoom, message: ServerToClientMessage): void {
   const payload = JSON.stringify(message)
 
   for (const socket of room.sockets) {
@@ -829,8 +829,8 @@ function broadcast(room: PuzzleRoom, message: ServerToClientMessage): void {
 }
 
 function broadcastExcept(
-  room: PuzzleRoom,
-  except: PuzzleSocket,
+  room: JigsawRoom,
+  except: JigsawSocket,
   message: ServerToClientMessage
 ): void {
   const payload = JSON.stringify(message)

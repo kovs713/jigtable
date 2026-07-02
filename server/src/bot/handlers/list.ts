@@ -4,7 +4,7 @@ import { desc, eq } from "drizzle-orm"
 import type { BotContext } from "@/bot/types"
 import { clientLayoutUrl } from "@/features/urls"
 import { db } from "@/infra/db"
-import { batchesSchema, PhotoBatchStatus } from "@/infra/db/shemas"
+import { batchesSchema, PhotoBatchStatus } from "@/infra/db/schemas"
 
 export async function handleList(
   ctx: CommandContext<BotContext>
