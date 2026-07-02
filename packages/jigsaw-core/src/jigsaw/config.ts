@@ -1,11 +1,11 @@
-import type { PuzzleConfig, WorldRect } from "./types"
+import type { JigsawConfig, WorldRect } from "./types"
 
-export interface PuzzleSourceSize {
+export interface JigsawSourceSize {
   width: number
   height: number
 }
 
-export const DEFAULT_PUZZLE_CONFIG = {
+export const DEFAULT_JIGSAW_CONFIG = {
   rows: 25,
   cols: 40,
   pieceWidth: 48,
@@ -22,21 +22,21 @@ export const DEFAULT_PUZZLE_CONFIG = {
   minZoom: 0.18,
   maxZoom: 3.6,
   seed: 37_421,
-} satisfies PuzzleConfig
+} satisfies JigsawConfig
 
-export const PUZZLE_CONFIG_2000 = {
-  ...DEFAULT_PUZZLE_CONFIG,
+export const JIGSAW_CONFIG_2000 = {
+  ...DEFAULT_JIGSAW_CONFIG,
   rows: 10,
   cols: 15,
   pieceWidth: 38,
   pieceHeight: 30,
   scatterPadding: 760,
-} satisfies PuzzleConfig
+} satisfies JigsawConfig
 
-export function createImagePuzzleConfig(
-  baseConfig: PuzzleConfig,
-  sourceSize: PuzzleSourceSize
-): PuzzleConfig {
+export function createImageJigsawConfig(
+  baseConfig: JigsawConfig,
+  sourceSize: JigsawSourceSize
+): JigsawConfig {
   const sourceWidth = Math.max(1, sourceSize.width)
   const sourceHeight = Math.max(1, sourceSize.height)
   const sourceAspect = sourceWidth / sourceHeight
@@ -56,7 +56,7 @@ export function createImagePuzzleConfig(
   }
 }
 
-export function getPuzzleBounds(config: PuzzleConfig): WorldRect {
+export function getJigsawBounds(config: JigsawConfig): WorldRect {
   return {
     x: config.originX,
     y: config.originY,
@@ -65,8 +65,8 @@ export function getPuzzleBounds(config: PuzzleConfig): WorldRect {
   }
 }
 
-export function getPlayAreaBounds(config: PuzzleConfig): WorldRect {
-  const board = getPuzzleBounds(config)
+export function getPlayAreaBounds(config: JigsawConfig): WorldRect {
+  const board = getJigsawBounds(config)
   const padding = getScatterPadding(config)
 
   return {
@@ -77,7 +77,7 @@ export function getPlayAreaBounds(config: PuzzleConfig): WorldRect {
   }
 }
 
-export function getScatterVisualMargin(config: PuzzleConfig): number {
+export function getScatterVisualMargin(config: JigsawConfig): number {
   const t = config.tabSizePercent / 200
   const j = config.jitterPercent / 100
 
@@ -86,8 +86,8 @@ export function getScatterVisualMargin(config: PuzzleConfig): number {
   )
 }
 
-function getScatterPadding(config: PuzzleConfig): number {
-  const board = getPuzzleBounds(config)
+function getScatterPadding(config: JigsawConfig): number {
+  const board = getJigsawBounds(config)
   const margin = getScatterVisualMargin(config)
   const slotWidth = config.pieceWidth + margin * 2 + config.scatterGap
   const slotHeight = config.pieceHeight + margin * 2 + config.scatterGap

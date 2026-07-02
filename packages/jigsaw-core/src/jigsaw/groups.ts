@@ -1,4 +1,4 @@
-import type { GroupId, PieceId, PuzzleState } from "./types"
+import type { GroupId, PieceId, JigsawState } from "./types"
 
 export interface GroupAnchor {
   groupId: GroupId
@@ -14,14 +14,14 @@ export interface PiecePositionSnapshot {
 }
 
 export function getGroupPieceIds(
-  state: PuzzleState,
+  state: JigsawState,
   groupId: GroupId
 ): PieceId[] {
   return state.groups[groupId]?.pieceIds ?? []
 }
 
 export function getGroupSnapshot(
-  state: PuzzleState,
+  state: JigsawState,
   groupId: GroupId
 ): PiecePositionSnapshot[] {
   const snapshot: PiecePositionSnapshot[] = []
@@ -38,7 +38,7 @@ export function getGroupSnapshot(
 }
 
 export function moveGroupFromSnapshot(
-  state: PuzzleState,
+  state: JigsawState,
   snapshot: PiecePositionSnapshot[],
   deltaX: number,
   deltaY: number
@@ -62,7 +62,7 @@ export function moveGroupFromSnapshot(
 }
 
 export function getGroupAnchor(
-  state: PuzzleState,
+  state: JigsawState,
   groupId: GroupId
 ): GroupAnchor | null {
   const group = state.groups[groupId]
@@ -87,7 +87,7 @@ export function getGroupAnchor(
 }
 
 export function moveGroupToAnchor(
-  state: PuzzleState,
+  state: JigsawState,
   groupId: GroupId,
   x: number,
   y: number
@@ -102,7 +102,7 @@ export function moveGroupToAnchor(
 }
 
 export function translateGroup(
-  state: PuzzleState,
+  state: JigsawState,
   groupId: GroupId,
   deltaX: number,
   deltaY: number
@@ -132,7 +132,7 @@ export function translateGroup(
 }
 
 export function mergeGroups(
-  state: PuzzleState,
+  state: JigsawState,
   keepGroupId: GroupId,
   mergeGroupId: GroupId
 ): GroupId {
@@ -171,7 +171,7 @@ export function mergeGroups(
 }
 
 export function lockGroupToCorrectPositions(
-  state: PuzzleState,
+  state: JigsawState,
   groupId: GroupId
 ): PieceId[] {
   const group = state.groups[groupId]
@@ -203,7 +203,7 @@ export function lockGroupToCorrectPositions(
 }
 
 export function lockGroupIfSolved(
-  state: PuzzleState,
+  state: JigsawState,
   groupId: GroupId,
   tolerance = 0.5
 ): boolean {
@@ -234,6 +234,6 @@ export function lockGroupIfSolved(
   return solved
 }
 
-export function countPlacedPieces(state: PuzzleState): number {
+export function countPlacedPieces(state: JigsawState): number {
   return Object.values(state.pieces).filter((piece) => piece.placed).length
 }

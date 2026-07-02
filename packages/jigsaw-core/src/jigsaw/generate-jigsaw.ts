@@ -8,11 +8,11 @@ import type {
   PieceDefinition,
   PieceId,
   PieceState,
-  PuzzleConfig,
-  PuzzleState,
+  JigsawConfig,
+  JigsawState,
 } from "./types"
 
-export function createPuzzleState(config: PuzzleConfig): PuzzleState {
+export function createJigsawState(config: JigsawConfig): JigsawState {
   const definitions: Record<PieceId, PieceDefinition> = {}
   const pieces: Record<PieceId, PieceState> = {}
   const groups: Record<string, GroupState> = {}
@@ -111,7 +111,7 @@ function addNeighbor(
   neighborRow: number,
   neighborCol: number,
   direction: NeighborDirection,
-  config: PuzzleConfig
+  config: JigsawConfig
 ): void {
   if (
     row < 0 ||
@@ -169,7 +169,7 @@ function createFlatPieceEdges(): PieceEdges {
 
 function createJigsawEdges(
   definitions: Record<PieceId, PieceDefinition>,
-  config: PuzzleConfig
+  config: JigsawConfig
 ): void {
   for (let row = 0; row < config.rows - 1; row++) {
     const shapes = createCutLineShapes(config.cols, row, 0, config)
@@ -214,7 +214,7 @@ function createCutLineShapes(
   count: number,
   lineIndex: number,
   axis: number,
-  config: PuzzleConfig
+  config: JigsawConfig
 ): PieceEdgeShape[] {
   const random = createLineRandom(lineIndex, axis, config.seed)
   const t = config.tabSizePercent / 200

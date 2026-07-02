@@ -1,22 +1,22 @@
-import { getPuzzleBounds, getScatterVisualMargin } from "./config"
+import { getJigsawBounds, getScatterVisualMargin } from "./config"
 import { translateGroup } from "./groups"
 import type {
   GroupId,
   GroupState,
   PieceId,
-  PuzzleState,
+  JigsawState,
   WorldRect,
 } from "./types"
 
 export function scatterAllPieces(
-  state: PuzzleState,
+  state: JigsawState,
   seed = state.config.seed
 ): void {
   scatterGroups(state, Object.keys(state.groups), seed, true)
 }
 
 export function scatterUnsolvedGroups(
-  state: PuzzleState,
+  state: JigsawState,
   seed = state.config.seed
 ): void {
   const groupIds = Object.values(state.groups)
@@ -31,13 +31,13 @@ export function scatterUnsolvedGroups(
 }
 
 function scatterGroups(
-  state: PuzzleState,
+  state: JigsawState,
   groupIds: GroupId[],
   seed: number,
   resetSolvedFlags: boolean
 ): void {
   const random = createSeededRandom(seed)
-  const board = getPuzzleBounds(state.config)
+  const board = getJigsawBounds(state.config)
   const groups = groupIds
     .map((groupId) => state.groups[groupId])
     .filter(
@@ -104,7 +104,7 @@ function scatterGroups(
 }
 
 function getGroupBounds(
-  state: PuzzleState,
+  state: JigsawState,
   pieceIds: PieceId[],
   margin: number
 ): WorldRect {

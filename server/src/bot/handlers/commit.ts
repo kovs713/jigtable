@@ -8,7 +8,7 @@ import {
   batchPhotosSchema,
   batchesSchema,
   PhotoBatchStatus,
-} from "@/infra/db/shemas"
+} from "@/infra/db/schemas"
 import { shuffleImages } from "@/shuffle"
 import type { BotContext } from "@/bot/types"
 

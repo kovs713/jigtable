@@ -4,7 +4,7 @@ import {
   mergeGroups,
   translateGroup,
 } from "./groups"
-import type { GroupId, PieceId, PuzzleState } from "./types"
+import type { GroupId, PieceId, JigsawState } from "./types"
 
 export type SnapKind = "none" | "correct" | "neighbor"
 
@@ -25,7 +25,7 @@ interface NeighborSnapCandidate extends SnapCandidate {
 }
 
 export function snapDroppedGroup(
-  state: PuzzleState,
+  state: JigsawState,
   groupId: GroupId
 ): SnapResult {
   const correctSnap = findCorrectSnap(state, groupId)
@@ -76,7 +76,7 @@ export function snapDroppedGroup(
 }
 
 function findCorrectSnap(
-  state: PuzzleState,
+  state: JigsawState,
   groupId: GroupId
 ): SnapCandidate | null {
   const group = state.groups[groupId]
@@ -112,7 +112,7 @@ function findCorrectSnap(
 }
 
 function findNeighborSnap(
-  state: PuzzleState,
+  state: JigsawState,
   groupId: GroupId
 ): NeighborSnapCandidate | null {
   const group = state.groups[groupId]

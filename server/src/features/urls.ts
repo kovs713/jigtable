@@ -8,9 +8,9 @@ export function clientLayoutUrl(batchId: string, token: string): string {
   return url.toString()
 }
 
-export function clientPuzzleRoomUrl(roomId: string): string {
+export function clientJigsawRoomUrl(roomId: string): string {
   const baseUrl = process.env.CLIENT_URL
-  const url = new URL(`/puzzle/${encodeURIComponent(roomId)}`, baseUrl)
+  const url = new URL(`/jigsaw/${encodeURIComponent(roomId)}`, baseUrl)
 
   return url.toString()
 }

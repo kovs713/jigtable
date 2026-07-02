@@ -1,6 +1,6 @@
 import { InputFile, type CommandContext } from "grammy"
 
-import { COOL_IMAGE_S3_URL } from "@/bot/constants"
+import { COOL_IMAGE_S3_FILE_NAME } from "@/bot/constants"
 import type { BotContext } from "@/bot/types"
 
 let coolImageFileId: string | null = null
@@ -14,7 +14,7 @@ async function replyWithCoolPhoto(
     })
   }
 
-  const response = await fetch(COOL_IMAGE_S3_URL)
+  const response = await fetch(COOL_IMAGE_S3_FILE_NAME)
   if (!response.ok || !response.body) {
     throw new Error(`failed to fetch cool asset: ${response.status}`)
   }

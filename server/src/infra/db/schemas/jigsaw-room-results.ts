@@ -1,22 +1,22 @@
 import { integer, jsonb, pgTable, text, timestamp } from "drizzle-orm/pg-core"
 
-export type PuzzleSafeAssetRef =
+export type JigsawSafeAssetRef =
   | { kind: "dev"; assetId: string }
   | { kind: "batch_render"; batchId: string; assetId: string }
   | { kind: "external"; assetId: string; sourceHash: string; origin?: string }
 
-export interface PuzzleResultParticipant {
+export interface JigsawResultParticipant {
   userId?: string
   telegramId?: string
   name: string
   color: string
 }
 
-export const puzzleRoomResultsSchema = pgTable("puzzle_room_results", {
+export const jigsawRoomResultsSchema = pgTable("jigsaw_room_results", {
   roomId: text("room_id").primaryKey(),
-  assetRef: jsonb("asset_ref").$type<PuzzleSafeAssetRef>().notNull(),
+  assetRef: jsonb("asset_ref").$type<JigsawSafeAssetRef>().notNull(),
   participants: jsonb("participants")
-    .$type<PuzzleResultParticipant[]>()
+    .$type<JigsawResultParticipant[]>()
     .notNull(),
   elapsedMs: integer("elapsed_ms").notNull(),
   pieceCount: integer("piece_count").notNull(),

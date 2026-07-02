@@ -8,8 +8,8 @@ import {
 
 import { usersSchema } from "./users"
 
-export const puzzleRoomParticipantsSchema = pgTable(
-  "puzzle_room_participants",
+export const jigsawRoomParticipantsSchema = pgTable(
+  "jigsaw_room_participants",
   {
     id: uuid("id").primaryKey().defaultRandom(),
     roomId: text("room_id").notNull(),

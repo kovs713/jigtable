@@ -4,7 +4,7 @@ import { createHmac, randomBytes, timingSafeEqual } from "node:crypto"
 
 import { colorFromSeed } from "@/features/color-from-seed"
 import { db } from "@/infra/db"
-import { authSessionsSchema, usersSchema } from "@/infra/db/shemas"
+import { authSessionsSchema, usersSchema } from "@/infra/db/schemas"
 
 const AUTH_SESSION_DAYS = 30
 const TELEGRAM_AUTH_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000

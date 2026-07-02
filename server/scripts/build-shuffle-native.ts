@@ -10,9 +10,9 @@ const source = join(
   "shuffle",
   "target",
   profile,
-  nativeLibraryFileName("puzzle_shuffle_native")
+  nativeLibraryFileName("image_shuffle_native")
 )
-const target = join("src", "shuffle", "puzzle_shuffle_native.node")
+const target = join("src", "shuffle", "image_shuffle_native.node")
 
 if (release) {
   await $`cargo build --manifest-path ${manifestPath} --release`

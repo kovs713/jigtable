@@ -7,7 +7,7 @@ import {
   batchPhotosSchema,
   batchesSchema,
   PhotoBatchStatus,
-} from "@/infra/db/shemas"
+} from "@/infra/db/schemas"
 import type { BotContext } from "@/bot/types"
 
 export async function handleReset(ctx: CommandContext<BotContext>) {

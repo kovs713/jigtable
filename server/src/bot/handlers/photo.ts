@@ -1,7 +1,7 @@
 import { batchPhotoObjectKey } from "@/features/object-keys"
 import { uploadPhotoToObjectKey } from "@/features/upload-photo"
 import { db } from "@/infra/db"
-import { batchPhotosSchema } from "@/infra/db/shemas"
+import { batchPhotosSchema } from "@/infra/db/schemas"
 import type { PhotoContext } from "@/bot/types"
 
 export async function handlePhoto(ctx: PhotoContext) {
