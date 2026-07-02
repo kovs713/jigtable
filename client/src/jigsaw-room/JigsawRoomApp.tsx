@@ -1,15 +1,50 @@
+import type { Application } from "pixi.js"
 import { useEffect, useRef, useState, type FormEvent } from "react"
-import { Texture } from "pixi.js"
 
+import {
+  createImageJigsawConfig,
+  getPlayAreaBounds,
+  JIGSAW_CONFIG_2000,
+} from "@jigtable/jigsaw-core/jigsaw/config"
+import { createJigsawState } from "@jigtable/jigsaw-core/jigsaw/generate-jigsaw"
+import {
+  getGroupAnchor,
+  moveGroupToAnchor,
+} from "@jigtable/jigsaw-core/jigsaw/groups"
+import {
+  scatterAllPieces,
+  scatterUnsolvedGroups,
+} from "@jigtable/jigsaw-core/jigsaw/scatter"
+import type {
+  JigsawState,
+  JigsawStats,
+} from "@jigtable/jigsaw-core/jigsaw/types"
+import type {
+  JigsawGroupLock,
+  JigsawPlayer,
+  JigsawRoomSnapshot,
+  JigsawRoomTimer,
+  JigsawSession,
+  ServerToClientMessage,
+} from "@jigtable/jigsaw-core/multiplayer/protocol"
+import { loadImageTexture } from "./image-texture"
 import "./index.css"
 import {
-  createImagePuzzleConfig,
-  getPlayAreaBounds,
-  PUZZLE_CONFIG_2000,
-} from "./puzzle/config"
-import { createPuzzleState } from "./puzzle/generate-puzzle"
-import { getGroupAnchor, moveGroupToAnchor } from "./puzzle/groups"
-import { scatterAllPieces, scatterUnsolvedGroups } from "./puzzle/scatter"
+  fetchAuthMe,
+  fetchJigsawHistory,
+  getTelegramBotUsername,
+  getTelegramLoginWidgetBlocker,
+  hasTelegramWebAppInitData,
+  loginTelegramWebApp,
+  loginTelegramWidget,
+  readLocalAuthSession,
+  saveLocalAuthSession,
+  type AuthSession,
+} from "./multiplayer/auth"
+import type {
+  JigsawMultiplayerClient,
+  MultiplayerStatus,
+} from "./multiplayer/client"
 import {
   createJigsawMultiplayerClient,
   readLocalJigsawSession,
@@ -17,62 +52,36 @@ import {
   saveJigsawSessionProfile,
   saveLocalJigsawSession,
 } from "./multiplayer/client"
-import {
-  fetchAuthMe,
-  fetchJigsawHistory,
-  getTelegramBotUsername,
-  getTelegramLoginWidgetBlocker,
-  hasTelegramWebAppInitData,
-  loginTelegramWidget,
-  loginTelegramWebApp,
-  readLocalAuthSession,
-  saveLocalAuthSession,
-  type AuthSession,
-} from "./multiplayer/auth"
-import { createJigsawPixiApp, destroyJigsawPixiApp } from "./pixi/create-app"
-import { createCameraController } from "./pixi/camera"
-import { createDebugTicker, getPuzzleStats } from "./pixi/debug"
-import { createRemoteCursorViews, setupCursorBroadcast } from "./pixi/cursors"
-import { setupPieceInteractions } from "./pixi/interactions"
-import { createPieceViews } from "./pixi/pieces"
-import { createJigsawScene, readSceneColors } from "./pixi/create-scene"
-import type { PuzzleState, PuzzleStats } from "./puzzle/types"
 import type { CameraController } from "./pixi/camera"
-import type { DebugTicker } from "./pixi/debug"
+import { createCameraController } from "./pixi/camera"
+import { createJigsawPixiApp, destroyJigsawPixiApp } from "./pixi/create-app"
+import type { JigsawScene } from "./pixi/create-scene"
+import { createJigsawScene, readSceneColors } from "./pixi/create-scene"
 import type {
   CursorBroadcastController,
   RemoteCursorViewSet,
 } from "./pixi/cursors"
+import { createRemoteCursorViews, setupCursorBroadcast } from "./pixi/cursors"
+import type { DebugTicker } from "./pixi/debug"
+import { createDebugTicker, getJigsawStats } from "./pixi/debug"
 import type { InteractionController } from "./pixi/interactions"
+import { setupPieceInteractions } from "./pixi/interactions"
 import type { PieceViewSet } from "./pixi/pieces"
-import type { JigsawScene } from "./pixi/create-scene"
-import type {
-  JigsawGroupLock,
-  JigsawPlayer,
-  JigsawRoomSnapshot,
-  JigsawSession,
-  JigsawRoomTimer,
-  ServerToClientMessage,
-} from "./multiplayer/protocol"
-import type {
-  JigsawMultiplayerClient,
-  MultiplayerStatus,
-} from "./multiplayer/client"
-import type { Application } from "pixi.js"
+import { createPieceViews } from "./pixi/pieces"
+import { fetchJigsawRoomSnapshot } from "./room-api"
+import {
+  createInitialTimer,
+  formatElapsedTime,
+  getTimerElapsedMs,
+} from "./time"
 
 const PUZZLE_IMAGE_URL = "/test_puzzle.png"
-const ACTIVE_PUZZLE_CONFIG = PUZZLE_CONFIG_2000
+const ACTIVE_PUZZLE_CONFIG = JIGSAW_CONFIG_2000
 const DEV_ROOM_ID = "dev-room"
 const GROUP_MOVE_SEND_INTERVAL_MS = 66
-const API_BASE_URL = import.meta.env.VITE_API_URL ?? "http://localhost:3000"
 
 type JigsawSessionStatus =
-  | "local"
-  | "restoring"
-  | "saved"
-  | "saving"
-  | "offline"
-  | "error"
+  "local" | "restoring" | "saved" | "saving" | "offline" | "error"
 
 interface JigsawRoomAppProps {
   roomId?: string
@@ -80,7 +89,7 @@ interface JigsawRoomAppProps {
 
 interface JigsawRuntime {
   app: Application
-  state: PuzzleState
+  state: JigsawState
   scene: JigsawScene
   camera: CameraController
   pieces: PieceViewSet
@@ -97,7 +106,7 @@ const EMPTY_STATS = {
   placedPieces: 0,
   groupsCount: ACTIVE_PUZZLE_CONFIG.rows * ACTIVE_PUZZLE_CONFIG.cols,
   snapCount: 0,
-} satisfies PuzzleStats
+} satisfies JigsawStats
 
 export function JigsawRoomApp({ roomId }: JigsawRoomAppProps) {
   const initialSessionRef = useRef<JigsawSession | null>(null)
@@ -151,7 +160,7 @@ export function JigsawRoomApp({ roomId }: JigsawRoomAppProps) {
     createInitialTimer()
   )
   const [timerNow, setTimerNow] = useState(() => Date.now())
-  const [stats, setStats] = useState<PuzzleStats>(EMPTY_STATS)
+  const [stats, setStats] = useState<JigsawStats>(EMPTY_STATS)
   const elapsedMs = getTimerElapsedMs(roomTimer, timerNow)
 
   roomTimerRef.current = roomTimer
@@ -223,11 +232,11 @@ export function JigsawRoomApp({ roomId }: JigsawRoomAppProps) {
 
         const puzzleConfig =
           initialSnapshot?.puzzle.config ??
-          createImagePuzzleConfig(ACTIVE_PUZZLE_CONFIG, {
+          createImageJigsawConfig(ACTIVE_PUZZLE_CONFIG, {
             width: imageTexture.width,
             height: imageTexture.height,
           })
-        const state = createPuzzleState(puzzleConfig)
+        const state = createJigsawState(puzzleConfig)
 
         if (initialSnapshot) {
           state.pieces = structuredClone(initialSnapshot.pieces)
@@ -271,7 +280,7 @@ export function JigsawRoomApp({ roomId }: JigsawRoomAppProps) {
         }
 
         const refreshStats = () => {
-          setStats(getPuzzleStats(state, app.ticker.FPS || 0, camera.zoom))
+          setStats(getJigsawStats(state, app.ticker.FPS || 0, camera.zoom))
         }
         const interactions = setupPieceInteractions({
           app,
@@ -528,7 +537,7 @@ export function JigsawRoomApp({ roomId }: JigsawRoomAppProps) {
     }
 
     setStats(
-      getPuzzleStats(
+      getJigsawStats(
         runtime.state,
         runtime.app.ticker.FPS || 0,
         runtime.camera.zoom
@@ -584,7 +593,9 @@ export function JigsawRoomApp({ roomId }: JigsawRoomAppProps) {
   async function loginWithTelegram(): Promise<void> {
     if (!hasTelegramWebAppInitData()) {
       if (!getTelegramBotUsername()) {
-        setAuthStatus("Set VITE_TELEGRAM_BOT_USERNAME to bot username ending with bot")
+        setAuthStatus(
+          "Set VITE_TELEGRAM_BOT_USERNAME to bot username ending with bot"
+        )
         return
       }
 
@@ -620,7 +631,10 @@ export function JigsawRoomApp({ roomId }: JigsawRoomAppProps) {
     setAuthStatus("Telegram widget login...")
 
     try {
-      const session = await loginTelegramWidget(payload, sessionRef.current.token)
+      const session = await loginTelegramWidget(
+        payload,
+        sessionRef.current.token
+      )
       const history = await fetchJigsawHistory(session.token)
 
       setAuthSession(session)
@@ -859,7 +873,7 @@ export function JigsawRoomApp({ roomId }: JigsawRoomAppProps) {
 
       <div className="jigsaw-room__toolbar" aria-label="Jigsaw room controls">
         <div className="jigsaw-room__brand">
-          <strong>Jigsaw solve room</strong>
+          <strong>Jigsaw room</strong>
           <span className="jigsaw-room__timer">
             {formatElapsedTime(elapsedMs)}
             {roomTimer.paused ? " paused" : ""}
@@ -974,7 +988,7 @@ export function JigsawRoomApp({ roomId }: JigsawRoomAppProps) {
         ) : null}
       </form>
 
-      <dl className="jigsaw-room__stats" aria-label="Puzzle stats">
+      <dl className="jigsaw-room__stats" aria-label="Jigsaw stats">
         <div>
           <dt>FPS</dt>
           <dd>{Math.round(stats.fps)}</dd>
@@ -1027,7 +1041,9 @@ export function JigsawRoomApp({ roomId }: JigsawRoomAppProps) {
         </div>
         <div>
           <span>Player</span>
-          <strong style={{ color: playerProfile.color }}>{playerProfile.name}</strong>
+          <strong style={{ color: playerProfile.color }}>
+            {playerProfile.name}
+          </strong>
         </div>
         <div>
           <span>Players</span>
@@ -1083,35 +1099,6 @@ function applyStatePatch(
   runtime.pieces.syncPieces(affectedPieceIds)
 }
 
-function createInitialTimer(): JigsawRoomTimer {
-  return {
-    elapsedMs: 0,
-    paused: false,
-    updatedAt: Date.now(),
-  }
-}
-
-function getTimerElapsedMs(timer: JigsawRoomTimer, now = Date.now()): number {
-  if (timer.paused) {
-    return timer.elapsedMs
-  }
-
-  return timer.elapsedMs + Math.max(0, now - timer.updatedAt)
-}
-
-function formatElapsedTime(milliseconds: number): string {
-  const totalSeconds = Math.floor(milliseconds / 1000)
-  const hours = Math.floor(totalSeconds / 3600)
-  const minutes = Math.floor((totalSeconds % 3600) / 60)
-  const seconds = totalSeconds % 60
-
-  if (hours > 0) {
-    return `${hours}:${padTime(minutes)}:${padTime(seconds)}`
-  }
-
-  return `${minutes}:${padTime(seconds)}`
-}
-
 function getSessionStatusText(
   status: JigsawSessionStatus,
   message: string
@@ -1145,57 +1132,6 @@ function getSessionStatusText(
 
 function readErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : "Session unavailable"
-}
-
-function padTime(value: number): string {
-  return value.toString().padStart(2, "0")
-}
-
-async function fetchJigsawRoomSnapshot(
-  roomId: string
-): Promise<JigsawRoomSnapshot> {
-  const response = await fetch(
-    `${API_BASE_URL}/api/jigsaw/rooms/${encodeURIComponent(roomId)}`
-  )
-  const payload = await response.json().catch(() => null)
-
-  if (!response.ok) {
-    if (isRecord(payload) && typeof payload.error === "string") {
-      throw new Error(payload.error)
-    }
-
-    throw new Error(`Request failed: ${response.status}`)
-  }
-
-  if (!isRecord(payload) || !isRecord(payload.state)) {
-    throw new Error("Invalid room snapshot")
-  }
-
-  return payload.state as unknown as JigsawRoomSnapshot
-}
-
-async function loadImageTexture(imageUrl: string): Promise<Texture> {
-  const image = new Image()
-  image.crossOrigin = "anonymous"
-  image.decoding = "async"
-
-  const loaded = new Promise<void>((resolve, reject) => {
-    image.onload = () => resolve()
-    image.onerror = () => reject(new Error("Puzzle image failed to load"))
-  })
-
-  image.src = new URL(imageUrl, window.location.href).toString()
-  await loaded
-
-  if (image.naturalWidth <= 0 || image.naturalHeight <= 0) {
-    throw new Error("Puzzle image is invalid")
-  }
-
-  return Texture.from(image)
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null
 }
 
 function isEditableTarget(target: EventTarget | null): boolean {

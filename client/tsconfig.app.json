@@ -25,11 +25,11 @@
     "erasableSyntaxOnly": true,
     "noFallthroughCasesInSwitch": true,
     "paths": {
-      "@puzzle-shuffle/puzzle-core": [
-        "../packages/puzzle-core/src/index.ts"
+      "@jigtable/jigsaw-core": [
+        "../packages/jigsaw-core/src/index.ts"
       ],
-      "@puzzle-shuffle/puzzle-core/*": [
-        "../packages/puzzle-core/src/*"
+      "@jigtable/jigsaw-core/*": [
+        "../packages/jigsaw-core/src/*"
       ],
       "@/*": [
         "./src/*"

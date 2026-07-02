@@ -1,6 +1,8 @@
 import { Application } from "pixi.js"
 
-export async function createJigsawPixiApp(host: HTMLElement): Promise<Application> {
+export async function createJigsawPixiApp(
+  host: HTMLElement
+): Promise<Application> {
   const app = new Application()
 
   await app.init({
@@ -26,8 +28,14 @@ export async function createJigsawPixiApp(host: HTMLElement): Promise<Applicatio
 }
 
 export function destroyJigsawPixiApp(app: Application): void {
-  ;(app.canvas as HTMLCanvasElement).removeEventListener("contextmenu", preventContextMenu)
-  app.destroy({ removeView: true, releaseGlobalResources: true }, { children: true })
+  ;(app.canvas as HTMLCanvasElement).removeEventListener(
+    "contextmenu",
+    preventContextMenu
+  )
+  app.destroy(
+    { removeView: true, releaseGlobalResources: true },
+    { children: true }
+  )
 }
 
 function preventContextMenu(event: MouseEvent): void {

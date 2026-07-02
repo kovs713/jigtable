@@ -1,5 +1,9 @@
 import type { Application, Container } from "pixi.js"
-import type { PuzzleConfig, WorldRect } from "../puzzle/types"
+
+import type {
+  JigsawConfig,
+  WorldRect,
+} from "@jigtable/jigsaw-core/jigsaw/types"
 
 export interface WorldPoint {
   x: number
@@ -16,7 +20,7 @@ export interface CameraController {
 export function createCameraController(
   app: Application,
   world: Container,
-  config: PuzzleConfig,
+  config: JigsawConfig,
   options: {
     canStartPrimaryPan?: (event: PointerEvent, world: WorldPoint) => boolean
   } = {}
@@ -25,7 +29,13 @@ export function createCameraController(
   let zoom = 1
   let x = 0
   let y = 0
-  let pan: { pointerId: number; startClientX: number; startClientY: number; startX: number; startY: number } | null = null
+  let pan: {
+    pointerId: number
+    startClientX: number
+    startClientY: number
+    startX: number
+    startY: number
+  } | null = null
 
   function apply(): void {
     world.position.set(x, y)

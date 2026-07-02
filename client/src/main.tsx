@@ -1,12 +1,12 @@
 import { StrictMode } from "react"
 import { createRoot } from "react-dom/client"
 
-import "./index.css"
-import App from "./App.tsx"
-import JigsawProfileApp from "./jigsaw-room/JigsawProfileApp.tsx"
-import JigsawRoomCreateApp from "./jigsaw-room/JigsawRoomCreateApp.tsx"
-import JigsawRoomApp from "./jigsaw-room/JigsawRoomApp.tsx"
 import { ThemeProvider } from "@/components/theme-provider.tsx"
+import App from "./App.tsx"
+import "./index.css"
+import JigsawProfileApp from "./jigsaw-room/JigsawProfileApp.tsx"
+import JigsawRoomApp from "./jigsaw-room/JigsawRoomApp.tsx"
+import JigsawRoomCreateApp from "./jigsaw-room/JigsawRoomCreateApp.tsx"
 
 export function RootApp() {
   const { pathname } = window.location

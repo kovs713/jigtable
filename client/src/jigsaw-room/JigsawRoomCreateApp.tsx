@@ -1,11 +1,11 @@
 import { useMemo, useState } from "react"
 
-import "./index.css"
 import { Button } from "@/components/ui/button"
+import "./index.css"
 import type { CreateJigsawRoomResponse } from "./multiplayer/protocol"
+import { createJigsawRoom } from "./room-api"
 
-const API_BASE_URL = import.meta.env.VITE_API_URL ?? "http://localhost:3000"
-const DEFAULT_IMAGE_URL = "/test_puzzle.png"
+const DEFAULT_IMAGE_URL = "/test_jigsaw.png"
 const PIECE_COUNT_OPTIONS = [48, 100, 150, 300, 600, 1_000, 1_500, 2_000]
 
 export function JigsawRoomCreateApp() {
@@ -13,7 +13,7 @@ export function JigsawRoomCreateApp() {
   const initialSourceSize = useMemo(() => getInitialSourceSize(), [])
   const [imageUrl, setImageUrl] = useState(initialImageUrl)
   const [pieceCount, setPieceCount] = useState(150)
-  const [status, setStatus] = useState("Choose puzzle size")
+  const [status, setStatus] = useState("Choose jigsaw size")
   const [creating, setCreating] = useState(false)
   const [createdRoom, setCreatedRoom] =
     useState<CreateJigsawRoomResponse | null>(null)
@@ -32,24 +32,19 @@ export function JigsawRoomCreateApp() {
     try {
       const sourceSize =
         trimmedImageUrl === initialImageUrl ? initialSourceSize : null
-      const response = await fetch(`${API_BASE_URL}/api/jigsaw/rooms`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          imageUrl: trimmedImageUrl,
-          pieceCount,
-          sourceWidth: sourceSize?.width,
-          sourceHeight: sourceSize?.height,
-        }),
+      const payload = await createJigsawRoom({
+        imageUrl: trimmedImageUrl,
+        pieceCount,
+        sourceWidth: sourceSize?.width,
+        sourceHeight: sourceSize?.height,
       })
-      const payload = await readJsonResponse<CreateJigsawRoomResponse>(response)
 
       setCreatedRoom(payload)
       setStatus("Room ready")
       window.history.replaceState(
         null,
         "",
-        `/jigsaw/new?roomId=${encodeURIComponent(payload.roomId)}`
+        `/puzzle/new?roomId=${encodeURIComponent(payload.roomId)}`
       )
     } catch (error) {
       setStatus(
@@ -73,7 +68,7 @@ export function JigsawRoomCreateApp() {
     <main className="jigsaw-room jigsaw-room--create">
       <section className="jigsaw-room__create-panel">
         <div className="jigsaw-room__create-copy">
-          <p className="jigsaw-room__create-kicker">Multiplayer jigsaw</p>
+          <p className="jigsaw-room__create-kicker">Multiplayer puzzle</p>
           <h1>Create room</h1>
           <p>
             Pick a puzzle size, create a temporary room, then share the link.
@@ -128,7 +123,7 @@ export function JigsawRoomCreateApp() {
                 Copy link
               </Button>
               <Button asChild size="sm">
-                <a href={`/jigsaw/${createdRoom.roomId}`}>Open room</a>
+                <a href={`/puzzle/${createdRoom.roomId}`}>Open room</a>
               </Button>
             </div>
           </div>
@@ -159,24 +154,6 @@ function getInitialSourceSize(): { width: number; height: number } | null {
   }
 
   return { width: Math.round(width), height: Math.round(height) }
-}
-
-async function readJsonResponse<T>(response: Response): Promise<T> {
-  const payload = await response.json().catch(() => null)
-
-  if (!response.ok) {
-    if (isRecord(payload) && typeof payload.error === "string") {
-      throw new Error(payload.error)
-    }
-
-    throw new Error(`Request failed: ${response.status}`)
-  }
-
-  return payload as T
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null
 }
 
 export default JigsawRoomCreateApp

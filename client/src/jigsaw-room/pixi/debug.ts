@@ -1,17 +1,21 @@
-import { countPlacedPieces } from "../puzzle/groups"
-import type { PuzzleState, PuzzleStats } from "../puzzle/types"
-import type { CameraController } from "./camera"
 import type { Application, Ticker } from "pixi.js"
+
+import { countPlacedPieces } from "@jigtable/jigsaw-core/jigsaw/groups"
+import type {
+  JigsawState,
+  JigsawStats,
+} from "@jigtable/jigsaw-core/jigsaw/types"
+import type { CameraController } from "./camera"
 
 export interface DebugTicker {
   destroy: () => void
 }
 
-export function getPuzzleStats(
-  state: PuzzleState,
+export function getJigsawStats(
+  state: JigsawState,
   fps: number,
-  zoom: number,
-): PuzzleStats {
+  zoom: number
+): JigsawStats {
   return {
     fps,
     zoom,
@@ -24,14 +28,14 @@ export function getPuzzleStats(
 
 export function createDebugTicker(
   app: Application,
-  state: PuzzleState,
+  state: JigsawState,
   camera: CameraController,
-  onStats: (stats: PuzzleStats) => void,
+  onStats: (stats: JigsawStats) => void
 ): DebugTicker {
   let elapsed = 0
 
   const emit = (): void => {
-    onStats(getPuzzleStats(state, app.ticker.FPS || 0, camera.zoom))
+    onStats(getJigsawStats(state, app.ticker.FPS || 0, camera.zoom))
   }
 
   const onTick = (ticker: Ticker): void => {

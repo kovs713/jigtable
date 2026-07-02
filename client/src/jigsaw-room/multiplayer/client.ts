@@ -120,7 +120,9 @@ export async function restoreJigsawSession(
   const payload = await response.json().catch(() => null)
 
   if (!response.ok) {
-    throw new Error(readApiError(payload) ?? `Session failed: ${response.status}`)
+    throw new Error(
+      readApiError(payload) ?? `Session failed: ${response.status}`
+    )
   }
 
   const session = parseSession(payload)
@@ -174,7 +176,10 @@ export function saveLocalJigsawSession(session: JigsawSession): void {
 function createLocalSession(player?: Partial<JigsawPlayer>): JigsawSession {
   const now = Date.now()
   const id = player?.id ?? createId("player")
-  const suffix = id.replace(/[^a-z0-9]/gi, "").slice(-4).toUpperCase()
+  const suffix = id
+    .replace(/[^a-z0-9]/gi, "")
+    .slice(-4)
+    .toUpperCase()
   const normalizedPlayer = normalizePlayer({
     id,
     name: player?.name ?? `Player ${suffix}`,
@@ -252,7 +257,10 @@ function normalizePlayer(player: {
   name?: string
   color?: string
 }): JigsawPlayer {
-  const name = player.name?.trim().replace(/\s+/g, " ").slice(0, PLAYER_NAME_MAX_LENGTH)
+  const name = player.name
+    ?.trim()
+    .replace(/\s+/g, " ")
+    .slice(0, PLAYER_NAME_MAX_LENGTH)
   const color = normalizeColor(player.color) ?? colorFromSeed(player.id)
 
   return {
@@ -300,11 +308,15 @@ function hslToHex(hue: number, saturation: number, lightness: number): string {
 }
 
 function toHex(value: number): string {
-  return Math.round(value * 255).toString(16).padStart(2, "0")
+  return Math.round(value * 255)
+    .toString(16)
+    .padStart(2, "0")
 }
 
 function readTimestamp(value: unknown): number {
-  return typeof value === "number" && Number.isFinite(value) ? value : Date.now()
+  return typeof value === "number" && Number.isFinite(value)
+    ? value
+    : Date.now()
 }
 
 function createId(prefix: string): string {

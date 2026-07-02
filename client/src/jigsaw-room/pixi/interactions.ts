@@ -1,9 +1,17 @@
-import { getGroupSnapshot, moveGroupFromSnapshot } from "../puzzle/groups"
-import { snapDroppedGroup } from "../puzzle/snap"
-import type { GroupId, PieceId, PuzzleState } from "../puzzle/types"
+import type { Application } from "pixi.js"
+
+import {
+  getGroupSnapshot,
+  moveGroupFromSnapshot,
+} from "@jigtable/jigsaw-core/jigsaw/groups"
+import { snapDroppedGroup } from "@jigtable/jigsaw-core/jigsaw/snap"
+import type {
+  GroupId,
+  JigsawState,
+  PieceId,
+} from "@jigtable/jigsaw-core/jigsaw/types"
 import type { CameraController, WorldPoint } from "./camera"
 import type { PieceViewSet } from "./pieces"
-import type { Application } from "pixi.js"
 
 export interface InteractionController {
   cancelDrag: () => void
@@ -30,7 +38,7 @@ export function setupPieceInteractions({
   onGroupDrop,
 }: {
   app: Application
-  state: PuzzleState
+  state: JigsawState
   camera: CameraController
   pieces: PieceViewSet
   canDragGroup?: (groupId: GroupId) => boolean
