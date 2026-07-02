@@ -16,7 +16,7 @@ export interface CreateJigsawRoomInput {
 export async function createJigsawRoom(
   input: CreateJigsawRoomInput
 ): Promise<CreateJigsawRoomResponse> {
-  const response = await fetch(`${API_BASE_URL}/api/puzzle/rooms`, {
+  const response = await fetch(`${API_BASE_URL}/api/jigsaws/rooms`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(input),
@@ -29,7 +29,7 @@ export async function fetchJigsawRoomSnapshot(
   roomId: string
 ): Promise<JigsawRoomSnapshot> {
   const response = await fetch(
-    `${API_BASE_URL}/api/puzzle/rooms/${encodeURIComponent(roomId)}`
+    `${API_BASE_URL}/api/jigsaws/rooms/${encodeURIComponent(roomId)}`
   )
   const payload = await readJsonResponse<unknown>(response)
 

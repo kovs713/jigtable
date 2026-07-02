@@ -3,7 +3,7 @@ import type {
   JigsawPlayer,
   JigsawSession,
   ServerToClientMessage,
-} from "./protocol"
+} from "@jigtable/jigsaw-core/multiplayer/protocol"
 
 const LOCAL_SESSION_STORAGE_KEY = "jigsaw-room-session"
 const LEGACY_PLAYER_STORAGE_KEY = "jigsaw-room-player"
@@ -112,7 +112,7 @@ export function readLocalJigsawSession(): JigsawSession {
 export async function restoreJigsawSession(
   fallback: JigsawSession
 ): Promise<JigsawSession> {
-  const response = await fetch(`${getApiBaseUrl()}/api/jigsaw/sessions`, {
+  const response = await fetch(`${getApiBaseUrl()}/api/jigsaws/sessions`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ token: fallback.token, player: fallback.player }),
@@ -141,7 +141,7 @@ export async function saveJigsawSessionProfile(
   profile: Pick<JigsawPlayer, "name" | "color">
 ): Promise<JigsawSession> {
   const response = await fetch(
-    `${getApiBaseUrl()}/api/jigsaw/sessions/current`,
+    `${getApiBaseUrl()}/api/jigsaws/sessions/current`,
     {
       method: "PATCH",
       headers: {

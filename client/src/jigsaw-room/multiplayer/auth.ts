@@ -1,4 +1,4 @@
-const AUTH_SESSION_STORAGE_KEY = "puzzle-room-auth"
+const AUTH_SESSION_STORAGE_KEY = "jigsaw-room-auth"
 const LEGACY_AUTH_SESSION_STORAGE_KEY = "jigsaw-room-auth"
 const API_BASE_URL = import.meta.env.VITE_API_URL ?? "http://localhost:3000"
 const TELEGRAM_BOT_USERNAME = import.meta.env.VITE_TELEGRAM_BOT_USERNAME
@@ -132,7 +132,7 @@ export async function fetchAuthMe(token: string): Promise<AuthSession> {
 export async function fetchJigsawHistory(
   token: string
 ): Promise<JigsawHistoryItem[]> {
-  const response = await fetch(`${API_BASE_URL}/api/me/puzzle-history`, {
+  const response = await fetch(`${API_BASE_URL}/api/me/jigsaw-history`, {
     headers: authHeaders(token),
   })
   const payload = await readJson(response)

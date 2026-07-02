@@ -1,8 +1,8 @@
 import { useMemo, useState } from "react"
 
 import { Button } from "@/components/ui/button"
+import type { CreateJigsawRoomResponse } from "@jigtable/jigsaw-core/multiplayer/protocol"
 import "./index.css"
-import type { CreateJigsawRoomResponse } from "./multiplayer/protocol"
 import { createJigsawRoom } from "./room-api"
 
 const DEFAULT_IMAGE_URL = "/test_jigsaw.png"
@@ -44,7 +44,7 @@ export function JigsawRoomCreateApp() {
       window.history.replaceState(
         null,
         "",
-        `/puzzle/new?roomId=${encodeURIComponent(payload.roomId)}`
+        `/jigsaw/new?roomId=${encodeURIComponent(payload.roomId)}`
       )
     } catch (error) {
       setStatus(
@@ -68,10 +68,10 @@ export function JigsawRoomCreateApp() {
     <main className="jigsaw-room jigsaw-room--create">
       <section className="jigsaw-room__create-panel">
         <div className="jigsaw-room__create-copy">
-          <p className="jigsaw-room__create-kicker">Multiplayer puzzle</p>
+          <p className="jigsaw-room__create-kicker">Multiplayer jigsaw</p>
           <h1>Create room</h1>
           <p>
-            Pick a puzzle size, create a temporary room, then share the link.
+            Pick a jigsaw size, create a temporary room, then share the link.
             Friends join as guests.
           </p>
         </div>
@@ -123,7 +123,7 @@ export function JigsawRoomCreateApp() {
                 Copy link
               </Button>
               <Button asChild size="sm">
-                <a href={`/puzzle/${createdRoom.roomId}`}>Open room</a>
+                <a href={`/jigsaw/${createdRoom.roomId}`}>Open room</a>
               </Button>
             </div>
           </div>

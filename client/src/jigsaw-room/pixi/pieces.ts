@@ -551,7 +551,7 @@ function createHitContext(): CanvasRenderingContext2D {
   const context = canvas.getContext("2d")
 
   if (!context) {
-    throw new Error("2D canvas context is required for puzzle hit testing")
+    throw new Error("2D canvas context is required for jigsaw hit testing")
   }
 
   return context

@@ -75,8 +75,8 @@ import {
   getTimerElapsedMs,
 } from "./time"
 
-const PUZZLE_IMAGE_URL = "/test_puzzle.png"
-const ACTIVE_PUZZLE_CONFIG = JIGSAW_CONFIG_2000
+const JIGSAW_IMAGE_URL = "/test_jigsaw.png"
+const ACTIVE_JIGSAW_CONFIG = JIGSAW_CONFIG_2000
 const DEV_ROOM_ID = "dev-room"
 const GROUP_MOVE_SEND_INTERVAL_MS = 66
 
@@ -102,20 +102,18 @@ interface JigsawRuntime {
 const EMPTY_STATS = {
   fps: 0,
   zoom: 1,
-  totalPieces: ACTIVE_PUZZLE_CONFIG.rows * ACTIVE_PUZZLE_CONFIG.cols,
+  totalPieces: ACTIVE_JIGSAW_CONFIG.rows * ACTIVE_JIGSAW_CONFIG.cols,
   placedPieces: 0,
-  groupsCount: ACTIVE_PUZZLE_CONFIG.rows * ACTIVE_PUZZLE_CONFIG.cols,
+  groupsCount: ACTIVE_JIGSAW_CONFIG.rows * ACTIVE_JIGSAW_CONFIG.cols,
   snapCount: 0,
 } satisfies JigsawStats
 
 export function JigsawRoomApp({ roomId }: JigsawRoomAppProps) {
   const initialSessionRef = useRef<JigsawSession | null>(null)
 
-  if (!initialSessionRef.current) {
-    initialSessionRef.current = readLocalJigsawSession()
-  }
+  const initialSession = initialSessionRef.current ?? readLocalJigsawSession()
 
-  const initialSession = initialSessionRef.current
+  initialSessionRef.current = initialSession
   const mountRef = useRef<HTMLDivElement | null>(null)
   const telegramWidgetRef = useRef<HTMLDivElement | null>(null)
   const runtimeRef = useRef<JigsawRuntime | null>(null)
@@ -221,7 +219,7 @@ export function JigsawRoomApp({ roomId }: JigsawRoomAppProps) {
         }
 
         const imageTexture = await loadImageTexture(
-          initialSnapshot?.puzzle.imageUrl ?? PUZZLE_IMAGE_URL
+          initialSnapshot?.jigsaw.imageUrl ?? JIGSAW_IMAGE_URL
         )
 
         if (disposed) {
@@ -230,13 +228,13 @@ export function JigsawRoomApp({ roomId }: JigsawRoomAppProps) {
           return
         }
 
-        const puzzleConfig =
-          initialSnapshot?.puzzle.config ??
-          createImageJigsawConfig(ACTIVE_PUZZLE_CONFIG, {
+        const jigsawConfig =
+          initialSnapshot?.jigsaw.config ??
+          createImageJigsawConfig(ACTIVE_JIGSAW_CONFIG, {
             width: imageTexture.width,
             height: imageTexture.height,
           })
-        const state = createJigsawState(puzzleConfig)
+        const state = createJigsawState(jigsawConfig)
 
         if (initialSnapshot) {
           state.pieces = structuredClone(initialSnapshot.pieces)
