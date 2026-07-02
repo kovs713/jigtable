@@ -8,8 +8,8 @@ import {
   validateTelegramWebAppInitData,
   type TelegramAuthProfile,
 } from "@/auth"
-import { normalizeRenderFormat } from "@/features/render-layout"
-import { clientJigsawRoomUrl, publicApiUrl } from "@/features/urls"
+import { normalizeRenderFormat, renderLayout } from "@/features/render-layout"
+import { clientJigsawRoomUrl } from "@/features/urls"
 import { db } from "@/infra/db"
 import {
   batchesSchema,
@@ -23,7 +23,6 @@ import {
   JigsawSessionStore,
   toSessionResponse,
 } from "@/jigsaw-room/session-store"
-import type { ShuffleItem, ShuffleResult } from "@/shuffle"
 import type {
   CreateJigsawRoomResponse,
   JigsawSession,
@@ -32,7 +31,19 @@ import { and, asc, eq } from "drizzle-orm"
 import { services } from "."
 import { CORS_HEADERS } from "./constants"
 import { ApiError } from "./types"
-import { json, readErrorMessage } from "./utils"
+import {
+  imageUrl,
+  isRecord,
+  json,
+  normalizeLayout,
+  readErrorMessage,
+  readOptionalBoundedInteger,
+  readOptionalJson,
+  readOptionalNonEmptyString,
+  readOptionalPositiveInteger,
+  renderedUrl,
+  toApiBatchLayout,
+} from "./utils"
 
 function route(handler: (request: BunRequest) => Response | Promise<Response>) {
   return async (request: BunRequest) => {
@@ -236,7 +247,20 @@ export const routes = {
         return json({ error: "Layout is not ready" }, 404)
       }
 
-      return json(toApiBatchLayout(batch, batch.layout))
+      return json({
+        batchId: batch.batchId,
+        status: batch.status,
+        layout: {
+          canvas: batch.layout.canvas,
+          items: batch.layout.items.map((item) => ({
+            ...item,
+            src: imageUrl(batch.batchId, batch.editToken, item.id),
+          })),
+        },
+        outputUrl: batch.outputKey
+          ? renderedUrl(batch.batchId, batch.editToken)
+          : null,
+      })
     }),
     PATCH: route(async (request: BunRequest) => {
       const url = new URL(request.url)
@@ -267,7 +291,9 @@ export const routes = {
         return json({ error: "Image not found" }, 404)
       }
 
-      return s3Response(photo.objectKey, {
+      const body = await s3Client.file(photo.objectKey).arrayBuffer()
+
+      return new Response(body, {
         headers: {
           ...CORS_HEADERS,
           "Content-Type": photo.contentType,
@@ -350,7 +376,9 @@ export const routes = {
       const extension =
         batch.outputFormat === "jpeg" ? "jpg" : (batch.outputFormat ?? "png")
 
-      return s3Response(batch.outputKey, {
+      const body = await s3Client.file(batch.outputKey).arrayBuffer()
+
+      return new Response(body, {
         headers: {
           ...CORS_HEADERS,
           "Content-Type": contentType,
@@ -427,66 +455,6 @@ function readJigsawAuthToken(request: BunRequest): string | null {
   return token || null
 }
 
-function readOptionalNonEmptyString(
-  value: unknown,
-  name: string
-): string | undefined {
-  if (value === undefined || value === null) {
-    return undefined
-  }
-
-  return readString(value, name)
-}
-
-function readOptionalPositiveInteger(
-  value: unknown,
-  name: string
-): number | undefined {
-  if (value === undefined || value === null) {
-    return undefined
-  }
-
-  return readPositiveInteger(value, name)
-}
-
-function readOptionalBoundedInteger(
-  value: unknown,
-  name: string,
-  fallback: number,
-  min: number,
-  max: number
-): number {
-  if (value === undefined || value === null) {
-    return fallback
-  }
-
-  const number = readInteger(value, name)
-
-  if (number < min || number > max) {
-    throw new ApiError(`${name} must be between ${min} and ${max}`, 400)
-  }
-
-  return number
-}
-
-async function readOptionalJson(
-  request: BunRequest
-): Promise<Record<string, unknown> | null> {
-  const text = await request.text()
-
-  if (!text.trim()) {
-    return null
-  }
-
-  const value = JSON.parse(text)
-
-  if (!isRecord(value)) {
-    throw new ApiError("Request body must be an object", 400)
-  }
-
-  return value
-}
-
 async function readImageSize(
   imageUrl: string
 ): Promise<{ width: number; height: number }> {
@@ -539,117 +507,6 @@ async function readStoredImageSize(
   return { width: metadata.width, height: metadata.height }
 }
 
-function normalizeLayout(raw: unknown, photos: PhotoRow[]): ShuffleResult {
-  const value = unwrapLayout(raw)
-
-  if (
-    !isRecord(value) ||
-    !isRecord(value.canvas) ||
-    !Array.isArray(value.items)
-  ) {
-    throw new ApiError("Invalid layout", 400)
-  }
-
-  const photoById = new Map(photos.map((photo) => [photo.fileId, photo]))
-  const canvas = {
-    width: readPositiveInteger(value.canvas.width, "canvas.width"),
-    height: readPositiveInteger(value.canvas.height, "canvas.height"),
-  }
-  const items = value.items.map((rawItem, index): ShuffleItem => {
-    if (!isRecord(rawItem)) {
-      throw new ApiError(`items[${index}] must be an object`, 400)
-    }
-
-    const id = readString(rawItem.id, `items[${index}].id`)
-    const photo = photoById.get(id)
-
-    if (!photo) {
-      throw new ApiError(`Unknown image id ${id}`, 400)
-    }
-
-    const width = readPositiveInteger(rawItem.width, `items[${index}].width`)
-    const height = readPositiveInteger(rawItem.height, `items[${index}].height`)
-    const x = readInteger(rawItem.x, `items[${index}].x`)
-    const y = readInteger(rawItem.y, `items[${index}].y`)
-    const zIndex =
-      rawItem.zIndex === undefined
-        ? index
-        : readInteger(rawItem.zIndex, `items[${index}].zIndex`)
-
-    if (
-      x < 0 ||
-      y < 0 ||
-      x + width > canvas.width ||
-      y + height > canvas.height
-    ) {
-      throw new ApiError(`items[${index}] is outside canvas`, 400)
-    }
-
-    return {
-      id,
-      src: photo.objectKey,
-      x,
-      y,
-      width,
-      height,
-      scale: typeof rawItem.scale === "number" ? rawItem.scale : 1,
-      zIndex,
-    }
-  })
-
-  return { canvas, items }
-}
-
-function unwrapLayout(raw: unknown): unknown {
-  if (isRecord(raw) && isRecord(raw.layout)) {
-    return raw.layout
-  }
-
-  return raw
-}
-
-function toApiBatchLayout(
-  batch: typeof batchesSchema.$inferSelect,
-  layout: ShuffleResult
-): ApiBatchLayout {
-  return {
-    batchId: batch.batchId,
-    status: batch.status,
-    layout: {
-      canvas: layout.canvas,
-      items: layout.items.map((item) => ({
-        ...item,
-        src: imageUrl(batch.batchId, batch.editToken, item.id),
-      })),
-    },
-    outputUrl: batch.outputKey
-      ? renderedUrl(batch.batchId, batch.editToken)
-      : null,
-  }
-}
-
-function imageUrl(batchId: string, token: string, fileId: string): string {
-  return `${publicApiUrl()}/api/batches/${batchId}/images/${encodeURIComponent(fileId)}?token=${encodeURIComponent(token)}`
-}
-
-function renderedUrl(batchId: string, token: string): string {
-  return `${publicApiUrl()}/api/batches/${batchId}/rendered?token=${encodeURIComponent(token)}`
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null
-}
-
-type PhotoRow = typeof batchPhotosSchema.$inferSelect
-
-function readString(value: unknown, name: string): string {
-  if (typeof value !== "string" || !value.trim()) {
-    throw new ApiError(`${name} must be a string`, 400)
-  }
-
-  return value
-}
-
 async function requireBatch(batchId: string, url: URL) {
   const token = url.searchParams.get("token")
 
@@ -684,33 +541,6 @@ async function requireBatch(batchId: string, url: URL) {
   return { batch, photos }
 }
 
-function readPositiveInteger(value: unknown, name: string): number {
-  const number = readInteger(value, name)
-
-  if (number <= 0) {
-    throw new ApiError(`${name} must be positive`, 400)
-  }
-
-  return number
-}
-
-function readInteger(value: unknown, name: string): number {
-  if (typeof value !== "number" || !Number.isFinite(value)) {
-    throw new ApiError(`${name} must be a number`, 400)
-  }
-
-  return Math.round(value)
-}
-
-async function s3Response(
-  objectKey: string,
-  init: ResponseInit
-): Promise<Response> {
-  const body = await s3Client.file(objectKey).arrayBuffer()
-
-  return new Response(body, init)
-}
-
 async function authorize(
   body: Record<string, unknown> | null,
   profile: TelegramAuthProfile
@@ -733,11 +563,4 @@ async function authorize(
   }
 
   return json(auth)
-}
-
-interface ApiBatchLayout {
-  batchId: string
-  status: string | null
-  layout: ShuffleResult
-  outputUrl: string | null
 }
