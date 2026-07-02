@@ -8,23 +8,29 @@ import {
   validateTelegramWebAppInitData,
   type TelegramAuthProfile,
 } from "@/auth"
+import { normalizeRenderFormat } from "@/features/render-layout"
+import { clientJigsawRoomUrl, publicApiUrl } from "@/features/urls"
+import { db } from "@/infra/db"
+import {
+  batchesSchema,
+  batchPhotosSchema,
+  PhotoBatchStatus,
+} from "@/infra/db/schemas"
 import { s3Client } from "@/infra/storage"
+import { createJigsawSafeAssetRef } from "@/jigsaw-room/history-store"
+import type { CreateJigsawRoomInput } from "@/jigsaw-room/room-manager"
 import {
   JigsawSessionStore,
   toSessionResponse,
 } from "@/jigsaw-room/session-store"
-import type { JigsawSession } from "@jigtable/jigsaw-core"
+import type { ShuffleItem, ShuffleResult } from "@/shuffle"
+import type {
+  CreateJigsawRoomResponse,
+  JigsawSession,
+} from "@jigtable/jigsaw-core"
+import { and, asc, eq } from "drizzle-orm"
 import { services } from "."
 import { CORS_HEADERS } from "./constants"
-import {
-  handleCreatePuzzleRoom,
-  handleGetImage,
-  handleGetLayout,
-  handleGetPuzzleRoom,
-  handleGetRendered,
-  handlePatchLayout,
-  handleRender,
-} from "./handlers"
 import { ApiError } from "./types"
 import { json, readErrorMessage } from "./utils"
 
@@ -161,28 +167,198 @@ export const routes = {
   },
 
   "/api/jigsaws/rooms": {
-    POST: route((request: BunRequest) =>
-      handleCreatePuzzleRoom(request, services.rooms)
-    ),
+    POST: route(async (request: BunRequest) => {
+      const body = await readOptionalJson(request)
+      const imageUrl = (
+        readOptionalNonEmptyString(body?.imageUrl, "imageUrl") ??
+        "/test_jigsaw.png"
+      ).trim()
+      const pieceCount = readOptionalBoundedInteger(
+        body?.pieceCount,
+        "pieceCount",
+        150,
+        4,
+        2_000
+      )
+      const sourceWidth = readOptionalPositiveInteger(
+        body?.sourceWidth,
+        "sourceWidth"
+      )
+      const sourceHeight = readOptionalPositiveInteger(
+        body?.sourceHeight,
+        "sourceHeight"
+      )
+      const sourceSize =
+        sourceWidth && sourceHeight
+          ? { width: sourceWidth, height: sourceHeight }
+          : await readImageSize(imageUrl)
+      const assetId =
+        readOptionalNonEmptyString(body?.assetId, "assetId")?.trim() ??
+        "room-image"
+      const input = {
+        imageUrl,
+        assetId,
+        assetRef: createJigsawSafeAssetRef({ imageUrl, assetId }),
+        sourceSize,
+        pieceCount,
+      } satisfies CreateJigsawRoomInput
+      const state = services.rooms.createRoom(input)
+
+      return json({
+        roomId: state.roomId,
+        joinUrl: clientJigsawRoomUrl(state.roomId),
+        state,
+      } satisfies CreateJigsawRoomResponse)
+    }),
   },
 
   "/api/jigsaws/rooms/:roomId": {
-    GET: route((request: BunRequest) =>
-      handleGetPuzzleRoom(request, services.rooms)
-    ),
+    GET: route(async (request: BunRequest) => {
+      const roomId = request.params.roomId ?? ""
+      const state = services.rooms.getRoomSnapshot(roomId)
+
+      if (!state) {
+        return json({ error: "Room not found or expired" }, 404)
+      }
+
+      return json({ state })
+    }),
   },
+
   "/api/batches/:batchId/layout": {
-    GET: route(handleGetLayout),
-    PATCH: route(handlePatchLayout),
+    GET: route(async (request: BunRequest) => {
+      const url = new URL(request.url)
+      const batchId = request.params.batchId ?? ""
+
+      const { batch } = await requireBatch(batchId, url)
+
+      if (!batch.layout) {
+        return json({ error: "Layout is not ready" }, 404)
+      }
+
+      return json(toApiBatchLayout(batch, batch.layout))
+    }),
+    PATCH: route(async (request: BunRequest) => {
+      const url = new URL(request.url)
+      const batchId = request.params.batchId ?? ""
+
+      const { batch, photos } = await requireBatch(batchId, url)
+      const layout = normalizeLayout(await request.json(), photos)
+
+      await db
+        .update(batchesSchema)
+        .set({ layout, status: PhotoBatchStatus.Ready, updatedAt: new Date() })
+        .where(eq(batchesSchema.batchId, batch.batchId))
+
+      return json(toApiBatchLayout(batch, layout))
+    }),
   },
+
   "/api/batches/:batchId/images/:fileId": {
-    GET: route(handleGetImage),
+    GET: route(async (request: BunRequest) => {
+      const url = new URL(request.url)
+      const batchId = request.params.batchId ?? ""
+      const fileId = request.params.fileId ?? ""
+
+      const { photos } = await requireBatch(batchId, url)
+      const photo = photos.find((item) => item.fileId === fileId)
+
+      if (!photo) {
+        return json({ error: "Image not found" }, 404)
+      }
+
+      return s3Response(photo.objectKey, {
+        headers: {
+          ...CORS_HEADERS,
+          "Content-Type": photo.contentType,
+          "Cache-Control": "private, max-age=3600",
+        },
+      })
+    }),
   },
+
   "/api/batches/:batchId/render": {
-    POST: route(handleRender),
+    POST: route(async (request: BunRequest) => {
+      const url = new URL(request.url)
+      const batchId = request.params.batchId ?? ""
+
+      const { batch, photos } = await requireBatch(batchId, url)
+      const body = await readOptionalJson(request)
+      const layout = body?.layout
+        ? normalizeLayout(body.layout, photos)
+        : batch.layout
+      const format = normalizeRenderFormat(body?.format)
+
+      if (!layout) {
+        return json({ error: "Layout is not ready" }, 400)
+      }
+
+      await db
+        .update(batchesSchema)
+        .set({
+          layout,
+          status: PhotoBatchStatus.Processing,
+          updatedAt: new Date(),
+        })
+        .where(eq(batchesSchema.batchId, batch.batchId))
+
+      let rendered: Awaited<ReturnType<typeof renderLayout>>
+
+      try {
+        rendered = await renderLayout(batch.batchId, layout, photos, format)
+      } catch (error) {
+        await db
+          .update(batchesSchema)
+          .set({ status: PhotoBatchStatus.Failed, updatedAt: new Date() })
+          .where(eq(batchesSchema.batchId, batch.batchId))
+
+        throw error
+      }
+
+      await db
+        .update(batchesSchema)
+        .set({
+          layout,
+          outputKey: rendered.objectKey,
+          outputFormat: rendered.format,
+          status: PhotoBatchStatus.Completed,
+          updatedAt: new Date(),
+        })
+        .where(eq(batchesSchema.batchId, batch.batchId))
+
+      return json({
+        batchId: batch.batchId,
+        format: rendered.format,
+        outputUrl: renderedUrl(batch.batchId, batch.editToken),
+      })
+    }),
   },
+
   "/api/batches/:batchId/rendered": {
-    GET: route(handleGetRendered),
+    GET: route(async (request: BunRequest) => {
+      const url = new URL(request.url)
+      const batchId = request.params.batchId ?? ""
+
+      const { batch } = await requireBatch(batchId, url)
+
+      if (!batch.outputKey) {
+        return json({ error: "Rendered image not found" }, 404)
+      }
+
+      const contentType =
+        batch.outputFormat === "png" ? "image/png" : "image/jpeg"
+      const extension =
+        batch.outputFormat === "jpeg" ? "jpg" : (batch.outputFormat ?? "png")
+
+      return s3Response(batch.outputKey, {
+        headers: {
+          ...CORS_HEADERS,
+          "Content-Type": contentType,
+          "Content-Disposition": `attachment; filename="jigsaw-${batch.batchId}.${extension}"`,
+          "Cache-Control": "private, max-age=3600",
+        },
+      })
+    }),
   },
 }
 
@@ -557,4 +733,11 @@ async function authorize(
   }
 
   return json(auth)
+}
+
+interface ApiBatchLayout {
+  batchId: string
+  status: string | null
+  layout: ShuffleResult
+  outputUrl: string | null
 }
