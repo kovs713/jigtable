@@ -1,7 +1,7 @@
 import type { CommandContext } from "grammy"
 
-import { keyboard } from "@/bot/ui"
 import type { BotContext } from "@/bot/types"
+import { keyboard } from "@/bot/ui"
 import { db } from "@/infra/db"
 import { batchesSchema } from "@/infra/db/schemas"
 

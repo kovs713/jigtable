@@ -1,16 +1,15 @@
+import { asc, eq } from "drizzle-orm"
 import type { CommandContext } from "grammy"
 
-import { asc, eq } from "drizzle-orm"
-
+import type { BotContext } from "@/bot/types"
 import { clientLayoutUrl } from "@/features/urls"
 import { db } from "@/infra/db"
 import {
-  batchPhotosSchema,
   batchesSchema,
+  batchPhotosSchema,
   PhotoBatchStatus,
 } from "@/infra/db/schemas"
 import { shuffleImages } from "@/shuffle"
-import type { BotContext } from "@/bot/types"
 
 export async function handleCommit(
   ctx: CommandContext<BotContext>
