@@ -17,23 +17,25 @@ export async function handleList(
   const batches = await db
     .select()
     .from(batchesSchema)
-    .where(eq(batchesSchema.userId, String(ctx.from.id)))
+    .where(
+      and(
+        eq(batchesSchema.userId, String(ctx.from.id)),
+        or(
+          eq(batchesSchema.status, PhotoBatchStatus.Ready),
+          eq(batchesSchema.status, PhotoBatchStatus.Completed)
+        )
+      )
+    )
     .orderBy(desc(batchesSchema.createdAt))
     .limit(10)
 
-  const readyBatches = batches.filter(
-    (batch) =>
-      batch.status === PhotoBatchStatus.Ready ||
-      batch.status === PhotoBatchStatus.Completed
-  )
-
-  if (!readyBatches.length) {
+  if (!batches.length) {
     await ctx.reply("готовых сборок пока нет")
     return
   }
 
   await ctx.reply(
-    readyBatches
+    batches
       .map(
         (batch, index) =>
           `${index + 1}. ${batch.status}: ${clientLayoutUrl(batch.batchId, batch.editToken)}`
