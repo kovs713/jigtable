@@ -1,0 +1,60 @@
+.jigsaw-room {
+  --jigsaw-panel: color-mix(in oklch, var(--card), transparent 8%);
+  --jigsaw-panel-strong: color-mix(in oklch, var(--card), var(--foreground) 3%);
+  --jigsaw-panel-border: color-mix(in oklch, var(--border), transparent 8%);
+  --jigsaw-panel-muted: color-mix(
+    in oklch,
+    var(--muted-foreground),
+    transparent 18%
+  );
+
+  --jigsaw-pixi-board-fill: color-mix(
+    in oklch,
+    var(--background),
+    var(--foreground) 4%
+  );
+  --jigsaw-pixi-board-stroke: var(--border);
+  --jigsaw-pixi-board-grid: color-mix(in oklch, var(--border), transparent 35%);
+
+  --jigsaw-pixi-preview-stroke: var(--foreground);
+  --jigsaw-pixi-piece-stroke: color-mix(
+    in oklch,
+    var(--foreground),
+    transparent 18%
+  );
+
+  --jigsaw-pixi-piece-highlight: var(--primary);
+  --jigsaw-pixi-placed-stroke: var(--primary);
+
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  color: var(--foreground);
+  background:
+    linear-gradient(
+      135deg,
+      color-mix(in oklch, var(--background), var(--primary) 5%),
+      var(--background) 52%,
+      color-mix(in oklch, var(--background), var(--foreground) 3%)
+    ),
+    var(--background);
+}
+
+.jigsaw-room::before {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  content: "";
+  background-image:
+    linear-gradient(
+      color-mix(in oklch, var(--border), transparent 68%) 1px,
+      transparent 1px
+    ),
+    linear-gradient(
+      90deg,
+      color-mix(in oklch, var(--border), transparent 68%) 1px,
+      transparent 1px
+    );
+  background-size: 28px 28px;
+  mask-image: radial-gradient(circle at 45% 45%, black, transparent 78%);
+}

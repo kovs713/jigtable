@@ -109,7 +109,7 @@ type ItemBounds = {
 
 const MIN_ITEM_SIZE = 32
 const MIN_CANVAS_SIZE = 120
-const MAX_CANVAS_SIZE = 4000
+const MAX_CANVAS_SIZE = 2000
 const DEFAULT_ZOOM = 42
 const API_BASE_URL = import.meta.env.VITE_API_URL ?? "http://localhost:3000"
 const RESIZE_EDGE_HOVER_BORDER_CLASS = "border"
@@ -133,57 +133,57 @@ const RESIZE_HANDLES: ResizeHandle[] = [
   {
     edge: "n",
     label: "Resize top edge",
-    className: "-top-2 left-1/2 h-4 w-14 -translate-x-1/2 cursor-n-resize",
-    indicatorClassName: "top-1 right-3 left-3 h-1",
+    className: "-top-1.5 left-1/2 h-3 w-10 -translate-x-1/2 cursor-n-resize",
+    indicatorClassName: "top-1 right-2 left-2 h-0.5",
     type: "edge",
   },
   {
     edge: "ne",
     label: "Resize top right corner",
-    className: "-top-2 -right-2 size-4 cursor-nesw-resize",
-    indicatorClassName: "top-1 right-1 size-2",
+    className: "-top-1.5 -right-1.5 size-3 cursor-nesw-resize",
+    indicatorClassName: "top-0.5 right-0.5 size-2",
     type: "corner",
   },
   {
     edge: "e",
     label: "Resize right edge",
-    className: "top-1/2 -right-2 h-14 w-4 -translate-y-1/2 cursor-e-resize",
-    indicatorClassName: "top-3 bottom-3 left-1/2 w-1 -translate-x-1/2",
+    className: "top-1/2 -right-1.5 h-10 w-3 -translate-y-1/2 cursor-e-resize",
+    indicatorClassName: "top-2 bottom-2 left-1/2 w-0.5 -translate-x-1/2",
     type: "edge",
   },
   {
     edge: "se",
     label: "Resize bottom right corner",
-    className: "-right-2 -bottom-2 size-4 cursor-nwse-resize",
-    indicatorClassName: "right-1 bottom-1 size-2",
+    className: "-right-1.5 -bottom-1.5 size-3 cursor-nwse-resize",
+    indicatorClassName: "right-0.5 bottom-0.5 size-2",
     type: "corner",
   },
   {
     edge: "s",
     label: "Resize bottom edge",
-    className: "-bottom-2 left-1/2 h-4 w-14 -translate-x-1/2 cursor-s-resize",
-    indicatorClassName: "right-3 bottom-1 left-3 h-1",
+    className: "-bottom-1.5 left-1/2 h-3 w-10 -translate-x-1/2 cursor-s-resize",
+    indicatorClassName: "right-2 bottom-1 left-2 h-0.5",
     type: "edge",
   },
   {
     edge: "sw",
     label: "Resize bottom left corner",
-    className: "-bottom-2 -left-2 size-4 cursor-nesw-resize",
-    indicatorClassName: "bottom-1 left-1 size-2",
+    className: "-bottom-1.5 -left-1.5 size-3 cursor-nesw-resize",
+    indicatorClassName: "bottom-0.5 left-0.5 size-2",
     type: "corner",
   },
   {
     edge: "w",
     label: "Resize left edge",
-    className: "top-1/2 -left-2 h-14 w-4 -translate-y-1/2 cursor-w-resize",
-    indicatorClassName: "top-3 bottom-3 left-1/2 w-1 -translate-x-1/2",
+    className: "top-1/2 -left-1.5 h-10 w-3 -translate-y-1/2 cursor-w-resize",
+    indicatorClassName: "top-2 bottom-2 left-1/2 w-0.5 -translate-x-1/2",
     type: "edge",
   },
   {
     edge: "nw",
     label: "Resize top left corner",
-    className: "-top-2 -left-2 size-4 cursor-nwse-resize",
-    indicatorClassName: "top-1 left-1 size-2",
+    className: "-top-1.5 -left-1.5 size-3 cursor-nwse-resize",
+    indicatorClassName: "top-0.5 left-0.5 size-2",
     type: "corner",
   },
 ]
@@ -1011,7 +1011,7 @@ export function App() {
   }
 
   return (
-    <main className="grid h-svh overflow-hidden bg-background text-foreground lg:grid-rows-[auto_minmax(0,1fr)]">
+    <main className="grid h-svh grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden bg-background text-foreground">
       {hoverLinkItemId && hoverLinkLine ? (
         <svg
           aria-hidden="true"
@@ -1030,22 +1030,31 @@ export function App() {
           />
         </svg>
       ) : null}
-      <header className="flex flex-wrap items-center gap-2 border-b border-border bg-card px-3 py-2 text-card-foreground">
-        <div className="min-w-56">
-          <h1 className="text-sm font-semibold tracking-tight">
-            Jigsaw editor
-          </h1>
-          <p className="font-mono text-[11px] text-muted-foreground">
-            {layout.items.length
-              ? `${layout.items.length} images loaded`
-              : "Waiting for images"}
-          </p>
+
+      {/* header */}
+      <header className="flex flex-wrap items-center gap-4 border-b bg-card px-6 py-3 text-card-foreground shadow-sm">
+        <div className="flex items-center gap-3">
+          <div className="flex size-8 items-center justify-center bg-primary font-bold text-primary-foreground">
+            J
+          </div>
+          <div>
+            <h1 className="text-sm font-semibold tracking-tight">
+              Jigsaw Editor
+            </h1>
+            <p className="text-xs text-muted-foreground">
+              {layout.items.length
+                ? `${layout.items.length} images loaded`
+                : "Waiting for images"}
+            </p>
+          </div>
         </div>
+
+        <div className="mx-2 hidden h-8 w-px bg-border md:block" />
 
         <div className="flex flex-wrap items-center gap-2">
           <input
-            className="h-8 w-56 border border-border bg-background px-2 font-mono text-xs text-foreground outline-none focus:border-primary"
-            placeholder="paste link or code"
+            className="h-9 w-64 border border-input bg-background px-3 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:ring-1 focus-visible:ring-ring focus-visible:outline-none"
+            placeholder="Paste bot link or code"
             type="text"
             value={loadCode}
             onChange={(event) => setLoadCode(event.target.value)}
@@ -1056,74 +1065,87 @@ export function App() {
             }}
           />
           <Button
+            className="h-9"
             size="sm"
-            variant="outline"
+            variant="secondary"
             onClick={() => void loadLayoutFromCode()}
           >
-            Load layout
+            Load Layout
           </Button>
+
+          <div className="mx-2 hidden h-8 w-px bg-border md:block" />
+
           <Button
+            className="h-9"
             disabled={!remoteBatch}
             size="sm"
             variant="outline"
             onClick={saveRemoteLayout}
           >
-            Save edits
+            Save Edits
           </Button>
-          <select
-            className="h-8 border border-border bg-background px-2 text-sm text-foreground outline-none focus:border-primary"
-            value={renderFormat}
-            onChange={(event) =>
-              setRenderFormat(event.target.value as RenderFormat)
-            }
-          >
-            <option value="png">png</option>
-            <option value="jpg">jpg</option>
-            <option value="jpeg">jpeg</option>
-          </select>
+
+          <div className="flex h-9 items-center gap-1 border p-1">
+            {(["png", "jpg", "jpeg"] as const).map((fmt) => (
+              <button
+                key={fmt}
+                className={cn(
+                  "px-2 py-0.5 text-xs font-medium uppercase transition-colors",
+                  renderFormat === fmt
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground hover:bg-muted"
+                )}
+                onClick={() => setRenderFormat(fmt)}
+              >
+                {fmt}
+              </button>
+            ))}
+          </div>
+
           <Button
             disabled={!remoteBatch}
             size="sm"
             onClick={renderRemoteLayout}
           >
-            Build image
+            Build Image
           </Button>
+
           {remoteBatch?.outputUrl ? (
             <Button asChild size="sm" variant="outline">
               <a href={remoteBatch.outputUrl} rel="noreferrer" target="_blank">
-                Download result
+                Download Result
               </a>
             </Button>
           ) : null}
           {remoteBatch?.outputUrl ? (
             <Button asChild size="sm">
               <a href={jigsawCreateUrl(remoteBatch.outputUrl, layout.canvas)}>
-                Create jigsaw room
+                Create Jigsaw Room
               </a>
             </Button>
           ) : null}
         </div>
 
-        <div className="ml-auto grid min-w-72 gap-2 sm:grid-cols-2">
-          <label className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-3">
-            <span className="font-mono text-[11px] text-muted-foreground">
+        <div className="ml-auto hidden items-center gap-6 lg:flex">
+          <div className="flex w-48 items-center gap-2">
+            <span className="w-12 text-right font-mono text-xs text-muted-foreground">
               Zoom {zoom}%
             </span>
             <input
-              className="w-full accent-primary"
+              className="w-full cursor-pointer accent-primary"
               max={140}
               min={18}
               type="range"
               value={zoom}
               onChange={(event) => setZoom(Number(event.target.value))}
             />
-          </label>
-          <label className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-3">
-            <span className="font-mono text-[11px] text-muted-foreground">
+          </div>
+          <div className="flex w-48 items-center gap-2">
+            <span className="w-16 text-right font-mono text-xs text-muted-foreground">
               Canvas {canvasMaxSide}px
             </span>
             <input
-              className="w-full accent-primary"
+              className="w-full cursor-pointer accent-primary"
               max={MAX_CANVAS_SIZE}
               min={MIN_CANVAS_SIZE}
               type="range"
@@ -1132,18 +1154,15 @@ export function App() {
                 updateCanvasScale(Number(event.target.value))
               }
             />
-          </label>
-        </div>
-
-        <div className="w-full border-t border-border pt-2 font-mono text-[11px] text-muted-foreground lg:w-auto lg:border-t-0 lg:pt-0">
-          {status}
+          </div>
         </div>
       </header>
 
-      <div className="grid min-h-0 grid-cols-1 overflow-hidden lg:grid-cols-[260px_minmax(0,1fr)_360px]">
-        <aside className="grid min-h-0 grid-rows-[auto_minmax(0,1fr)] overflow-hidden border-b border-border bg-card text-card-foreground lg:border-r lg:border-b-0">
-          <PanelHeader title="Layers" meta="drag rows or use buttons" />
-          <div className="thin-scrollbar min-h-0 overflow-auto p-2">
+      <div className="grid min-h-0 grid-cols-1 overflow-hidden lg:grid-cols-[280px_minmax(0,1fr)_320px]">
+        {/* left sidebar layers */}
+        <aside className="flex min-h-0 flex-col overflow-hidden border-r bg-card text-card-foreground">
+          <PanelHeader title="Layers" meta="Drag to reorder" />
+          <div className="thin-scrollbar flex-1 space-y-1 overflow-auto p-2">
             {layerListEntries.map(({ item, itemIndex, layerIndex }) => {
               const isSelected = selectedIdSet.has(item.id)
               const isLinked = hoverLinkItemId === item.id
@@ -1161,11 +1180,11 @@ export function App() {
                   draggable
                   ref={setLayerRowRef(item.id)}
                   className={cn(
-                    "relative grid w-full cursor-grab gap-1 border p-1 text-sm transition-colors active:cursor-grabbing",
+                    "group relative flex flex-col gap-1 border p-2 text-sm transition-all",
                     draggedLayerId === item.id && "opacity-50",
                     isSelected || isLinked
-                      ? "border-(--image-marker) bg-accent text-accent-foreground"
-                      : "border-transparent bg-card text-card-foreground hover:border-border hover:bg-accent hover:text-accent-foreground"
+                      ? "border-primary/50 bg-primary/5 shadow-sm"
+                      : "border-transparent hover:border-border hover:bg-accent/50"
                   )}
                   style={getImageMarkerStyle(itemIndex)}
                   onDragEnd={endLayerDrag}
@@ -1179,38 +1198,34 @@ export function App() {
                   {dropPlacement ? (
                     <span
                       className={cn(
-                        "pointer-events-none absolute right-0 left-0 z-10 h-1 bg-(--image-marker)",
-                        dropPlacement === "above" ? "-top-0.5" : "-bottom-0.5"
+                        "pointer-events-none absolute right-2 left-2 z-10 h-0.5 rounded-full bg-primary",
+                        dropPlacement === "above" ? "-top-1" : "-bottom-1"
                       )}
                     />
                   ) : null}
-                  <span className="pointer-events-none absolute top-1 bottom-1 left-0 w-1 bg-(--image-marker)" />
                   <button
-                    className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 px-2 py-1.5 text-left"
+                    className="flex min-w-0 items-center gap-2 text-left"
                     type="button"
                     onClick={(event) =>
                       selectItem(item.id, getSelectionMode(event))
                     }
                   >
-                    <span className="grid h-5 min-w-6 place-items-center border border-foreground/30 bg-(--image-marker) px-1 font-mono text-[10px] font-semibold text-(--image-marker-foreground)">
+                    <span className="grid h-6 min-w-6 place-items-center bg-primary/10 px-1 font-mono text-[10px] font-bold text-primary">
                       {getImageMarkerCode(itemIndex)}
                     </span>
-                    <span className="min-w-0">
-                      <span className="block font-mono text-[10px] text-muted-foreground">
-                        layer {layerIndex + 1} / {layout.items.length}
-                      </span>
+                    <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground">
+                      Layer {layerIndex + 1} / {layout.items.length}
                     </span>
-                    <span className="font-mono text-[10px] opacity-70">
+                    <span className="font-mono text-[10px] text-muted-foreground opacity-70">
                       {item.width}x{item.height}
                     </span>
                   </button>
-                  <div className="grid grid-cols-4 gap-1">
-                    <button
+
+                  <div className="grid grid-cols-4 gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+                    <LayerActionButton
                       aria-label={`Move ${imageLabel} to top layer`}
-                      className="border border-border bg-background px-1 py-1 font-mono text-[10px] text-foreground disabled:opacity-30"
                       disabled={isTopLayer}
                       ref={setLayerActionRef(item.id, "top")}
-                      type="button"
                       onClick={() =>
                         moveItemLayerTo(
                           item.id,
@@ -1220,34 +1235,61 @@ export function App() {
                         )
                       }
                     >
-                      Top
-                    </button>
-                    <button
+                      <svg
+                        width="14"
+                        height="14"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <path d="M5 4h14M12 20V8M6 12l6-6 6 6" />
+                      </svg>
+                    </LayerActionButton>
+                    <LayerActionButton
                       aria-label={`Raise ${imageLabel}`}
-                      className="border border-border bg-background px-1 py-1 font-mono text-[10px] text-foreground disabled:opacity-30"
                       disabled={isTopLayer}
                       ref={setLayerActionRef(item.id, "up")}
-                      type="button"
                       onClick={() => moveItemLayer(item.id, 1, "up")}
                     >
-                      Up
-                    </button>
-                    <button
+                      <svg
+                        width="14"
+                        height="14"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <path d="M12 19V5M5 12l7-7 7 7" />
+                      </svg>
+                    </LayerActionButton>
+                    <LayerActionButton
                       aria-label={`Lower ${imageLabel}`}
-                      className="border border-border bg-background px-1 py-1 font-mono text-[10px] text-foreground disabled:opacity-30"
                       disabled={isBottomLayer}
                       ref={setLayerActionRef(item.id, "down")}
-                      type="button"
                       onClick={() => moveItemLayer(item.id, -1, "down")}
                     >
-                      Down
-                    </button>
-                    <button
+                      <svg
+                        width="14"
+                        height="14"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <path d="M12 5v14M19 12l-7 7-7-7" />
+                      </svg>
+                    </LayerActionButton>
+                    <LayerActionButton
                       aria-label={`Move ${imageLabel} to bottom layer`}
-                      className="border border-border bg-background px-1 py-1 font-mono text-[10px] text-foreground disabled:opacity-30"
                       disabled={isBottomLayer}
                       ref={setLayerActionRef(item.id, "bottom")}
-                      type="button"
                       onClick={() =>
                         moveItemLayerTo(
                           item.id,
@@ -1257,24 +1299,36 @@ export function App() {
                         )
                       }
                     >
-                      Bottom
-                    </button>
+                      <svg
+                        width="14"
+                        height="14"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <path d="M12 4v12M6 12l6 6 6-6M5 20h14" />
+                      </svg>
+                    </LayerActionButton>
                   </div>
                 </div>
               )
             })}
             {!layout.items.length ? (
-              <p className="p-2 text-sm text-muted-foreground">
+              <p className="p-4 text-center text-sm text-muted-foreground">
                 Open the link from the bot after sending and committing images.
               </p>
             ) : null}
           </div>
         </aside>
 
-        <section className="min-h-0 overflow-hidden bg-muted">
-          <div className="thin-scrollbar h-full min-h-0 overflow-auto p-6">
+        {/* canvas */}
+        <section className="relative flex min-h-0 items-center justify-center overflow-hidden bg-muted/30 bg-[linear-gradient(45deg,var(--border)_25%,transparent_25%,transparent_75%,var(--border)_75,var(--border)),linear-gradient(45deg,var(--border)_25%,transparent_25%,transparent_75%,var(--border)_75,var(--border))] bg-[length:20px_20px] bg-[position:0_0,10px_10px]">
+          <div className="thin-scrollbar h-full w-full overflow-auto p-8">
             <div
-              className="canvas-grid relative origin-top-left border border-border bg-background"
+              className="canvas-grid relative origin-top-left bg-white bg-[linear-gradient(45deg,#f0f0f0_25%,transparent_25%,transparent_75%,#f0f0f0_75,#f0f0f0),linear-gradient(45deg,#f0f0f0_25%,transparent_25%,transparent_75%,#f0f0f0_75,#f0f0f0)] bg-[length:20px_20px] bg-[position:0_0,10px_10px] shadow-xl"
               style={{
                 width: layout.canvas.width * viewportScale,
                 height: layout.canvas.height * viewportScale,
@@ -1286,11 +1340,15 @@ export function App() {
                 }
               }}
             >
-              <ResizeHandles
-                active={false}
-                labelPrefix="Canvas"
-                onPointerDown={(event, edge) => startCanvasResize(event, edge)}
-              />
+              <div className="pointer-events-none absolute inset-0 z-2000">
+                <ResizeHandles
+                  active={false}
+                  labelPrefix="Canvas"
+                  onPointerDown={(event, edge) =>
+                    startCanvasResize(event, edge)
+                  }
+                />
+              </div>
 
               {layout.items.map((item, index) => {
                 const isSelected = selectedIdSet.has(item.id)
@@ -1300,12 +1358,7 @@ export function App() {
                   <article
                     key={item.id}
                     ref={setCanvasItemRef(item.id)}
-                    className={cn(
-                      "group absolute touch-none border bg-muted transition-colors",
-                      isSelected || isLinked
-                        ? "border-(--image-marker)"
-                        : "border-border"
-                    )}
+                    className="group absolute touch-none bg-muted"
                     style={{
                       left: item.x * viewportScale,
                       top: item.y * viewportScale,
@@ -1322,13 +1375,13 @@ export function App() {
                     }}
                   >
                     {showCanvasMarkers || isLinked ? (
-                      <span className="pointer-events-none absolute top-1 left-1 z-10 grid h-5 min-w-6 place-items-center border-2 border-background bg-(--image-marker) px-1 font-mono text-[10px] font-semibold text-(--image-marker-foreground)">
+                      <span className="pointer-events-none absolute top-1 left-1 z-20 grid h-5 min-w-6 place-items-center bg-[var(--image-marker)] px-1 font-mono text-[10px] font-bold text-white shadow-sm">
                         {getImageMarkerCode(index)}
                       </span>
                     ) : null}
                     <div className="absolute inset-0 overflow-hidden">
-                      <div className="absolute inset-0 grid place-items-center bg-muted px-3 text-center text-muted-foreground">
-                        <span className="font-mono text-[10px] tracking-[0.18em] uppercase">
+                      <div className="absolute inset-0 grid place-items-center bg-muted/50 px-3 text-center text-muted-foreground">
+                        <span className="font-mono text-[10px] tracking-[0.18em] uppercase opacity-50">
                           {getImageMarkerCode(index)}
                         </span>
                       </div>
@@ -1346,6 +1399,14 @@ export function App() {
                         }}
                       />
                     </div>
+                    <span
+                      className={cn(
+                        "pointer-events-none absolute inset-0 z-10 border-2 border-[var(--image-marker)] opacity-0 transition-opacity",
+                        isSelected || isLinked
+                          ? "opacity-100"
+                          : "group-hover:opacity-100"
+                      )}
+                    />
                   </article>
                 )
               })}
@@ -1357,7 +1418,7 @@ export function App() {
                 return (
                   <div
                     key={`${item.id}-handles`}
-                    className="pointer-events-none absolute z-1000"
+                    className="pointer-events-none absolute"
                     style={{
                       left: item.x * viewportScale,
                       top: item.y * viewportScale,
@@ -1381,64 +1442,78 @@ export function App() {
           </div>
         </section>
 
-        <aside className="grid min-h-0 bg-card text-card-foreground lg:grid-rows-[auto_auto_minmax(0,1fr)] lg:border-l lg:border-border">
-          <section className="border-b border-border">
-            <PanelHeader title="Canvas" meta="drag canvas edge to resize" />
-            <div className="grid grid-cols-2 gap-2 p-3">
-              <NumberField
-                label="Width"
-                value={layout.canvas.width}
-                onChange={(value) => updateCanvasSize("width", value)}
-              />
-              <NumberField
-                label="Height"
-                value={layout.canvas.height}
-                onChange={(value) => updateCanvasSize("height", value)}
-              />
-            </div>
-            <div className="space-y-2 border-t border-border p-3">
-              <p className="font-mono text-[10px] tracking-[0.24em] text-muted-foreground uppercase">
-                Aspect ratio
-              </p>
-              <div className="grid grid-cols-4 gap-1.5">
-                <Button
-                  className="font-mono"
-                  size="xs"
-                  variant={activeRatio === "Original" ? "default" : "outline"}
-                  onClick={restoreOriginalCanvas}
-                >
-                  Original
-                </Button>
-                {ASPECT_RATIO_PRESETS.map((preset) => (
-                  <Button
-                    key={preset.label}
-                    className="font-mono"
-                    size="xs"
-                    variant={
-                      activeRatio === preset.label ? "default" : "outline"
-                    }
-                    onClick={() => applyAspectRatioPreset(preset)}
-                  >
-                    {preset.label}
-                  </Button>
-                ))}
+        {/* right sidebar properties */}
+        <aside className="flex min-h-0 flex-col overflow-y-auto border-l bg-card text-card-foreground">
+          {/* canvas section */}
+          <section className="border-b">
+            <PanelHeader title="Canvas" meta="Drag edges to resize" />
+            <div className="space-y-4 p-4">
+              <div className="grid grid-cols-2 gap-2">
+                <NumberField
+                  label="Width"
+                  value={layout.canvas.width}
+                  onChange={(value) => updateCanvasSize("width", value)}
+                />
+                <NumberField
+                  label="Height"
+                  value={layout.canvas.height}
+                  onChange={(value) => updateCanvasSize("height", value)}
+                />
               </div>
-            </div>
-            <div className="border-t border-border p-3">
-              <button
-                className="grid w-full grid-cols-[minmax(0,1fr)_auto] items-center border border-border bg-background px-2 py-2 text-left text-sm text-foreground hover:bg-accent hover:text-accent-foreground"
-                type="button"
-                onClick={() => setShowCanvasMarkers((current) => !current)}
-              >
-                <span>Canvas markers</span>
-                <span className="font-mono text-[10px] text-muted-foreground">
-                  {showCanvasMarkers ? "on" : "off"}
-                </span>
-              </button>
+
+              <div className="space-y-2">
+                <p className="text-xs font-medium text-muted-foreground">
+                  Aspect Ratio
+                </p>
+                <div className="grid grid-cols-4 gap-1.5">
+                  <Button
+                    className="h-8 text-xs"
+                    size="sm"
+                    variant={activeRatio === "Original" ? "default" : "outline"}
+                    onClick={restoreOriginalCanvas}
+                  >
+                    Original
+                  </Button>
+                  {ASPECT_RATIO_PRESETS.map((preset) => (
+                    <Button
+                      key={preset.label}
+                      className="h-8 text-xs"
+                      size="sm"
+                      variant={
+                        activeRatio === preset.label ? "default" : "outline"
+                      }
+                      onClick={() => applyAspectRatioPreset(preset)}
+                    >
+                      {preset.label}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between border p-2">
+                <span className="text-sm">Canvas markers</span>
+                <Button
+                  className={cn(
+                    "relative h-5 w-9 rounded-full transition-colors",
+                    showCanvasMarkers ? "bg-primary" : "bg-muted"
+                  )}
+                  onClick={() => setShowCanvasMarkers((current) => !current)}
+                >
+                  <span
+                    className={cn(
+                      "absolute h-4 w-4 rounded-full bg-white transition-transform",
+                      showCanvasMarkers
+                        ? "translate-x-2"
+                        : "translate-x-[-0.5rem]"
+                    )}
+                  />
+                </Button>
+              </div>
             </div>
           </section>
 
-          <section className="border-b border-border">
+          {/* selection section */}
+          <section className="border-b">
             <PanelHeader
               title="Selection"
               meta={
@@ -1450,7 +1525,7 @@ export function App() {
               }
             />
             {selectedItem ? (
-              <div className="space-y-3 p-3">
+              <div className="space-y-3 p-4">
                 <div className="grid grid-cols-2 gap-2">
                   <NumberField
                     label="X"
@@ -1475,33 +1550,96 @@ export function App() {
                 </div>
               </div>
             ) : (
-              <p className="p-3 text-sm text-muted-foreground">
-                No image selected.
+              <p className="p-4 text-sm text-muted-foreground">
+                No image selected. Click on an image to edit its properties.
               </p>
             )}
           </section>
 
-          <section className="min-h-0 border-b border-border">
-            <PanelHeader title="Result" meta="save edits, then build image" />
-            <div className="space-y-2 p-3 text-sm text-muted-foreground">
-              <p>Move images directly on the canvas.</p>
-              <p>Ctrl/Cmd click toggles selection. Shift click adds.</p>
-              <p>Drag image or canvas edges to resize.</p>
-              <p>Hold Shift while corner-resizing to keep image ratio.</p>
-              <p>Use arrow keys for small position changes.</p>
+          {/* info / help section */}
+          <section className="flex-1 p-4">
+            <h3 className="mb-2 text-sm font-medium">Shortcuts</h3>
+            <div className="space-y-2 text-xs text-muted-foreground">
+              <p className="flex items-center justify-between">
+                <span>Move selected</span>
+                <kbd className="bg-muted px-1.5 py-0.5 font-mono">Arrows</kbd>
+              </p>
+              <p className="flex items-center justify-between">
+                <span>Move faster</span>
+                <kbd className="bg-muted px-1.5 py-0.5 font-mono">
+                  Shift + Arrows
+                </kbd>
+              </p>
+              <p className="flex items-center justify-between">
+                <span>Add to selection</span>
+                <kbd className="bg-muted px-1.5 py-0.5 font-mono">
+                  Shift Click
+                </kbd>
+              </p>
+              <p className="flex items-center justify-between">
+                <span>Keep ratio on resize</span>
+                <kbd className="bg-muted px-1.5 py-0.5 font-mono">
+                  Shift Drag
+                </kbd>
+              </p>
             </div>
           </section>
         </aside>
       </div>
+
+      {/* status bar */}
+      <footer className="flex items-center justify-between border-t bg-card px-4 py-1.5 text-xs text-muted-foreground">
+        <div className="flex items-center gap-2">
+          <div
+            className={cn(
+              "h-2 w-2 rounded-full",
+              status.includes("...")
+                ? "animate-pulse bg-yellow-500"
+                : status.includes("Failed") || status.includes("error")
+                  ? "bg-red-500"
+                  : "bg-green-500"
+            )}
+          />
+          <span>{status}</span>
+        </div>
+        <div className="hidden items-center gap-4 md:flex">
+          <span>
+            Canvas: {layout.canvas.width} x {layout.canvas.height}px
+          </span>
+          {selectedItem && (
+            <span>
+              Selection: {selectedItem.width} x {selectedItem.height}px
+            </span>
+          )}
+        </div>
+      </footer>
     </main>
   )
 }
 
+const LayerActionButton = React.forwardRef<
+  HTMLButtonElement,
+  React.ButtonHTMLAttributes<HTMLButtonElement>
+>(({ className, ...props }, ref) => (
+  <button
+    ref={ref}
+    className={cn(
+      "flex items-center justify-center p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground disabled:opacity-30 disabled:hover:bg-transparent",
+      className
+    )}
+    type="button"
+    {...props}
+  />
+))
+LayerActionButton.displayName = "LayerActionButton"
+
 function PanelHeader({ title, meta }: { title: string; meta: string }) {
   return (
-    <div className="border-b border-border px-3 py-2">
+    <div className="flex items-center justify-between border-b px-4 py-2">
       <p className="text-sm font-medium">{title}</p>
-      <p className="font-mono text-[10px] text-muted-foreground">{meta}</p>
+      <p className="text-[10px] tracking-wider text-muted-foreground uppercase">
+        {meta}
+      </p>
     </div>
   )
 }
@@ -1627,20 +1765,27 @@ function NumberField({
 }) {
   return (
     <label className="block">
-      <span className="mb-1 block font-mono text-[10px] tracking-[0.24em] text-muted-foreground uppercase">
+      <span className="mb-1 block text-[10px] tracking-wider text-muted-foreground uppercase">
         {label}
       </span>
-      <input
-        className="h-10 w-full border border-border bg-background px-3 font-mono text-sm text-foreground outline-none focus:border-primary"
-        inputMode="numeric"
-        min={0}
-        type="number"
-        value={Math.round(value)}
-        onChange={(event) => onChange(Number(event.target.value))}
-      />
+      <div className="relative">
+        <input
+          className="h-9 w-full rounded-md border border-input bg-transparent px-3 pr-8 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:ring-1 focus-visible:ring-ring focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+          inputMode="numeric"
+          min={0}
+          type="number"
+          value={Math.round(value)}
+          onChange={(event) => onChange(Number(event.target.value))}
+        />
+        <span className="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 text-[10px] text-muted-foreground">
+          px
+        </span>
+      </div>
     </label>
   )
 }
+
+// Helper functions remain exactly the same from here down...
 
 function resizeCanvasLayout(
   drag: Extract<DragState, { mode: "canvas-resize" }>,
@@ -2270,7 +2415,7 @@ function clamp(value: number, min: number, max: number): number {
 }
 
 function round(value: number): number {
-  return Math.round(value * 1_000_000) * 0.000_001
+  return Math.round(value * 1_000_000) * 1_000_000
 }
 
 export default App
