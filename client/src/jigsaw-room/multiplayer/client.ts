@@ -5,6 +5,8 @@ import type {
   ServerToClientMessage,
 } from "@jigtable/jigsaw-core/multiplayer/protocol"
 
+import { API_BASE_URL, JIGSAW_WS_ENABLED, JIGSAW_WS_URL } from "@/config"
+
 const LOCAL_SESSION_STORAGE_KEY = "jigsaw-room-session"
 const LEGACY_PLAYER_STORAGE_KEY = "jigsaw-room-player"
 const PLAYER_NAME_MAX_LENGTH = 24
@@ -112,7 +114,7 @@ export function readLocalJigsawSession(): JigsawSession {
 export async function restoreJigsawSession(
   fallback: JigsawSession
 ): Promise<JigsawSession> {
-  const response = await fetch(`${getApiBaseUrl()}/api/jigsaws/sessions`, {
+  const response = await fetch(`${API_BASE_URL}/api/jigsaws/sessions`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ token: fallback.token, player: fallback.player }),
@@ -141,7 +143,7 @@ export async function saveJigsawSessionProfile(
   profile: Pick<JigsawPlayer, "name" | "color">
 ): Promise<JigsawSession> {
   const response = await fetch(
-    `${getApiBaseUrl()}/api/jigsaws/sessions/current`,
+    `${API_BASE_URL}/api/jigsaws/sessions/current`,
     {
       method: "PATCH",
       headers: {
@@ -325,10 +327,6 @@ function createId(prefix: string): string {
   return `${prefix}_${random.replace(/-/g, "")}`
 }
 
-function getApiBaseUrl(): string {
-  return import.meta.env.VITE_API_URL ?? "http://localhost:3000"
-}
-
 function readApiError(value: unknown): string | null {
   return isRecord(value) && typeof value.error === "string" ? value.error : null
 }
@@ -349,16 +347,15 @@ function createDisabledClient(): JigsawMultiplayerClient {
 }
 
 function getJigsawWebSocketUrl(): string | null {
-  if (import.meta.env.VITE_JIGSAW_WS_ENABLED === "false") {
+  if (!JIGSAW_WS_ENABLED) {
     return null
   }
 
-  if (import.meta.env.VITE_JIGSAW_WS_URL) {
-    return import.meta.env.VITE_JIGSAW_WS_URL
+  if (JIGSAW_WS_URL) {
+    return JIGSAW_WS_URL
   }
 
-  const apiUrl = import.meta.env.VITE_API_URL ?? "http://localhost:3000"
-  const parsed = new URL(apiUrl, window.location.href)
+  const parsed = new URL(API_BASE_URL, window.location.href)
   parsed.protocol = parsed.protocol === "https:" ? "wss:" : "ws:"
   parsed.pathname = "/api/jigsaw/ws"
   parsed.search = ""
