@@ -112,12 +112,17 @@ export function readLocalJigsawSession(): JigsawSession {
 }
 
 export async function restoreJigsawSession(
-  fallback: JigsawSession
+  fallback: JigsawSession,
+  roomId?: string
 ): Promise<JigsawSession> {
   const response = await fetch(`${API_BASE_URL}/api/jigsaws/sessions`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ token: fallback.token, player: fallback.player }),
+    body: JSON.stringify({
+      token: fallback.token,
+      player: fallback.player,
+      roomId,
+    }),
   })
   const payload = await response.json().catch(() => null)
 
@@ -142,17 +147,14 @@ export async function saveJigsawSessionProfile(
   sessionToken: string,
   profile: Pick<JigsawPlayer, "name" | "color">
 ): Promise<JigsawSession> {
-  const response = await fetch(
-    `${API_BASE_URL}/api/jigsaws/sessions/current`,
-    {
-      method: "PATCH",
-      headers: {
-        Authorization: `Bearer ${sessionToken}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ player: profile }),
-    }
-  )
+  const response = await fetch(`${API_BASE_URL}/api/jigsaws/sessions/current`, {
+    method: "PATCH",
+    headers: {
+      Authorization: `Bearer ${sessionToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ player: profile }),
+  })
   const payload = await response.json().catch(() => null)
 
   if (!response.ok) {

@@ -3,6 +3,17 @@ import * as React from "react"
 import { Button } from "@/components/ui/button"
 import { API_BASE_URL } from "@/config"
 import { cn } from "@/lib/utils"
+import {
+  fetchAuthMe,
+  getTelegramBotUsername,
+  getTelegramLoginWidgetBlocker,
+  hasTelegramWebAppInitData,
+  loginTelegramWebApp,
+  loginTelegramWidget,
+  readLocalAuthSession,
+  saveLocalAuthSession,
+  type AuthSession,
+} from "./jigsaw-room/multiplayer/auth"
 
 type CanvasLayout = {
   canvas: {
@@ -199,6 +210,7 @@ const EMPTY_LAYOUT: CanvasLayout = {
 }
 
 export function App() {
+  const telegramWidgetRef = React.useRef<HTMLDivElement | null>(null)
   const [layout, setLayout] = React.useState<CanvasLayout>(EMPTY_LAYOUT)
   const [selectedIds, setSelectedIds] = React.useState<string[]>([])
   const [zoom, setZoom] = React.useState(DEFAULT_ZOOM)
@@ -217,6 +229,17 @@ export function App() {
   const [remoteBatch, setRemoteBatch] = React.useState<RemoteBatch | null>(() =>
     getInitialRemoteBatch()
   )
+  const [authSession, setAuthSession] = React.useState<AuthSession | null>(() =>
+    readLocalAuthSession()
+  )
+  const [authStatus, setAuthStatus] = React.useState(() =>
+    readLocalAuthSession()
+      ? "Checking Telegram session..."
+      : "Telegram login required"
+  )
+  const [authLoading, setAuthLoading] = React.useState(false)
+  const [telegramWidgetVisible, setTelegramWidgetVisible] =
+    React.useState(false)
   const [renderFormat, setRenderFormat] = React.useState<RenderFormat>("png")
   const dragRef = React.useRef<DragState | null>(null)
   const didLoadRemoteRef = React.useRef(false)
@@ -325,14 +348,90 @@ export function App() {
   })
 
   React.useEffect(() => {
+    const saved = readLocalAuthSession()
+
+    if (!saved) {
+      return
+    }
+
+    let disposed = false
+
+    void fetchAuthMe(saved.token)
+      .then((session) => {
+        if (disposed) {
+          return
+        }
+
+        saveLocalAuthSession(session)
+        setAuthSession(session)
+        setAuthStatus("Telegram session restored")
+      })
+      .catch((error) => {
+        if (!disposed) {
+          setAuthSession(null)
+          setAuthStatus(readErrorMessage(error))
+        }
+      })
+      .finally(() => {
+        if (!disposed) {
+          setAuthLoading(false)
+        }
+      })
+
+    return () => {
+      disposed = true
+    }
+  }, [])
+
+  React.useEffect(() => {
+    const host = telegramWidgetRef.current
+    const botUsername = getTelegramBotUsername()
+
+    if (!telegramWidgetVisible || !host || !botUsername) {
+      return
+    }
+
+    const callbackName = "onCanvasTelegramAuth"
+    const callbacks = window as unknown as Record<
+      string,
+      (payload: Record<string, unknown>) => void
+    >
+    const script = document.createElement("script")
+
+    host.replaceChildren()
+    callbacks[callbackName] = (payload) => {
+      void loginWithTelegramWidget(payload)
+    }
+
+    script.async = true
+    script.src = "https://telegram.org/js/telegram-widget.js?22"
+    script.setAttribute("data-telegram-login", botUsername)
+    script.setAttribute("data-size", "medium")
+    script.setAttribute("data-userpic", "false")
+    script.setAttribute("data-request-access", "write")
+    script.setAttribute("data-onauth", `${callbackName}(user)`)
+    host.appendChild(script)
+
+    return () => {
+      delete callbacks[callbackName]
+      host.replaceChildren()
+    }
+  }, [telegramWidgetVisible])
+
+  React.useEffect(() => {
     if (didLoadRemoteRef.current || !remoteBatch) {
       return
     }
 
-    didLoadRemoteRef.current = true
-    setStatus("Loading images...")
+    if (!authSession) {
+      queueMicrotask(() => setStatus("Telegram login required"))
+      return
+    }
 
-    void fetchBatchLayout(remoteBatch)
+    didLoadRemoteRef.current = true
+    queueMicrotask(() => setStatus("Loading images..."))
+
+    void fetchBatchLayout(remoteBatch, authSession.token)
       .then((payload) => {
         const layout = normalizeCanvasLayout(payload.layout)
 
@@ -347,11 +446,12 @@ export function App() {
         setStatus("Ready to edit")
       })
       .catch((error: unknown) => {
+        didLoadRemoteRef.current = false
         setStatus(
           error instanceof Error ? error.message : "Failed to load images"
         )
       })
-  }, [remoteBatch])
+  }, [authSession, remoteBatch])
 
   React.useEffect(() => {
     const handlePointerMove = (event: PointerEvent) => {
@@ -914,6 +1014,61 @@ export function App() {
     setStatus("Layer reordered")
   }
 
+  async function loginWithTelegram(): Promise<void> {
+    if (!hasTelegramWebAppInitData()) {
+      if (!getTelegramBotUsername()) {
+        setAuthStatus(
+          "Set VITE_TELEGRAM_BOT_USERNAME to bot username ending with bot"
+        )
+        return
+      }
+
+      const widgetBlocker = getTelegramLoginWidgetBlocker()
+
+      if (widgetBlocker) {
+        setAuthStatus(widgetBlocker)
+        return
+      }
+
+      setTelegramWidgetVisible(true)
+      setAuthStatus("Confirm in Telegram widget")
+      return
+    }
+
+    setAuthLoading(true)
+    setAuthStatus("Telegram WebApp login...")
+
+    try {
+      const session = await loginTelegramWebApp()
+
+      setAuthSession(session)
+      setAuthStatus("Telegram linked")
+    } catch (error) {
+      setAuthStatus(readErrorMessage(error))
+    } finally {
+      setAuthLoading(false)
+    }
+  }
+
+  async function loginWithTelegramWidget(
+    payload: Record<string, unknown>
+  ): Promise<void> {
+    setAuthLoading(true)
+    setAuthStatus("Telegram widget login...")
+
+    try {
+      const session = await loginTelegramWidget(payload)
+
+      setAuthSession(session)
+      setTelegramWidgetVisible(false)
+      setAuthStatus("Telegram linked")
+    } catch (error) {
+      setAuthStatus(readErrorMessage(error))
+    } finally {
+      setAuthLoading(false)
+    }
+  }
+
   async function loadLayoutFromCode() {
     const batch = parseRemoteBatchInput(loadCode)
 
@@ -922,10 +1077,15 @@ export function App() {
       return
     }
 
+    if (!authSession) {
+      setStatus("Telegram login required")
+      return
+    }
+
     setStatus("Loading images...")
 
     try {
-      const payload = await fetchBatchLayout(batch)
+      const payload = await fetchBatchLayout(batch, authSession.token)
       const layout = normalizeCanvasLayout(payload.layout)
 
       setOriginalCanvas(layout.canvas)
@@ -975,10 +1135,20 @@ export function App() {
       return
     }
 
+    if (!authSession) {
+      setStatus("Telegram login required")
+      return
+    }
+
     setStatus("Saving edits...")
 
     try {
-      const payload = await requestBatchLayout(remoteBatch, "PATCH", { layout })
+      const payload = await requestBatchLayout(
+        remoteBatch,
+        authSession.token,
+        "PATCH",
+        { layout }
+      )
       applyBatchLayout(payload, remoteBatch.token)
       setStatus("Edits saved")
     } catch (error) {
@@ -992,6 +1162,11 @@ export function App() {
       return
     }
 
+    if (!authSession) {
+      setStatus("Telegram login required")
+      return
+    }
+
     setStatus(`Building ${renderFormat} image...`)
 
     try {
@@ -999,7 +1174,10 @@ export function App() {
         `${API_BASE_URL}/api/batches/${remoteBatch.batchId}/render?token=${encodeURIComponent(remoteBatch.token)}`,
         {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            Authorization: `Bearer ${authSession.token}`,
+            "Content-Type": "application/json",
+          },
           body: JSON.stringify({ format: renderFormat, layout }),
         }
       )
@@ -1083,6 +1261,7 @@ export function App() {
           />
           <Button
             className="h-9"
+            disabled={!authSession}
             size="sm"
             variant="secondary"
             onClick={() => void loadLayoutFromCode()}
@@ -1090,11 +1269,31 @@ export function App() {
             Load Layout
           </Button>
 
+          <Button
+            className="h-9"
+            disabled={authLoading}
+            size="sm"
+            variant={authSession ? "outline" : "default"}
+            onClick={() => void loginWithTelegram()}
+          >
+            {authLoading
+              ? "Loading..."
+              : authSession
+                ? "TG linked"
+                : "Telegram login"}
+          </Button>
+          <span className="max-w-48 truncate text-xs text-muted-foreground">
+            {authSession?.user.displayName ?? authStatus}
+          </span>
+          {telegramWidgetVisible ? (
+            <div ref={telegramWidgetRef} className="min-h-8" />
+          ) : null}
+
           <div className="mx-2 hidden h-8 w-px bg-border md:block" />
 
           <Button
             className="h-9"
-            disabled={!remoteBatch}
+            disabled={!remoteBatch || !authSession}
             size="sm"
             variant="outline"
             onClick={saveRemoteLayout}
@@ -1120,7 +1319,7 @@ export function App() {
           </div>
 
           <Button
-            disabled={!remoteBatch}
+            disabled={!remoteBatch || !authSession}
             size="sm"
             onClick={renderRemoteLayout}
           >
@@ -2385,20 +2584,32 @@ function jigsawCreateUrl(
   return `/jigsaw/new?${params}`
 }
 
-async function fetchBatchLayout(batch: RemoteBatch): Promise<ApiBatchLayout> {
-  return requestBatchLayout(batch, "GET")
+async function fetchBatchLayout(
+  batch: RemoteBatch,
+  authToken: string
+): Promise<ApiBatchLayout> {
+  return requestBatchLayout(batch, authToken, "GET")
 }
 
 async function requestBatchLayout(
   batch: RemoteBatch,
+  authToken: string,
   method: "GET" | "PATCH",
   body?: unknown
 ): Promise<ApiBatchLayout> {
+  const headers: Record<string, string> = {
+    Authorization: `Bearer ${authToken}`,
+  }
+
+  if (body) {
+    headers["Content-Type"] = "application/json"
+  }
+
   const response = await fetch(
     `${API_BASE_URL}/api/batches/${batch.batchId}/layout?token=${encodeURIComponent(batch.token)}`,
     {
       method,
-      headers: body ? { "Content-Type": "application/json" } : undefined,
+      headers,
       body: body ? JSON.stringify(body) : undefined,
     }
   )
@@ -2418,6 +2629,10 @@ async function readJsonResponse<T>(response: Response): Promise<T> {
   }
 
   return payload as T
+}
+
+function readErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : "Request failed"
 }
 
 function getArrowOffset(

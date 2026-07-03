@@ -6,7 +6,9 @@ import { ErrorBoundary } from "./error-boundary"
 import "./index.css"
 
 const App = lazy(() => import("./App.tsx"))
-const JigsawProfileApp = lazy(() => import("./jigsaw-room/JigsawProfileApp.tsx"))
+const JigsawProfileApp = lazy(
+  () => import("./jigsaw-room/JigsawProfileApp.tsx")
+)
 const JigsawRoomApp = lazy(() => import("./jigsaw-room/JigsawRoomApp.tsx"))
 const JigsawRoomCreateApp = lazy(
   () => import("./jigsaw-room/JigsawRoomCreateApp.tsx")
@@ -30,7 +32,7 @@ export function RootApp() {
   }
 
   if (pathname === "/jigsaw") {
-    return <JigsawRoomApp />
+    return <JigsawRoomCreateApp />
   }
 
   return <App />
