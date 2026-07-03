@@ -92,7 +92,7 @@ export function getTelegramLoginWidgetBlocker(): string | null {
 }
 
 export async function loginTelegramWebApp(
-  anonSessionToken: string
+  anonSessionToken?: string
 ): Promise<AuthSession> {
   const initData = window.Telegram?.WebApp?.initData
 
@@ -108,7 +108,7 @@ export async function loginTelegramWebApp(
 
 export async function loginTelegramWidget(
   payload: Record<string, unknown>,
-  anonSessionToken: string
+  anonSessionToken?: string
 ): Promise<AuthSession> {
   return requestAuth("/api/auth/telegram-widget", {
     ...payload,

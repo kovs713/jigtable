@@ -12,9 +12,7 @@ import {
   getGroupAnchor,
   moveGroupToAnchor,
 } from "@jigtable/jigsaw-core/jigsaw/groups"
-import {
-  scatterAllPieces,
-} from "@jigtable/jigsaw-core/jigsaw/scatter"
+import { scatterAllPieces } from "@jigtable/jigsaw-core/jigsaw/scatter"
 import type {
   JigsawState,
   JigsawStats,
@@ -79,7 +77,6 @@ import "./jigsaw-room.css"
 
 const JIGSAW_IMAGE_URL = "/test_jigsaw.png"
 const ACTIVE_JIGSAW_CONFIG = JIGSAW_CONFIG_2000
-const DEV_ROOM_ID = "dev-room"
 const GROUP_MOVE_SEND_INTERVAL_MS = 66
 
 type JigsawSessionStatus =
@@ -130,7 +127,7 @@ export function JigsawRoomApp({ roomId }: JigsawRoomAppProps) {
   const roomTimerRef = useRef<JigsawRoomTimer>(createInitialTimer())
   const lastMoveSentAtRef = useRef(0)
   const highlightTimerRef = useRef<number | null>(null)
-  const activeRoomId = roomId || DEV_ROOM_ID
+  const activeRoomId = roomId ?? ""
   const [ready, setReady] = useState(false)
   const [previewVisible, setPreviewVisible] = useState(false)
   const [piecesHighlighted, setPiecesHighlighted] = useState(false)
@@ -179,7 +176,13 @@ export function JigsawRoomApp({ roomId }: JigsawRoomAppProps) {
 
     async function boot() {
       setReady(false)
-      setRoomStatus(roomId ? "Loading room..." : "Starting Pixi room...")
+      setRoomStatus(roomId ? "Loading room..." : "Invite link required")
+
+      if (!roomId) {
+        setConnectionStatus("unavailable")
+        return
+      }
+
       const app = await createJigsawPixiApp(bootHost)
 
       try {
@@ -194,7 +197,7 @@ export function JigsawRoomApp({ roomId }: JigsawRoomAppProps) {
         setSessionMessage("")
 
         try {
-          activeSession = await restoreJigsawSession(activeSession)
+          activeSession = await restoreJigsawSession(activeSession, roomId)
 
           if (disposed) {
             destroyJigsawPixiApp(app)
@@ -1001,9 +1004,12 @@ export function JigsawRoomApp({ roomId }: JigsawRoomAppProps) {
       </dl>
 
       <div className="jigsaw-room__hint">
-        Drag pieces. Wheel zooms to cursor. Empty/solved/middle/right drag pans.
-        Space preview. Shift+Space pause. Drop near the board or a true neighbor
-        to snap.
+        Drag pieces. <kbd className="jigsaw-room__shortcut">Wheel</kbd> zooms
+        to cursor. Empty/solved/
+        <kbd className="jigsaw-room__shortcut">middle/right drag</kbd> pans.
+        <kbd className="jigsaw-room__shortcut">Space</kbd> preview.
+        <kbd className="jigsaw-room__shortcut">Shift+Space</kbd> pause. Drop
+        near the board or a true neighbor to snap.
       </div>
 
       {roomTimer.paused ? (

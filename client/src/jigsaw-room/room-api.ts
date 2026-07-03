@@ -13,11 +13,15 @@ export interface CreateJigsawRoomInput {
 }
 
 export async function createJigsawRoom(
-  input: CreateJigsawRoomInput
+  input: CreateJigsawRoomInput,
+  authToken: string
 ): Promise<CreateJigsawRoomResponse> {
   const response = await fetch(`${API_BASE_URL}/api/jigsaws/rooms`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      Authorization: `Bearer ${authToken}`,
+      "Content-Type": "application/json",
+    },
     body: JSON.stringify(input),
   })
 

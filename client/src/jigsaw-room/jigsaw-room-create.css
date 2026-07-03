@@ -92,6 +92,14 @@
     box-shadow 0.2s;
 }
 
+.jigsaw-room__create-form input[type="url"],
+.jigsaw-room__piece-options button,
+.jigsaw-room__create-status,
+.jigsaw-room__share-box code,
+.jigsaw-room__share-box p {
+  font-family: var(--font-mono);
+}
+
 .jigsaw-room__create-form input:focus-visible {
   outline: none;
   border-color: var(--primary);
@@ -176,6 +184,9 @@
 }
 
 .jigsaw-room__create-status {
+  display: flex;
+  align-items: center;
+  justify-items: center;
   min-height: 1.2em;
   margin: 0;
   color: var(--muted-foreground);
