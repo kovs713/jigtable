@@ -22,9 +22,9 @@ VITE_API_URL=https://api.jigtable.ru
 
 1. Install Docker Engine and Docker Compose plugin.
 2. Open firewall ports `22`, `80`, and `443`.
-3. Create `/deploy/jigtable` and make the deploy user own it.
-4. Copy `deploy/.env.example` to `/opt/jigtable/.env` and fill real values.
-5. Optional dry-run: copy `deploy/.env.dev.example` to `/opt/jigtable/.env.dev`.
+3. Create `/ops/jigtable` and make the deploy user own it.
+4. Copy `ops/.env.example` to `/opt/jigtable/.env` and fill real values.
+5. Optional dry-run: copy `ops/.env.dev.example` to `/opt/jigtable/.env.dev`.
 6. Keep `DB_URL` pointed at `postgres:5432` inside Docker network.
 7. Add the deploy user to the `docker` group.
 8. Add GitHub secrets `VPS_HOST`, `VPS_USER`, and `VPS_SSH_KEY`.
@@ -81,13 +81,13 @@ S3_BUCKET=<s3-bucket>
 ## Local Compose Smoke Test
 
 ```bash
-cp deploy/.env.example deploy/.env
+cp ops/.env.example ops/.env
 SERVER_IMAGE=jigtable-server:local docker build -f server/Dockerfile -t jigtable-server:local .
-cd deploy && SERVER_IMAGE=jigtable-server:local docker compose -f docker-compose.prod.yml up
+cd ops && SERVER_IMAGE=jigtable-server:local docker compose -f docker-compose.prod.yml up
 ```
 
 ## Compose Config Check
 
 ```bash
-JIGTABLE_ENV_FILE=.env.example SERVER_IMAGE=jigtable-server:local POSTGRES_USER=postgres POSTGRES_PASSWORD=postgres POSTGRES_DB=jigtable docker compose -f deploy/docker-compose.prod.yml config
+JIGTABLE_ENV_FILE=.env.example SERVER_IMAGE=jigtable-server:local POSTGRES_USER=postgres POSTGRES_PASSWORD=postgres POSTGRES_DB=jigtable docker compose -f ops/docker-compose.prod.yml config
 ```
