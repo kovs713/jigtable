@@ -14,7 +14,6 @@ import {
 } from "@jigtable/jigsaw-core/jigsaw/groups"
 import {
   scatterAllPieces,
-  scatterUnsolvedGroups,
 } from "@jigtable/jigsaw-core/jigsaw/scatter"
 import type {
   JigsawState,
@@ -130,7 +129,6 @@ export function JigsawRoomApp({ roomId }: JigsawRoomAppProps) {
   const groupLocksRef = useRef(new Map<string, JigsawGroupLock>())
   const roomTimerRef = useRef<JigsawRoomTimer>(createInitialTimer())
   const lastMoveSentAtRef = useRef(0)
-  const shuffleCountRef = useRef(0)
   const highlightTimerRef = useRef<number | null>(null)
   const activeRoomId = roomId || DEV_ROOM_ID
   const [ready, setReady] = useState(false)
@@ -852,22 +850,6 @@ export function JigsawRoomApp({ roomId }: JigsawRoomAppProps) {
       setPiecesHighlighted(false)
       highlightTimerRef.current = null
     }, 900)
-  }
-
-  function shuffleUnsolved(): void {
-    const runtime = runtimeRef.current
-
-    if (!runtime || multiplayerRef.current?.isConnected()) {
-      return
-    }
-
-    shuffleCountRef.current += 1
-    scatterUnsolvedGroups(
-      runtime.state,
-      runtime.state.config.seed + shuffleCountRef.current * 7_919
-    )
-    runtime.pieces.syncAll()
-    refreshStatsNow()
   }
 
   return (

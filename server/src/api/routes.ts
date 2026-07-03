@@ -16,6 +16,7 @@ import {
   batchPhotosSchema,
   PhotoBatchStatus,
 } from "@/infra/db/schemas"
+import { readOriginEnv, readRequiredEnv } from "@/infra/env"
 import { s3Client } from "@/infra/storage"
 import { createJigsawSafeAssetRef } from "@/jigsaw-room/history-store"
 import type { CreateJigsawRoomInput } from "@/jigsaw-room/room-manager"
@@ -51,10 +52,11 @@ function route(handler: (request: BunRequest) => Response | Promise<Response>) {
       return await handler(request)
     } catch (error) {
       console.error("API fatal error", error)
+      const isApiError = error instanceof ApiError
 
       return json(
-        { error: readErrorMessage(error) },
-        error instanceof ApiError ? error.status : 500
+        { error: isApiError ? readErrorMessage(error) : "Internal error" },
+        isApiError ? error.status : 500
       )
     }
   }
@@ -462,7 +464,7 @@ async function readImageSize(
     return { width: 3168, height: 1782 }
   }
 
-  const url = new URL(imageUrl, process.env.CLIENT_URL)
+  const url = new URL(imageUrl, readRequiredEnv("CLIENT_URL"))
 
   if (url.pathname.startsWith("/api/batches/")) {
     const parts = url.pathname.split("/").filter(Boolean)
@@ -478,10 +480,18 @@ async function readImageSize(
     }
   }
 
+  assertJigsawImageFetchAllowed(url)
+
   const response = await fetch(url)
 
   if (!response.ok) {
     throw new ApiError("Jigsaw image is not reachable", 400)
+  }
+
+  const contentLength = response.headers.get("content-length")
+
+  if (contentLength && Number(contentLength) > 25 * 1024 * 1024) {
+    throw new ApiError("Jigsaw image is too large", 400)
   }
 
   const buffer = Buffer.from(await response.arrayBuffer())
@@ -492,6 +502,21 @@ async function readImageSize(
   }
 
   return { width: metadata.width, height: metadata.height }
+}
+
+function assertJigsawImageFetchAllowed(url: URL): void {
+  if (url.protocol !== "http:" && url.protocol !== "https:") {
+    throw new ApiError("Jigsaw image URL must be HTTP(S)", 400)
+  }
+
+  const allowedOrigins = new Set([
+    readOriginEnv("CLIENT_URL"),
+    readOriginEnv("PUBLIC_API_URL"),
+  ])
+
+  if (!allowedOrigins.has(url.origin)) {
+    throw new ApiError("Jigsaw image origin is not allowed", 400)
+  }
 }
 
 async function readStoredImageSize(

@@ -7,6 +7,7 @@ import {
   type JigsawSocketData,
 } from "@/jigsaw-room/room-manager"
 import { JigsawSessionStore } from "@/jigsaw-room/session-store"
+import { readPortEnv } from "@/infra/env"
 import { routes } from "./routes"
 import { json } from "./utils"
 
@@ -25,7 +26,7 @@ export const services = {
 }
 
 export function startApiServer(): void {
-  const port = Number(process.env.PORT)
+  const port = readPortEnv("PORT", 3000)
 
   const server = serve<JigsawSocketData>({
     port,
