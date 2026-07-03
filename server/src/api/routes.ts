@@ -1,13 +1,16 @@
 import type { BunRequest } from "bun"
+import { and, asc, eq } from "drizzle-orm"
 import sharp from "sharp"
 
 import {
+  isWhitelistDeniedError,
   readAuthToken,
   TelegramAuthService,
   validateTelegramLoginWidget,
   validateTelegramWebAppInitData,
   type TelegramAuthProfile,
 } from "@/auth"
+import { LIMITS } from "@/config"
 import { normalizeRenderFormat, renderLayout } from "@/features/render-layout"
 import { clientJigsawRoomUrl } from "@/features/urls"
 import { db } from "@/infra/db"
@@ -28,7 +31,6 @@ import type {
   CreateJigsawRoomResponse,
   JigsawSession,
 } from "@jigtable/jigsaw-core"
-import { and, asc, eq } from "drizzle-orm"
 import { services } from "."
 import { CORS_HEADERS } from "./constants"
 import { ApiError } from "./types"
@@ -43,24 +45,9 @@ import {
   readOptionalNonEmptyString,
   readOptionalPositiveInteger,
   renderedUrl,
+  route,
   toApiBatchLayout,
 } from "./utils"
-
-function route(handler: (request: BunRequest) => Response | Promise<Response>) {
-  return async (request: BunRequest) => {
-    try {
-      return await handler(request)
-    } catch (error) {
-      console.error("API fatal error", error)
-      const isApiError = error instanceof ApiError
-
-      return json(
-        { error: isApiError ? readErrorMessage(error) : "Internal error" },
-        isApiError ? error.status : 500
-      )
-    }
-  }
-}
 
 export const routes = {
   "/*": {
@@ -85,7 +72,7 @@ export const routes = {
 
         return authorize(body, profile)
       } catch (error) {
-        throw new ApiError(readErrorMessage(error), 401)
+        throw toAuthApiError(error)
       }
     }),
   },
@@ -103,7 +90,7 @@ export const routes = {
 
         return authorize(body, profile)
       } catch (error) {
-        throw new ApiError(readErrorMessage(error), 401)
+        throw toAuthApiError(error)
       }
     }),
   },
@@ -139,13 +126,37 @@ export const routes = {
 
   "/api/jigsaws/sessions": {
     POST: route(async (request: BunRequest) => {
+      assertRateLimit(
+        request,
+        "jigsaw-session",
+        LIMITS.jigsaw.createSessionPerIpPerMinute
+      )
+
       const body = await readOptionalJson(request)
+      const authUser = await readOptionalAuthenticatedUser(
+        request,
+        services.auth
+      )
+      const roomId = readOptionalNonEmptyString(body?.roomId, "roomId")?.trim()
+
+      if (!authUser && (!roomId || !services.rooms.getRoomSnapshot(roomId))) {
+        throw new ApiError("Invite link required", 401)
+      }
+
       const profile = readJigsawProfileInput(body)
-      const session = await services.sessions.restoreSession({
+      let session = await services.sessions.restoreSession({
         token: readOptionalNonEmptyString(body?.token, "token")?.trim(),
         name: profile.name,
         color: profile.color,
       })
+
+      if (authUser) {
+        session =
+          (await services.sessions.linkSessionToUser(
+            session.token,
+            authUser.id
+          )) ?? session
+      }
 
       return json(toSessionResponse(session))
     }),
@@ -181,6 +192,13 @@ export const routes = {
 
   "/api/jigsaws/rooms": {
     POST: route(async (request: BunRequest) => {
+      await requireAuthenticatedUser(request, services.auth)
+      assertRateLimit(
+        request,
+        "jigsaw-room",
+        LIMITS.jigsaw.createRoomPerIpPerMinute
+      )
+
       const body = await readOptionalJson(request)
       const imageUrl = (
         readOptionalNonEmptyString(body?.imageUrl, "imageUrl") ??
@@ -243,7 +261,7 @@ export const routes = {
       const url = new URL(request.url)
       const batchId = request.params.batchId ?? ""
 
-      const { batch } = await requireBatch(batchId, url)
+      const { batch } = await requireAuthorizedBatch(request, batchId, url)
 
       if (!batch.layout) {
         return json({ error: "Layout is not ready" }, 404)
@@ -268,8 +286,12 @@ export const routes = {
       const url = new URL(request.url)
       const batchId = request.params.batchId ?? ""
 
-      const { batch, photos } = await requireBatch(batchId, url)
-      const layout = normalizeLayout(await request.json(), photos)
+      const { batch, photos } = await requireAuthorizedBatch(
+        request,
+        batchId,
+        url
+      )
+      const layout = normalizeLayout(await readOptionalJson(request), photos)
 
       await db
         .update(batchesSchema)
@@ -310,7 +332,11 @@ export const routes = {
       const url = new URL(request.url)
       const batchId = request.params.batchId ?? ""
 
-      const { batch, photos } = await requireBatch(batchId, url)
+      const { batch, photos } = await requireAuthorizedBatch(
+        request,
+        batchId,
+        url
+      )
       const body = await readOptionalJson(request)
       const layout = body?.layout
         ? normalizeLayout(body.layout, photos)
@@ -422,6 +448,73 @@ async function requireAuthenticatedUser(
   }
 
   return user
+}
+
+const rateLimits = new Map<string, { resetAt: number; count: number }>()
+
+function assertRateLimit(
+  request: BunRequest,
+  scope: string,
+  limit: number
+): void {
+  const now = Date.now()
+  const key = `${scope}:${readClientIp(request)}`
+  const current = rateLimits.get(key)
+
+  if (!current || current.resetAt <= now) {
+    rateLimits.set(key, { resetAt: now + 60_000, count: 1 })
+    return
+  }
+
+  current.count += 1
+
+  if (current.count > limit) {
+    throw new ApiError("Too many requests", 429, "RATE_LIMITED")
+  }
+}
+
+function readClientIp(request: BunRequest): string {
+  return (
+    request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+    request.headers.get("x-real-ip")?.trim() ||
+    "unknown"
+  )
+}
+
+async function readOptionalAuthenticatedUser(
+  request: BunRequest,
+  auth: TelegramAuthService
+) {
+  const token = readAuthToken(request)
+
+  if (!token) {
+    return null
+  }
+
+  const user = await auth.getUser(token)
+
+  if (!user) {
+    throw new ApiError("Auth session not found", 401)
+  }
+
+  return user
+}
+
+async function requireAuthorizedBatch(
+  request: BunRequest,
+  batchId: string,
+  url: URL
+) {
+  await requireAuthenticatedUser(request, services.auth)
+
+  return requireBatch(batchId, url)
+}
+
+function toAuthApiError(error: unknown): ApiError {
+  return new ApiError(
+    readErrorMessage(error),
+    isWhitelistDeniedError(error) ? 403 : 401
+  )
 }
 
 async function requireJigsawSession(

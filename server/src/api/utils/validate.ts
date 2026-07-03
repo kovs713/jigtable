@@ -1,9 +1,11 @@
 import type { BunRequest } from "bun"
 
+import { LIMITS } from "@/config"
 import { publicApiUrl } from "@/features/urls"
 import type { batchesSchema, batchPhotosSchema } from "@/infra/db/schemas"
 import type { ShuffleItem, ShuffleResult } from "@/shuffle"
 import { ApiError } from "../types"
+import { readJsonLimited } from "./read-json-limited"
 
 export function readErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : "Internal error"
@@ -12,19 +14,9 @@ export function readErrorMessage(error: unknown): string {
 export async function readOptionalJson(
   request: BunRequest
 ): Promise<Record<string, unknown> | null> {
-  const text = await request.text()
+  const value = await readJsonLimited(request, { optional: true })
 
-  if (!text.trim()) {
-    return null
-  }
-
-  let value: unknown
-
-  try {
-    value = JSON.parse(text)
-  } catch {
-    throw new ApiError("Request body must be valid JSON", 400)
-  }
+  if (value === undefined) return null
 
   if (!isRecord(value)) {
     throw new ApiError("Request body must be an object", 400)
@@ -151,6 +143,21 @@ export function normalizeLayout(
     width: readPositiveInteger(value.canvas.width, "canvas.width"),
     height: readPositiveInteger(value.canvas.height, "canvas.height"),
   }
+
+  assertCanvasWithinLimits(canvas)
+
+  if (value.items.length > LIMITS.layout.maxItems) {
+    throw new ApiError(
+      `items must contain at most ${LIMITS.layout.maxItems} entries`,
+      400
+    )
+  }
+
+  if (value.items.length > photos.length) {
+    throw new ApiError("items cannot exceed source image count", 400)
+  }
+
+  const seenIds = new Set<string>()
   const items = value.items.map((rawItem, index): ShuffleItem => {
     if (!isRecord(rawItem)) {
       throw new ApiError(`items[${index}] must be an object`, 400)
@@ -163,14 +170,29 @@ export function normalizeLayout(
       throw new ApiError(`Unknown image id ${id}`, 400)
     }
 
+    if (seenIds.has(id)) {
+      throw new ApiError(`Duplicate image id ${id}`, 400)
+    }
+
+    seenIds.add(id)
+
     const width = readPositiveInteger(rawItem.width, `items[${index}].width`)
     const height = readPositiveInteger(rawItem.height, `items[${index}].height`)
+
+    assertItemWithinLimits(index, width, height)
+
     const x = readInteger(rawItem.x, `items[${index}].x`)
     const y = readInteger(rawItem.y, `items[${index}].y`)
     const zIndex =
       rawItem.zIndex === undefined
         ? index
         : readInteger(rawItem.zIndex, `items[${index}].zIndex`)
+    const scale =
+      typeof rawItem.scale === "number" &&
+      Number.isFinite(rawItem.scale) &&
+      rawItem.scale > 0
+        ? rawItem.scale
+        : 1
 
     if (
       x < 0 ||
@@ -188,12 +210,62 @@ export function normalizeLayout(
       y,
       width,
       height,
-      scale: typeof rawItem.scale === "number" ? rawItem.scale : 1,
+      scale,
       zIndex,
     }
   })
 
   return { canvas, items }
+}
+
+function assertCanvasWithinLimits(canvas: ShuffleResult["canvas"]): void {
+  if (canvas.width > LIMITS.layout.maxCanvasWidth) {
+    throw new ApiError(
+      `canvas.width must be at most ${LIMITS.layout.maxCanvasWidth}`,
+      400
+    )
+  }
+
+  if (canvas.height > LIMITS.layout.maxCanvasHeight) {
+    throw new ApiError(
+      `canvas.height must be at most ${LIMITS.layout.maxCanvasHeight}`,
+      400
+    )
+  }
+
+  if (canvas.width * canvas.height > LIMITS.layout.maxCanvasArea) {
+    throw new ApiError(
+      `canvas area must be at most ${LIMITS.layout.maxCanvasArea}`,
+      400
+    )
+  }
+}
+
+function assertItemWithinLimits(
+  index: number,
+  width: number,
+  height: number
+): void {
+  if (width > LIMITS.layout.maxItemWidth) {
+    throw new ApiError(
+      `items[${index}].width must be at most ${LIMITS.layout.maxItemWidth}`,
+      400
+    )
+  }
+
+  if (height > LIMITS.layout.maxItemHeight) {
+    throw new ApiError(
+      `items[${index}].height must be at most ${LIMITS.layout.maxItemHeight}`,
+      400
+    )
+  }
+
+  if (width * height > LIMITS.layout.maxItemArea) {
+    throw new ApiError(
+      `items[${index}] area must be at most ${LIMITS.layout.maxItemArea}`,
+      400
+    )
+  }
 }
 
 export function unwrapLayout(raw: unknown): unknown {

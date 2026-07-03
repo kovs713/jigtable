@@ -17,7 +17,7 @@ export type PhotoBatchStatus =
 export const batchesSchema = pgTable("batches", {
   batchId: uuid("batch_id").primaryKey().defaultRandom(),
   userId: text("user_id").notNull(),
-  editToken: text("edit_token").notNull().default("legacy-token"),
+  editToken: text("edit_token").notNull(),
   status: text("status")
     .default(PhotoBatchStatus.Collecting)
     .$type<PhotoBatchStatus>(),

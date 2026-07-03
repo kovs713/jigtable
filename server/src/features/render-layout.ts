@@ -1,5 +1,7 @@
 import sharp from "sharp"
 
+import { LIMITS } from "@/config"
+import { mapConcurrent } from "@/features/promise-pool"
 import { s3Client } from "@/infra/storage"
 import type { ShuffleResult } from "@/shuffle"
 import { batchRenderObjectKey } from "./object-keys"
@@ -32,8 +34,10 @@ export async function renderLayout(
           (second.item.zIndex ?? second.index) || first.index - second.index
     )
     .map((entry) => entry.item)
-  const composites = await Promise.all(
-    items.map(async (item) => {
+  const composites = await mapConcurrent(
+    items,
+    LIMITS.render.imageFetchConcurrency,
+    async (item) => {
       const source = sourceById.get(item.id)
       if (!source) {
         throw new Error(`Missing source image for ${item.id}`)
@@ -49,7 +53,7 @@ export async function renderLayout(
         left: item.x,
         top: item.y,
       }
-    })
+    }
   )
   const base = sharp({
     create: {
