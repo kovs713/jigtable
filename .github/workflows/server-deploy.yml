@@ -4,8 +4,9 @@ on:
   workflow_dispatch:
     inputs:
       image_tag:
-        description: Image tag. Defaults to commit SHA.
+        description: Image tag.
         required: false
+        default: master
         type: string
 
 permissions:
