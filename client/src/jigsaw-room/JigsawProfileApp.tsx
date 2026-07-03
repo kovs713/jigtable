@@ -190,7 +190,7 @@ export function JigsawProfileApp() {
               href="/jigsaw"
               className="jigsaw-room__btn jigsaw-room__btn--outline"
             >
-              Open room
+              Create room
             </a>
             <button
               type="button"
