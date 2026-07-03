@@ -1,5 +1,6 @@
 import { Bot, session, type Context } from "grammy"
 
+import { isAdminTelegramUserId, isWhitelistedTelegramUserId } from "@/auth"
 import { registerHandlers } from "@/bot/handlers"
 import { drizzleSessionStorage } from "@/bot/session-storage"
 import type { BotContext, SessionData } from "@/bot/types"
@@ -24,6 +25,7 @@ export async function createBot(): Promise<Bot<BotContext>> {
       getSessionKey,
     })
   )
+  bot.use(requireWhitelistedUser)
 
   await registerHandlers(bot)
 
@@ -32,6 +34,40 @@ export async function createBot(): Promise<Bot<BotContext>> {
   })
 
   return bot
+}
+
+async function requireWhitelistedUser(
+  ctx: BotContext,
+  next: () => Promise<void>
+): Promise<void> {
+  const command = readCommand(ctx)
+  const userId = ctx.from?.id
+
+  if (command === "whitelist") {
+    if (userId && (await isAdminTelegramUserId(userId))) {
+      await next()
+    }
+
+    return
+  }
+
+  if (!userId || !(await isWhitelistedTelegramUserId(userId))) {
+    await ctx.reply("доступ только для whitelist")
+    return
+  }
+
+  await next()
+}
+
+function readCommand(ctx: BotContext): string | null {
+  const message = ctx.message
+  const text = message && "text" in message ? message.text?.trim() : undefined
+
+  if (!text?.startsWith("/")) {
+    return null
+  }
+
+  return text.slice(1).split(/\s+/)[0]?.split("@")[0]?.toLowerCase() ?? null
 }
 
 export function startBot(bot: Bot<BotContext>): void {

@@ -1,4 +1,5 @@
 import type { PhotoContext } from "@/bot/types"
+import { LIMITS } from "@/config"
 import { batchPhotoObjectKey } from "@/features/object-keys"
 import { uploadPhotoToObjectKey } from "@/features/upload-photo"
 import { db } from "@/infra/db"
@@ -14,6 +15,16 @@ export async function handlePhoto(ctx: PhotoContext) {
 
   const bestPhoto = photos.at(-1)
   if (!bestPhoto) return
+
+  if (ctx.session.photos.length >= LIMITS.photosPerBatch) {
+    await ctx.reply(`лимит ${LIMITS.photosPerBatch} картинок на batch`)
+    return
+  }
+
+  if (bestPhoto.file_size && bestPhoto.file_size > LIMITS.uploadPhotoBytes) {
+    await ctx.reply("картинка слишком большая")
+    return
+  }
 
   const file = await ctx.api.getFile(bestPhoto.file_id)
   if (!file.file_path) {

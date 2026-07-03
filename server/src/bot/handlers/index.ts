@@ -9,6 +9,7 @@ import { handleReset } from "./reset"
 import { handleStart } from "./start"
 import { handleStatus } from "./status"
 import { handleSticker } from "./sticker"
+import { handleWhitelist } from "./whitelist"
 
 export async function registerHandlers(bot: Bot<BotContext>) {
   await bot.api.setMyCommands([
@@ -27,6 +28,9 @@ export async function registerHandlers(bot: Bot<BotContext>) {
   bot.command("status", handleStatus)
   bot.command("commit", handleCommit)
   bot.command("list", handleList)
+
+  // admin commands
+  bot.command("whitelist", handleWhitelist)
 
   // service
   bot.on("message:photo", handlePhoto)
