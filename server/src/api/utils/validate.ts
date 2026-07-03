@@ -1,9 +1,9 @@
 import type { BunRequest } from "bun"
 
+import { publicApiUrl } from "@/features/urls"
 import type { batchesSchema, batchPhotosSchema } from "@/infra/db/schemas"
 import type { ShuffleItem, ShuffleResult } from "@/shuffle"
 import { ApiError } from "../types"
-import { publicApiUrl } from "@/features/urls"
 
 export function readErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : "Internal error"
@@ -18,7 +18,13 @@ export async function readOptionalJson(
     return null
   }
 
-  const value = JSON.parse(text)
+  let value: unknown
+
+  try {
+    value = JSON.parse(text)
+  } catch {
+    throw new ApiError("Request body must be valid JSON", 400)
+  }
 
   if (!isRecord(value)) {
     throw new ApiError("Request body must be an object", 400)

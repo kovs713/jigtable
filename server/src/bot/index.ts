@@ -3,6 +3,7 @@ import { Bot, session, type Context } from "grammy"
 import { registerHandlers } from "@/bot/handlers"
 import { drizzleSessionStorage } from "@/bot/session-storage"
 import type { BotContext, SessionData } from "@/bot/types"
+import { readRequiredEnv } from "@/infra/env"
 
 const getSessionKey = (ctx: Context): string | undefined =>
   ctx.chat?.id.toString()
@@ -14,7 +15,7 @@ const initialSession = (): SessionData => ({
 })
 
 export async function createBot(): Promise<Bot<BotContext>> {
-  const bot = new Bot<BotContext>(process.env.BOT_TOKEN)
+  const bot = new Bot<BotContext>(readRequiredEnv("BOT_TOKEN"))
 
   bot.use(
     session({
@@ -33,6 +34,9 @@ export async function createBot(): Promise<Bot<BotContext>> {
   return bot
 }
 
-export async function startBot(bot: Bot<BotContext>): Promise<void> {
-  void bot.start()
+export function startBot(bot: Bot<BotContext>): void {
+  void bot.start().catch((error) => {
+    console.error("Bot fatal error", error)
+    process.exit(1)
+  })
 }

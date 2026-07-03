@@ -1,0 +1,79 @@
+name: Server CI
+
+on:
+  pull_request:
+    branches:
+      - master
+    paths:
+      - "server/**"
+      - "packages/**"
+      - "package.json"
+      - "bun.lock"
+      - ".dockerignore"
+      - "ops/**"
+      - ".github/workflows/server-ci.yml"
+      - ".github/workflows/server-deploy.yml"
+  push:
+    branches:
+      - master
+    paths:
+      - "server/**"
+      - "packages/**"
+      - "package.json"
+      - "bun.lock"
+      - ".dockerignore"
+      - "ops/**"
+      - ".github/workflows/server-ci.yml"
+      - ".github/workflows/server-deploy.yml"
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.14
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@1.88.0
+
+      - name: Cache Cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            server/native/shuffle/target
+          key: ${{ runner.os }}-rust-1.88.0-cargo-${{ hashFiles('server/native/shuffle/Cargo.lock') }}
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Check native shuffle
+        working-directory: server
+        run: bun run native:check
+
+      - name: Typecheck
+        working-directory: server
+        run: bun run typecheck
+
+      - name: Test shuffle
+        working-directory: server
+        run: bun run test:shuffle
+
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build server image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: server/Dockerfile
+          platforms: linux/amd64
+          push: false
+          tags: jigtable-server:ci

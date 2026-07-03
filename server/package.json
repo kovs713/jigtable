@@ -9,7 +9,10 @@
     "native:build": "bun run scripts/build-shuffle-native.ts --release",
     "native:check": "cargo check --manifest-path native/shuffle/Cargo.toml",
     "db:push": "bunx --bun drizzle-kit push",
+    "db:generate": "bunx --bun drizzle-kit generate",
+    "db:migrate": "bunx --bun drizzle-kit migrate",
     "format": "prettier --write \"**/*.{ts,tsx,json,md}\"",
+    "typecheck": "bunx tsc --noEmit",
     "test:shuffle": "bun run native:build && bun test src/shuffle/index.test.ts"
   },
   "dependencies": {

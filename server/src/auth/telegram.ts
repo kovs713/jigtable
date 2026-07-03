@@ -5,6 +5,7 @@ import { createHmac, randomBytes, timingSafeEqual } from "node:crypto"
 import { colorFromSeed } from "@/features/color-from-seed"
 import { db } from "@/infra/db"
 import { authSessionsSchema, usersSchema } from "@/infra/db/schemas"
+import { readRequiredEnv } from "@/infra/env"
 
 const AUTH_SESSION_DAYS = 30
 const TELEGRAM_AUTH_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000
@@ -114,8 +115,9 @@ export function validateTelegramWebAppInitData(
 
   const authDate = readAuthDate(params.get("auth_date"))
   const dataCheckString = createTelegramCheckString(params)
+  const botToken = readRequiredEnv("BOT_TOKEN")
   const secret = createHmac("sha256", "WebAppData")
-    .update(process.env.BOT_TOKEN)
+    .update(botToken)
     .digest()
   const expected = createHmac("sha256", secret)
     .update(dataCheckString)
@@ -156,7 +158,7 @@ export function validateTelegramLoginWidget(
   const dataCheckString = entries
     .map(([key, value]) => `${key}=${value}`)
     .join("\n")
-  const secret = SHA256.hash(process.env.BOT_TOKEN)
+  const secret = SHA256.hash(readRequiredEnv("BOT_TOKEN"))
   const expected = createHmac("sha256", secret)
     .update(dataCheckString)
     .digest("hex")
