@@ -71,6 +71,7 @@ type DragState =
       startClientY: number
       startCanvas: CanvasLayout["canvas"]
       startItems: CanvasItem[]
+      scaleItems: boolean
     }
 
 type ResizeHandle = {
@@ -112,6 +113,7 @@ const MIN_ITEM_SIZE = 32
 const MIN_CANVAS_SIZE = 120
 const MAX_CANVAS_SIZE = 2000
 const DEFAULT_ZOOM = 42
+const MOVE_DRAG_THRESHOLD = 4
 const RESIZE_EDGE_HOVER_BORDER_CLASS = "border"
 const RESIZE_CORNER_HOVER_BORDER_CLASS = "border"
 const RESIZE_EDGE_SELECTED_BORDER_CLASS = "border-2"
@@ -361,8 +363,18 @@ export function App() {
 
       event.preventDefault()
 
-      const dx = (event.clientX - drag.startClientX) / zoomRef.current
-      const dy = (event.clientY - drag.startClientY) / zoomRef.current
+      const clientDx = event.clientX - drag.startClientX
+      const clientDy = event.clientY - drag.startClientY
+
+      if (
+        drag.mode === "move" &&
+        Math.hypot(clientDx, clientDy) < MOVE_DRAG_THRESHOLD
+      ) {
+        return
+      }
+
+      const dx = clientDx / zoomRef.current
+      const dy = clientDy / zoomRef.current
 
       if (drag.mode === "canvas-resize") {
         setLayout(() => resizeCanvasLayout(drag, dx, dy))
@@ -648,6 +660,7 @@ export function App() {
     event.preventDefault()
     event.stopPropagation()
 
+    const wasSelected = selectedIdSet.has(item.id)
     const selectionMode = getSelectionMode(event)
 
     if (selectionMode !== "replace") {
@@ -656,14 +669,16 @@ export function App() {
       return
     }
 
-    event.currentTarget.setPointerCapture(event.pointerId)
-    const startItems = selectedIdSet.has(item.id) ? selectedItems : [item]
-
-    if (!selectedIdSet.has(item.id)) {
+    if (!wasSelected) {
       selectOnlyItem(item.id)
-    } else {
-      focusItem(item.id)
+      setStatus("Image selected. Drag selected image to move")
+      return
     }
+
+    event.currentTarget.setPointerCapture(event.pointerId)
+    const startItems = selectedItems.length ? selectedItems : [item]
+
+    focusItem(item.id)
 
     setStatus(
       startItems.length > 1 ? `Drag ${startItems.length} images` : "Drag image"
@@ -724,8 +739,9 @@ export function App() {
     event.preventDefault()
     event.stopPropagation()
     event.currentTarget.setPointerCapture(event.pointerId)
+    const scaleItems = !event.ctrlKey && !event.metaKey
     clearSelection()
-    setStatus("Resize canvas")
+    setStatus(scaleItems ? "Resize canvas and images" : "Resize canvas only")
     dragRef.current = {
       edge,
       mode: "canvas-resize",
@@ -733,6 +749,7 @@ export function App() {
       startClientY: event.clientY,
       startCanvas: layout.canvas,
       startItems: layout.items,
+      scaleItems,
     }
   }
 
@@ -1446,7 +1463,7 @@ export function App() {
         <aside className="flex min-h-0 flex-col overflow-y-auto border-l bg-card text-card-foreground">
           {/* canvas section */}
           <section className="border-b">
-            <PanelHeader title="Canvas" meta="Drag edges to resize" />
+            <PanelHeader title="Canvas" meta="Ctrl drag keeps images" />
             <div className="space-y-4 p-4">
               <div className="grid grid-cols-2 gap-2">
                 <NumberField
@@ -1580,6 +1597,12 @@ export function App() {
                 <span>Keep ratio on resize</span>
                 <kbd className="bg-muted px-1.5 py-0.5 font-mono">
                   Shift Drag
+                </kbd>
+              </p>
+              <p className="flex items-center justify-between">
+                <span>Resize canvas only</span>
+                <kbd className="bg-muted px-1.5 py-0.5 font-mono">
+                  Ctrl Drag
                 </kbd>
               </p>
             </div>
@@ -1806,11 +1829,32 @@ function resizeCanvasLayout(
     width: drag.startCanvas.width + widthDelta,
     height: drag.startCanvas.height + heightDelta,
   })
+  const nextCanvas = drag.scaleItems
+    ? canvas
+    : clampCanvasToItems(canvas, drag.startItems)
 
   return {
-    canvas,
-    items: scaleItemsToCanvas(drag.startCanvas, drag.startItems, canvas),
+    canvas: nextCanvas,
+    items: drag.scaleItems
+      ? scaleItemsToCanvas(drag.startCanvas, drag.startItems, nextCanvas)
+      : drag.startItems,
   }
+}
+
+function clampCanvasToItems(
+  canvas: CanvasLayout["canvas"],
+  items: CanvasItem[]
+): CanvasLayout["canvas"] {
+  if (!items.length) {
+    return canvas
+  }
+
+  const bounds = getItemsBounds(items)
+
+  return clampCanvas({
+    width: Math.max(canvas.width, bounds.right),
+    height: Math.max(canvas.height, bounds.bottom),
+  })
 }
 
 function normalizeCanvasLayout(layout: CanvasLayout): CanvasLayout {
