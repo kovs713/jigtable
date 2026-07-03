@@ -60,6 +60,7 @@
 
 .jigsaw-room__timer {
   color: var(--muted-foreground);
+  font-family: var(--font-mono);
   font-size: 0.72rem;
   font-weight: 750;
   letter-spacing: 0.12em;
@@ -201,6 +202,7 @@
   padding: 8px 12px;
   border-top: 0.5px solid var(--jigsaw-panel-border);
   color: var(--muted-foreground);
+  font-family: var(--font-mono);
   font-size: 0.66rem;
   line-height: 1.4;
 }
@@ -247,6 +249,7 @@
 
 .jigsaw-room__stats dt {
   color: var(--jigsaw-panel-muted);
+  font-family: var(--font-mono);
   font-size: 0.62rem;
   letter-spacing: 0.16em;
   text-transform: uppercase;
@@ -254,6 +257,7 @@
 
 .jigsaw-room__stats dd {
   margin: 0;
+  font-family: var(--font-mono);
   font-size: 1.1rem;
   font-weight: 800;
   line-height: 1;
@@ -272,6 +276,16 @@
   border-left: 3px solid var(--primary);
 }
 
+.jigsaw-room__shortcut {
+  display: inline-block;
+  border: 0.5px solid var(--jigsaw-panel-border);
+  background: var(--jigsaw-panel-strong);
+  color: var(--foreground);
+  font-family: var(--font-mono);
+  font-size: 0.72em;
+  padding-inline: 0.3em;
+}
+
 /* Pause Banner */
 .jigsaw-room__pause-banner {
   top: 50%;
@@ -279,6 +293,7 @@
   padding: 24px 40px;
   color: var(--primary-foreground);
   background: var(--primary);
+  font-family: var(--font-mono);
   font-size: 1rem;
   font-weight: 800;
   letter-spacing: 0.24em;
@@ -316,6 +331,7 @@
 
 .jigsaw-room__multiplayer span {
   color: var(--jigsaw-panel-muted);
+  font-family: var(--font-mono);
   letter-spacing: 0.14em;
   text-transform: uppercase;
 }
@@ -323,6 +339,7 @@
 .jigsaw-room__multiplayer strong {
   max-width: 132px;
   overflow: hidden;
+  font-family: var(--font-mono);
   font-weight: 700;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -337,6 +354,7 @@
   gap: 14px;
   padding: 18px 24px;
   color: var(--foreground);
+  font-family: var(--font-mono);
   font-size: 0.8rem;
   font-weight: 700;
   letter-spacing: 0.12em;

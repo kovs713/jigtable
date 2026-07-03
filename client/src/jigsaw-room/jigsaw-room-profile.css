@@ -67,6 +67,7 @@
   align-items: center;
   gap: 8px;
   color: var(--muted-foreground);
+  font-family: var(--font-mono);
   font-size: 0.82rem;
   min-height: 1.2em;
 }
@@ -159,6 +160,7 @@
 .jigsaw-room__profile-scoreboard dt,
 .jigsaw-room__history-card dt {
   color: var(--jigsaw-panel-muted);
+  font-family: var(--font-mono);
   font-size: 0.62rem;
   letter-spacing: 0.14em;
   text-transform: uppercase;
@@ -166,6 +168,7 @@
 
 .jigsaw-room__profile-scoreboard dd {
   margin: 0;
+  font-family: var(--font-mono);
   font-size: clamp(1.4rem, 3vw, 2.4rem);
   font-weight: 850;
   letter-spacing: -0.06em;
@@ -216,10 +219,11 @@
 }
 
 .jigsaw-room__history-heading strong {
+  color: var(--foreground);
+  font-family: var(--font-mono);
   font-size: 0.72rem;
   letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: var(--foreground);
 }
 
 .jigsaw-room__history-list {
@@ -266,8 +270,9 @@
 
 .jigsaw-room__history-card-header strong {
   white-space: nowrap;
-  font-size: 0.8rem;
   color: var(--foreground);
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
 }
 
 .jigsaw-room__history-card-stats {
@@ -291,6 +296,7 @@
 
 .jigsaw-room__history-card dd {
   margin: 0;
+  font-family: var(--font-mono);
   font-size: 1.1rem;
   font-weight: 800;
   letter-spacing: -0.02em;

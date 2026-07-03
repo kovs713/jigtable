@@ -3,6 +3,17 @@ import * as React from "react"
 import { Button } from "@/components/ui/button"
 import { API_BASE_URL } from "@/config"
 import { cn } from "@/lib/utils"
+import {
+  fetchAuthMe,
+  getTelegramBotUsername,
+  getTelegramLoginWidgetBlocker,
+  hasTelegramWebAppInitData,
+  loginTelegramWebApp,
+  loginTelegramWidget,
+  readLocalAuthSession,
+  saveLocalAuthSession,
+  type AuthSession,
+} from "./jigsaw-room/multiplayer/auth"
 
 type CanvasLayout = {
   canvas: {
@@ -71,6 +82,7 @@ type DragState =
       startClientY: number
       startCanvas: CanvasLayout["canvas"]
       startItems: CanvasItem[]
+      scaleItems: boolean
     }
 
 type ResizeHandle = {
@@ -112,6 +124,7 @@ const MIN_ITEM_SIZE = 32
 const MIN_CANVAS_SIZE = 120
 const MAX_CANVAS_SIZE = 2000
 const DEFAULT_ZOOM = 42
+const MOVE_DRAG_THRESHOLD = 4
 const RESIZE_EDGE_HOVER_BORDER_CLASS = "border"
 const RESIZE_CORNER_HOVER_BORDER_CLASS = "border"
 const RESIZE_EDGE_SELECTED_BORDER_CLASS = "border-2"
@@ -197,6 +210,7 @@ const EMPTY_LAYOUT: CanvasLayout = {
 }
 
 export function App() {
+  const telegramWidgetRef = React.useRef<HTMLDivElement | null>(null)
   const [layout, setLayout] = React.useState<CanvasLayout>(EMPTY_LAYOUT)
   const [selectedIds, setSelectedIds] = React.useState<string[]>([])
   const [zoom, setZoom] = React.useState(DEFAULT_ZOOM)
@@ -215,6 +229,17 @@ export function App() {
   const [remoteBatch, setRemoteBatch] = React.useState<RemoteBatch | null>(() =>
     getInitialRemoteBatch()
   )
+  const [authSession, setAuthSession] = React.useState<AuthSession | null>(() =>
+    readLocalAuthSession()
+  )
+  const [authStatus, setAuthStatus] = React.useState(() =>
+    readLocalAuthSession()
+      ? "Checking Telegram session..."
+      : "Telegram login required"
+  )
+  const [authLoading, setAuthLoading] = React.useState(false)
+  const [telegramWidgetVisible, setTelegramWidgetVisible] =
+    React.useState(false)
   const [renderFormat, setRenderFormat] = React.useState<RenderFormat>("png")
   const dragRef = React.useRef<DragState | null>(null)
   const didLoadRemoteRef = React.useRef(false)
@@ -323,14 +348,90 @@ export function App() {
   })
 
   React.useEffect(() => {
+    const saved = readLocalAuthSession()
+
+    if (!saved) {
+      return
+    }
+
+    let disposed = false
+
+    void fetchAuthMe(saved.token)
+      .then((session) => {
+        if (disposed) {
+          return
+        }
+
+        saveLocalAuthSession(session)
+        setAuthSession(session)
+        setAuthStatus("Telegram session restored")
+      })
+      .catch((error) => {
+        if (!disposed) {
+          setAuthSession(null)
+          setAuthStatus(readErrorMessage(error))
+        }
+      })
+      .finally(() => {
+        if (!disposed) {
+          setAuthLoading(false)
+        }
+      })
+
+    return () => {
+      disposed = true
+    }
+  }, [])
+
+  React.useEffect(() => {
+    const host = telegramWidgetRef.current
+    const botUsername = getTelegramBotUsername()
+
+    if (!telegramWidgetVisible || !host || !botUsername) {
+      return
+    }
+
+    const callbackName = "onCanvasTelegramAuth"
+    const callbacks = window as unknown as Record<
+      string,
+      (payload: Record<string, unknown>) => void
+    >
+    const script = document.createElement("script")
+
+    host.replaceChildren()
+    callbacks[callbackName] = (payload) => {
+      void loginWithTelegramWidget(payload)
+    }
+
+    script.async = true
+    script.src = "https://telegram.org/js/telegram-widget.js?22"
+    script.setAttribute("data-telegram-login", botUsername)
+    script.setAttribute("data-size", "medium")
+    script.setAttribute("data-userpic", "false")
+    script.setAttribute("data-request-access", "write")
+    script.setAttribute("data-onauth", `${callbackName}(user)`)
+    host.appendChild(script)
+
+    return () => {
+      delete callbacks[callbackName]
+      host.replaceChildren()
+    }
+  }, [telegramWidgetVisible])
+
+  React.useEffect(() => {
     if (didLoadRemoteRef.current || !remoteBatch) {
       return
     }
 
-    didLoadRemoteRef.current = true
-    setStatus("Loading images...")
+    if (!authSession) {
+      queueMicrotask(() => setStatus("Telegram login required"))
+      return
+    }
 
-    void fetchBatchLayout(remoteBatch)
+    didLoadRemoteRef.current = true
+    queueMicrotask(() => setStatus("Loading images..."))
+
+    void fetchBatchLayout(remoteBatch, authSession.token)
       .then((payload) => {
         const layout = normalizeCanvasLayout(payload.layout)
 
@@ -345,11 +446,12 @@ export function App() {
         setStatus("Ready to edit")
       })
       .catch((error: unknown) => {
+        didLoadRemoteRef.current = false
         setStatus(
           error instanceof Error ? error.message : "Failed to load images"
         )
       })
-  }, [remoteBatch])
+  }, [authSession, remoteBatch])
 
   React.useEffect(() => {
     const handlePointerMove = (event: PointerEvent) => {
@@ -361,8 +463,18 @@ export function App() {
 
       event.preventDefault()
 
-      const dx = (event.clientX - drag.startClientX) / zoomRef.current
-      const dy = (event.clientY - drag.startClientY) / zoomRef.current
+      const clientDx = event.clientX - drag.startClientX
+      const clientDy = event.clientY - drag.startClientY
+
+      if (
+        drag.mode === "move" &&
+        Math.hypot(clientDx, clientDy) < MOVE_DRAG_THRESHOLD
+      ) {
+        return
+      }
+
+      const dx = clientDx / zoomRef.current
+      const dy = clientDy / zoomRef.current
 
       if (drag.mode === "canvas-resize") {
         setLayout(() => resizeCanvasLayout(drag, dx, dy))
@@ -648,6 +760,7 @@ export function App() {
     event.preventDefault()
     event.stopPropagation()
 
+    const wasSelected = selectedIdSet.has(item.id)
     const selectionMode = getSelectionMode(event)
 
     if (selectionMode !== "replace") {
@@ -656,14 +769,16 @@ export function App() {
       return
     }
 
-    event.currentTarget.setPointerCapture(event.pointerId)
-    const startItems = selectedIdSet.has(item.id) ? selectedItems : [item]
-
-    if (!selectedIdSet.has(item.id)) {
+    if (!wasSelected) {
       selectOnlyItem(item.id)
-    } else {
-      focusItem(item.id)
+      setStatus("Image selected. Drag selected image to move")
+      return
     }
+
+    event.currentTarget.setPointerCapture(event.pointerId)
+    const startItems = selectedItems.length ? selectedItems : [item]
+
+    focusItem(item.id)
 
     setStatus(
       startItems.length > 1 ? `Drag ${startItems.length} images` : "Drag image"
@@ -724,8 +839,9 @@ export function App() {
     event.preventDefault()
     event.stopPropagation()
     event.currentTarget.setPointerCapture(event.pointerId)
+    const scaleItems = !event.ctrlKey && !event.metaKey
     clearSelection()
-    setStatus("Resize canvas")
+    setStatus(scaleItems ? "Resize canvas and images" : "Resize canvas only")
     dragRef.current = {
       edge,
       mode: "canvas-resize",
@@ -733,6 +849,7 @@ export function App() {
       startClientY: event.clientY,
       startCanvas: layout.canvas,
       startItems: layout.items,
+      scaleItems,
     }
   }
 
@@ -897,6 +1014,61 @@ export function App() {
     setStatus("Layer reordered")
   }
 
+  async function loginWithTelegram(): Promise<void> {
+    if (!hasTelegramWebAppInitData()) {
+      if (!getTelegramBotUsername()) {
+        setAuthStatus(
+          "Set VITE_TELEGRAM_BOT_USERNAME to bot username ending with bot"
+        )
+        return
+      }
+
+      const widgetBlocker = getTelegramLoginWidgetBlocker()
+
+      if (widgetBlocker) {
+        setAuthStatus(widgetBlocker)
+        return
+      }
+
+      setTelegramWidgetVisible(true)
+      setAuthStatus("Confirm in Telegram widget")
+      return
+    }
+
+    setAuthLoading(true)
+    setAuthStatus("Telegram WebApp login...")
+
+    try {
+      const session = await loginTelegramWebApp()
+
+      setAuthSession(session)
+      setAuthStatus("Telegram linked")
+    } catch (error) {
+      setAuthStatus(readErrorMessage(error))
+    } finally {
+      setAuthLoading(false)
+    }
+  }
+
+  async function loginWithTelegramWidget(
+    payload: Record<string, unknown>
+  ): Promise<void> {
+    setAuthLoading(true)
+    setAuthStatus("Telegram widget login...")
+
+    try {
+      const session = await loginTelegramWidget(payload)
+
+      setAuthSession(session)
+      setTelegramWidgetVisible(false)
+      setAuthStatus("Telegram linked")
+    } catch (error) {
+      setAuthStatus(readErrorMessage(error))
+    } finally {
+      setAuthLoading(false)
+    }
+  }
+
   async function loadLayoutFromCode() {
     const batch = parseRemoteBatchInput(loadCode)
 
@@ -905,10 +1077,15 @@ export function App() {
       return
     }
 
+    if (!authSession) {
+      setStatus("Telegram login required")
+      return
+    }
+
     setStatus("Loading images...")
 
     try {
-      const payload = await fetchBatchLayout(batch)
+      const payload = await fetchBatchLayout(batch, authSession.token)
       const layout = normalizeCanvasLayout(payload.layout)
 
       setOriginalCanvas(layout.canvas)
@@ -958,10 +1135,20 @@ export function App() {
       return
     }
 
+    if (!authSession) {
+      setStatus("Telegram login required")
+      return
+    }
+
     setStatus("Saving edits...")
 
     try {
-      const payload = await requestBatchLayout(remoteBatch, "PATCH", { layout })
+      const payload = await requestBatchLayout(
+        remoteBatch,
+        authSession.token,
+        "PATCH",
+        { layout }
+      )
       applyBatchLayout(payload, remoteBatch.token)
       setStatus("Edits saved")
     } catch (error) {
@@ -975,6 +1162,11 @@ export function App() {
       return
     }
 
+    if (!authSession) {
+      setStatus("Telegram login required")
+      return
+    }
+
     setStatus(`Building ${renderFormat} image...`)
 
     try {
@@ -982,7 +1174,10 @@ export function App() {
         `${API_BASE_URL}/api/batches/${remoteBatch.batchId}/render?token=${encodeURIComponent(remoteBatch.token)}`,
         {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            Authorization: `Bearer ${authSession.token}`,
+            "Content-Type": "application/json",
+          },
           body: JSON.stringify({ format: renderFormat, layout }),
         }
       )
@@ -1041,7 +1236,7 @@ export function App() {
             <h1 className="text-sm font-semibold tracking-tight">
               Jigsaw Editor
             </h1>
-            <p className="text-xs text-muted-foreground">
+            <p className="font-mono text-xs text-muted-foreground">
               {layout.items.length
                 ? `${layout.items.length} images loaded`
                 : "Waiting for images"}
@@ -1053,7 +1248,7 @@ export function App() {
 
         <div className="flex flex-wrap items-center gap-2">
           <input
-            className="h-9 w-64 border border-input bg-background px-3 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:ring-1 focus-visible:ring-ring focus-visible:outline-none"
+            className="h-9 w-64 border border-input bg-background px-3 font-mono text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:ring-1 focus-visible:ring-ring focus-visible:outline-none"
             placeholder="Paste bot link or code"
             type="text"
             value={loadCode}
@@ -1066,6 +1261,7 @@ export function App() {
           />
           <Button
             className="h-9"
+            disabled={!authSession}
             size="sm"
             variant="secondary"
             onClick={() => void loadLayoutFromCode()}
@@ -1073,11 +1269,36 @@ export function App() {
             Load Layout
           </Button>
 
+          <Button
+            className="h-9"
+            disabled={authLoading}
+            size="sm"
+            variant={authSession ? "outline" : "default"}
+            onClick={() => void loginWithTelegram()}
+          >
+            {authLoading
+              ? "Loading..."
+              : authSession
+                ? "TG linked"
+                : "Telegram login"}
+          </Button>
+          <span
+            className={cn(
+              "max-w-48 truncate text-xs text-muted-foreground",
+              !authSession?.user.displayName && "font-mono"
+            )}
+          >
+            {authSession?.user.displayName ?? authStatus}
+          </span>
+          {telegramWidgetVisible ? (
+            <div ref={telegramWidgetRef} className="min-h-8" />
+          ) : null}
+
           <div className="mx-2 hidden h-8 w-px bg-border md:block" />
 
           <Button
             className="h-9"
-            disabled={!remoteBatch}
+            disabled={!remoteBatch || !authSession}
             size="sm"
             variant="outline"
             onClick={saveRemoteLayout}
@@ -1090,7 +1311,7 @@ export function App() {
               <button
                 key={fmt}
                 className={cn(
-                  "px-2 py-0.5 text-xs font-medium uppercase transition-colors",
+                  "px-2 py-0.5 font-mono text-xs font-medium uppercase transition-colors",
                   renderFormat === fmt
                     ? "bg-primary text-primary-foreground"
                     : "text-muted-foreground hover:bg-muted"
@@ -1103,7 +1324,7 @@ export function App() {
           </div>
 
           <Button
-            disabled={!remoteBatch}
+            disabled={!remoteBatch || !authSession}
             size="sm"
             onClick={renderRemoteLayout}
           >
@@ -1213,7 +1434,7 @@ export function App() {
                     <span className="grid h-6 min-w-6 place-items-center bg-primary/10 px-1 font-mono text-[10px] font-bold text-primary">
                       {getImageMarkerCode(itemIndex)}
                     </span>
-                    <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground">
+                    <span className="min-w-0 flex-1 truncate font-mono text-xs text-muted-foreground">
                       Layer {layerIndex + 1} / {layout.items.length}
                     </span>
                     <span className="font-mono text-[10px] text-muted-foreground opacity-70">
@@ -1446,7 +1667,7 @@ export function App() {
         <aside className="flex min-h-0 flex-col overflow-y-auto border-l bg-card text-card-foreground">
           {/* canvas section */}
           <section className="border-b">
-            <PanelHeader title="Canvas" meta="Drag edges to resize" />
+            <PanelHeader title="Canvas" meta="Ctrl drag keeps images" />
             <div className="space-y-4 p-4">
               <div className="grid grid-cols-2 gap-2">
                 <NumberField
@@ -1477,7 +1698,7 @@ export function App() {
                   {ASPECT_RATIO_PRESETS.map((preset) => (
                     <Button
                       key={preset.label}
-                      className="h-8 text-xs"
+                      className="h-8 font-mono text-xs"
                       size="sm"
                       variant={
                         activeRatio === preset.label ? "default" : "outline"
@@ -1582,6 +1803,12 @@ export function App() {
                   Shift Drag
                 </kbd>
               </p>
+              <p className="flex items-center justify-between">
+                <span>Resize canvas only</span>
+                <kbd className="bg-muted px-1.5 py-0.5 font-mono">
+                  Ctrl Drag
+                </kbd>
+              </p>
             </div>
           </section>
         </aside>
@@ -1600,14 +1827,14 @@ export function App() {
                   : "bg-green-500"
             )}
           />
-          <span>{status}</span>
+          <span className="font-mono">{status}</span>
         </div>
         <div className="hidden items-center gap-4 md:flex">
-          <span>
+          <span className="font-mono">
             Canvas: {layout.canvas.width} x {layout.canvas.height}px
           </span>
           {selectedItem && (
-            <span>
+            <span className="font-mono">
               Selection: {selectedItem.width} x {selectedItem.height}px
             </span>
           )}
@@ -1637,7 +1864,7 @@ function PanelHeader({ title, meta }: { title: string; meta: string }) {
   return (
     <div className="flex items-center justify-between border-b px-4 py-2">
       <p className="text-sm font-medium">{title}</p>
-      <p className="text-[10px] tracking-wider text-muted-foreground uppercase">
+      <p className="font-mono text-[10px] tracking-wider text-muted-foreground uppercase">
         {meta}
       </p>
     </div>
@@ -1765,19 +1992,19 @@ function NumberField({
 }) {
   return (
     <label className="block">
-      <span className="mb-1 block text-[10px] tracking-wider text-muted-foreground uppercase">
+      <span className="mb-1 block font-mono text-[10px] tracking-wider text-muted-foreground uppercase">
         {label}
       </span>
       <div className="relative">
         <input
-          className="h-9 w-full rounded-md border border-input bg-transparent px-3 pr-8 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:ring-1 focus-visible:ring-ring focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+          className="h-9 w-full rounded-md border border-input bg-transparent px-3 pr-8 font-mono text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:ring-1 focus-visible:ring-ring focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50"
           inputMode="numeric"
           min={0}
           type="number"
           value={Math.round(value)}
           onChange={(event) => onChange(Number(event.target.value))}
         />
-        <span className="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 text-[10px] text-muted-foreground">
+        <span className="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 font-mono text-[10px] text-muted-foreground">
           px
         </span>
       </div>
@@ -1806,11 +2033,32 @@ function resizeCanvasLayout(
     width: drag.startCanvas.width + widthDelta,
     height: drag.startCanvas.height + heightDelta,
   })
+  const nextCanvas = drag.scaleItems
+    ? canvas
+    : clampCanvasToItems(canvas, drag.startItems)
 
   return {
-    canvas,
-    items: scaleItemsToCanvas(drag.startCanvas, drag.startItems, canvas),
+    canvas: nextCanvas,
+    items: drag.scaleItems
+      ? scaleItemsToCanvas(drag.startCanvas, drag.startItems, nextCanvas)
+      : drag.startItems,
   }
+}
+
+function clampCanvasToItems(
+  canvas: CanvasLayout["canvas"],
+  items: CanvasItem[]
+): CanvasLayout["canvas"] {
+  if (!items.length) {
+    return canvas
+  }
+
+  const bounds = getItemsBounds(items)
+
+  return clampCanvas({
+    width: Math.max(canvas.width, bounds.right),
+    height: Math.max(canvas.height, bounds.bottom),
+  })
 }
 
 function normalizeCanvasLayout(layout: CanvasLayout): CanvasLayout {
@@ -2341,20 +2589,32 @@ function jigsawCreateUrl(
   return `/jigsaw/new?${params}`
 }
 
-async function fetchBatchLayout(batch: RemoteBatch): Promise<ApiBatchLayout> {
-  return requestBatchLayout(batch, "GET")
+async function fetchBatchLayout(
+  batch: RemoteBatch,
+  authToken: string
+): Promise<ApiBatchLayout> {
+  return requestBatchLayout(batch, authToken, "GET")
 }
 
 async function requestBatchLayout(
   batch: RemoteBatch,
+  authToken: string,
   method: "GET" | "PATCH",
   body?: unknown
 ): Promise<ApiBatchLayout> {
+  const headers: Record<string, string> = {
+    Authorization: `Bearer ${authToken}`,
+  }
+
+  if (body) {
+    headers["Content-Type"] = "application/json"
+  }
+
   const response = await fetch(
     `${API_BASE_URL}/api/batches/${batch.batchId}/layout?token=${encodeURIComponent(batch.token)}`,
     {
       method,
-      headers: body ? { "Content-Type": "application/json" } : undefined,
+      headers,
       body: body ? JSON.stringify(body) : undefined,
     }
   )
@@ -2374,6 +2634,10 @@ async function readJsonResponse<T>(response: Response): Promise<T> {
   }
 
   return payload as T
+}
+
+function readErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : "Request failed"
 }
 
 function getArrowOffset(
