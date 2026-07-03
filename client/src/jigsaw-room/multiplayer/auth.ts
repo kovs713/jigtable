@@ -1,7 +1,7 @@
+import { API_BASE_URL, TELEGRAM_BOT_USERNAME } from "@/config"
+
 const AUTH_SESSION_STORAGE_KEY = "jigsaw-room-auth"
 const LEGACY_AUTH_SESSION_STORAGE_KEY = "jigsaw-room-auth"
-const API_BASE_URL = import.meta.env.VITE_API_URL ?? "http://localhost:3000"
-const TELEGRAM_BOT_USERNAME = import.meta.env.VITE_TELEGRAM_BOT_USERNAME
 
 export interface AuthUser {
   id: string

@@ -3,8 +3,7 @@ import type {
   JigsawRoomSnapshot,
 } from "@jigtable/jigsaw-core/multiplayer/protocol"
 
-export const API_BASE_URL =
-  import.meta.env.VITE_API_URL ?? "http://localhost:3000"
+import { API_BASE_URL } from "@/config"
 
 export interface CreateJigsawRoomInput {
   imageUrl: string

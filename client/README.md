@@ -1,21 +1,23 @@
-# React + TypeScript + Vite + shadcn/ui
+# Jigtable Client
 
-This is a template for a new Vite project with React, TypeScript, and shadcn/ui.
+Vite React client for the editor and jigsaw room UI.
 
-## Adding components
+## Vercel
 
-To add components to your app, run the following command:
+Set Vercel Root Directory to `client`.
+
+Required env:
 
 ```bash
-npx shadcn@latest add button
+VITE_API_URL=https://api.example.com
+VITE_TELEGRAM_BOT_USERNAME=jigtable_bot
 ```
 
-This will place the ui components in the `src/components` directory.
+Optional env:
 
-## Using components
-
-To use the components in your app, import them as follows:
-
-```tsx
-import { Button } from "@/components/ui/button"
+```bash
+VITE_JIGSAW_WS_ENABLED=true
+VITE_JIGSAW_WS_URL=wss://api.example.com/api/jigsaw/ws
 ```
+
+`vercel.json` handles SPA rewrites, static asset caching, and basic security headers.

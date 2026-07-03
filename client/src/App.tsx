@@ -1,6 +1,7 @@
 import * as React from "react"
 
 import { Button } from "@/components/ui/button"
+import { API_BASE_URL } from "@/config"
 import { cn } from "@/lib/utils"
 
 type CanvasLayout = {
@@ -111,7 +112,6 @@ const MIN_ITEM_SIZE = 32
 const MIN_CANVAS_SIZE = 120
 const MAX_CANVAS_SIZE = 2000
 const DEFAULT_ZOOM = 42
-const API_BASE_URL = import.meta.env.VITE_API_URL ?? "http://localhost:3000"
 const RESIZE_EDGE_HOVER_BORDER_CLASS = "border"
 const RESIZE_CORNER_HOVER_BORDER_CLASS = "border"
 const RESIZE_EDGE_SELECTED_BORDER_CLASS = "border-2"

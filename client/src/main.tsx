@@ -1,12 +1,16 @@
-import { StrictMode } from "react"
+import { lazy, StrictMode, Suspense } from "react"
 import { createRoot } from "react-dom/client"
 
 import { ThemeProvider } from "@/components/theme-provider.tsx"
-import App from "./App.tsx"
+import { ErrorBoundary } from "./error-boundary"
 import "./index.css"
-import JigsawProfileApp from "./jigsaw-room/JigsawProfileApp.tsx"
-import JigsawRoomApp from "./jigsaw-room/JigsawRoomApp.tsx"
-import JigsawRoomCreateApp from "./jigsaw-room/JigsawRoomCreateApp.tsx"
+
+const App = lazy(() => import("./App.tsx"))
+const JigsawProfileApp = lazy(() => import("./jigsaw-room/JigsawProfileApp.tsx"))
+const JigsawRoomApp = lazy(() => import("./jigsaw-room/JigsawRoomApp.tsx"))
+const JigsawRoomCreateApp = lazy(
+  () => import("./jigsaw-room/JigsawRoomCreateApp.tsx")
+)
 
 export function RootApp() {
   const { pathname } = window.location
@@ -32,10 +36,22 @@ export function RootApp() {
   return <App />
 }
 
+function RouteLoading() {
+  return (
+    <main className="flex min-h-svh items-center justify-center bg-background text-sm text-muted-foreground">
+      Loading...
+    </main>
+  )
+}
+
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <ThemeProvider>
-      <RootApp />
+      <ErrorBoundary>
+        <Suspense fallback={<RouteLoading />}>
+          <RootApp />
+        </Suspense>
+      </ErrorBoundary>
     </ThemeProvider>
   </StrictMode>
 )
