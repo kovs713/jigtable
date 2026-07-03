@@ -13,18 +13,7 @@ on:
       - "ops/**"
       - ".github/workflows/server-ci.yml"
       - ".github/workflows/server-deploy.yml"
-  push:
-    branches:
-      - master
-    paths:
-      - "server/**"
-      - "packages/**"
-      - "package.json"
-      - "bun.lock"
-      - ".dockerignore"
-      - "ops/**"
-      - ".github/workflows/server-ci.yml"
-      - ".github/workflows/server-deploy.yml"
+  workflow_dispatch:
 
 jobs:
   checks:
