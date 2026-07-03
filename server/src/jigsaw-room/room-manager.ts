@@ -24,6 +24,7 @@ import {
   snapDroppedGroup,
 } from "@jigtable/jigsaw-core"
 
+import { LIMITS } from "@/config"
 import type { JigsawSafeAssetRef } from "@/infra/db/schemas"
 import type { JigsawHistoryStore } from "./history-store"
 import type { JigsawSessionStore } from "./session-store"
@@ -76,7 +77,12 @@ export class JigsawRoomManager {
   constructor(
     private readonly sessionStore: JigsawSessionStore,
     private readonly historyStore: JigsawHistoryStore
-  ) {}
+  ) {
+    setInterval(
+      () => this.cleanupExpiredRooms(),
+      LIMITS.jigsaw.cleanupIntervalMs
+    )
+  }
 
   createRoom(input: CreateJigsawRoomInput): JigsawRoomSnapshot {
     const room = this.createRoomRecord({
@@ -614,24 +620,20 @@ export class JigsawRoomManager {
   }
 
   private getRoomForJoin(roomId: string): JigsawRoom | null {
-    const existing = this.rooms.get(roomId)
+    return this.rooms.get(roomId) ?? null
+  }
 
-    if (existing) {
-      return existing
+  private cleanupExpiredRooms(): void {
+    const now = Date.now()
+
+    for (const [roomId, room] of this.rooms) {
+      if (
+        room.sockets.size === 0 &&
+        now - room.updatedAt > LIMITS.jigsaw.roomTtlMs
+      ) {
+        this.rooms.delete(roomId)
+      }
     }
-
-    if (roomId !== DEV_ROOM_ID) {
-      return null
-    }
-
-    return this.createRoomRecord({
-      roomId: DEV_ROOM_ID,
-      assetId: DEV_ASSET_ID,
-      assetRef: { kind: "dev", assetId: DEV_ASSET_ID },
-      imageUrl: DEV_IMAGE_URL,
-      sourceSize: DEV_IMAGE_SIZE,
-      pieceCount: JIGSAW_CONFIG_2000.rows * JIGSAW_CONFIG_2000.cols,
-    })
   }
 
   private createRoomRecord({

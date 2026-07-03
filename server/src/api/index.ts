@@ -1,13 +1,14 @@
 import { serve, type BunRequest } from "bun"
 
 import { TelegramAuthService } from "@/auth"
+import { LIMITS } from "@/config"
+import { readPortEnv } from "@/infra/env"
 import { JigsawHistoryStore } from "@/jigsaw-room/history-store"
 import {
   JigsawRoomManager,
   type JigsawSocketData,
 } from "@/jigsaw-room/room-manager"
 import { JigsawSessionStore } from "@/jigsaw-room/session-store"
-import { readPortEnv } from "@/infra/env"
 import { routes } from "./routes"
 import { json } from "./utils"
 
@@ -30,6 +31,8 @@ export function startApiServer(): void {
 
   const server = serve<JigsawSocketData>({
     port,
+
+    maxRequestBodySize: LIMITS.jsonBodyBytes,
 
     fetch(request: BunRequest, server) {
       const url = new URL(request.url)

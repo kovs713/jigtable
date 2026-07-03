@@ -6,6 +6,10 @@ import { colorFromSeed } from "@/features/color-from-seed"
 import { db } from "@/infra/db"
 import { authSessionsSchema, usersSchema } from "@/infra/db/schemas"
 import { readRequiredEnv } from "@/infra/env"
+import {
+  isWhitelistedTelegramUserId,
+  requireWhitelistedTelegramUserId,
+} from "./whitelist"
 
 const AUTH_SESSION_DAYS = 30
 const TELEGRAM_AUTH_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000
@@ -36,6 +40,8 @@ export interface AuthSessionResult {
 
 export class TelegramAuthService {
   async login(profile: TelegramAuthProfile, anonProfile?: UserProfileInput) {
+    await requireWhitelistedTelegramUserId(profile.telegramId)
+
     const user = await upsertTelegramUser(profile, anonProfile)
     const token = randomBytes(32).toString("base64url")
     const now = new Date()
@@ -83,6 +89,10 @@ export class TelegramAuthService {
       return null
     }
 
+    if (!(await isWhitelistedTelegramUserId(user.telegramId))) {
+      return null
+    }
+
     await db
       .update(authSessionsSchema)
       .set({ updatedAt: new Date() })
@@ -116,9 +126,7 @@ export function validateTelegramWebAppInitData(
   const authDate = readAuthDate(params.get("auth_date"))
   const dataCheckString = createTelegramCheckString(params)
   const botToken = readRequiredEnv("BOT_TOKEN")
-  const secret = createHmac("sha256", "WebAppData")
-    .update(botToken)
-    .digest()
+  const secret = createHmac("sha256", "WebAppData").update(botToken).digest()
   const expected = createHmac("sha256", secret)
     .update(dataCheckString)
     .digest("hex")
