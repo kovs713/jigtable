@@ -112,7 +112,19 @@ jobs:
           cd /opt/jigtable
 
           docker compose -f docker-compose.prod.yml up -d postgres
-          docker compose -f docker-compose.prod.yml exec -T postgres sh -lc 'pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB"'
+
+          for attempt in $(seq 1 30); do
+            if docker compose -f docker-compose.prod.yml exec -T postgres sh -lc 'pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB"'; then
+              break
+            fi
+
+            if [ "$attempt" -eq 30 ]; then
+              docker compose -f docker-compose.prod.yml logs postgres
+              exit 1
+            fi
+
+            sleep 2
+          done
 
           backup="backups/pre-deploy-$(date +%Y%m%d%H%M%S).sql.gz"
           docker compose -f docker-compose.prod.yml exec -T postgres sh -lc 'pg_dump -U "$POSTGRES_USER" "$POSTGRES_DB"' | gzip > "$backup"
