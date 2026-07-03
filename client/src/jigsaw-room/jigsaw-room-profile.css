@@ -1,0 +1,369 @@
+.jigsaw-room--profile {
+  display: grid;
+  place-items: stretch;
+  padding: 18px;
+}
+
+.jigsaw-room__profile-shell {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: minmax(280px, 0.78fr) minmax(0, 1.22fr);
+  grid-template-rows: auto 1fr;
+  gap: 0;
+  width: min(1180px, 100%);
+  height: min(760px, 100%);
+  margin: auto;
+  overflow: hidden;
+  border: 0.5px solid var(--jigsaw-panel-border);
+  background: var(--jigsaw-panel);
+  box-shadow: 0 24px 80px color-mix(in oklch, black, transparent 74%);
+  backdrop-filter: blur(18px);
+}
+
+/* Hero Section */
+.jigsaw-room__profile-hero {
+  display: grid;
+  align-content: end;
+  gap: 16px;
+  min-height: 360px;
+  padding: 28px;
+  border-right: 0.5px solid var(--jigsaw-panel-border);
+  border-bottom: 0.5px solid var(--jigsaw-panel-border);
+  background:
+    linear-gradient(
+      155deg,
+      color-mix(in oklch, var(--primary), transparent 70%),
+      transparent 52%
+    ),
+    radial-gradient(
+      circle at 18% 20%,
+      color-mix(in oklch, var(--foreground), transparent 86%),
+      transparent 32%
+    ),
+    var(--jigsaw-panel-strong);
+}
+
+.jigsaw-room__profile-kicker {
+  margin: 0;
+  color: var(--jigsaw-panel-muted);
+  font-size: 0.64rem;
+  font-weight: 750;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.jigsaw-room__profile-hero h1 {
+  max-width: 8ch;
+  margin: 0;
+  font-size: clamp(3rem, 8vw, 7.2rem);
+  line-height: 0.78;
+  letter-spacing: -0.1em;
+  text-transform: uppercase;
+}
+
+.jigsaw-room__profile-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted-foreground);
+  font-size: 0.82rem;
+  min-height: 1.2em;
+}
+
+.jigsaw-room__profile-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.jigsaw-room__btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 38px;
+  border: 0.5px solid var(--jigsaw-panel-border);
+  border-radius: 0;
+  padding-inline: 16px;
+  font: inherit;
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-decoration: none;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition:
+    background-color 0.2s ease,
+    color 0.2s ease,
+    border-color 0.2s ease;
+}
+
+.jigsaw-room__btn--outline {
+  color: var(--foreground);
+  background: var(--background);
+}
+
+.jigsaw-room__btn--primary {
+  color: var(--primary-foreground);
+  background: var(--primary);
+  border-color: var(--primary);
+}
+
+.jigsaw-room__btn:hover:not(:disabled) {
+  background: color-mix(in oklch, var(--primary), transparent 15%);
+  border-color: var(--primary);
+}
+
+.jigsaw-room__btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px color-mix(in oklch, var(--primary), transparent 75%);
+}
+
+.jigsaw-room__btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.jigsaw-room__telegram-widget {
+  margin-top: 8px;
+  min-height: 40px;
+}
+
+/* Scoreboard */
+.jigsaw-room__profile-scoreboard {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-column: 2;
+  margin: 0;
+  border-bottom: 0.5px solid var(--jigsaw-panel-border);
+  background: var(--jigsaw-panel-strong);
+}
+
+.jigsaw-room__profile-scoreboard div {
+  display: grid;
+  gap: 8px;
+  padding: 20px 18px;
+  border-right: 0.5px solid var(--jigsaw-panel-border);
+  transition: background-color 0.2s;
+}
+
+.jigsaw-room__profile-scoreboard div:last-child {
+  border-right: 0;
+}
+
+.jigsaw-room__profile-scoreboard div:hover {
+  background: color-mix(in oklch, var(--primary), transparent 92%);
+}
+
+.jigsaw-room__profile-scoreboard dt,
+.jigsaw-room__history-card dt {
+  color: var(--jigsaw-panel-muted);
+  font-size: 0.62rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.jigsaw-room__profile-scoreboard dd {
+  margin: 0;
+  font-size: clamp(1.4rem, 3vw, 2.4rem);
+  font-weight: 850;
+  letter-spacing: -0.06em;
+}
+
+/* History Panel */
+.jigsaw-room__history-panel {
+  grid-column: 2;
+  min-height: 0;
+  overflow: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--jigsaw-panel-border) transparent;
+}
+
+.jigsaw-room__history-panel::-webkit-scrollbar {
+  width: 6px;
+}
+
+.jigsaw-room__history-panel::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.jigsaw-room__history-panel::-webkit-scrollbar-thumb {
+  background-color: var(--jigsaw-panel-border);
+}
+
+.jigsaw-room__history-heading {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 18px;
+  border-bottom: 0.5px solid var(--jigsaw-panel-border);
+  background: color-mix(in oklch, var(--jigsaw-panel), transparent 5%);
+  backdrop-filter: blur(16px);
+}
+
+.jigsaw-room__history-heading span {
+  margin: 0;
+  color: var(--jigsaw-panel-muted);
+  font-size: 0.64rem;
+  font-weight: 750;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.jigsaw-room__history-heading strong {
+  font-size: 0.72rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--foreground);
+}
+
+.jigsaw-room__history-list {
+  display: grid;
+}
+
+.jigsaw-room__history-card {
+  display: grid;
+  gap: 16px;
+  padding: 18px;
+  border-bottom: 0.5px solid var(--jigsaw-panel-border);
+  background:
+    linear-gradient(
+      90deg,
+      color-mix(in oklch, var(--primary), transparent 90%),
+      transparent 34%
+    ),
+    transparent;
+  transition: background 0.2s ease;
+}
+
+.jigsaw-room__history-card:hover {
+  background:
+    linear-gradient(
+      90deg,
+      color-mix(in oklch, var(--primary), transparent 85%),
+      transparent 40%
+    ),
+    var(--jigsaw-panel-strong);
+}
+
+.jigsaw-room__history-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 16px;
+}
+
+.jigsaw-room__history-card-header span {
+  color: var(--muted-foreground);
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.jigsaw-room__history-card-header strong {
+  white-space: nowrap;
+  font-size: 0.8rem;
+  color: var(--foreground);
+}
+
+.jigsaw-room__history-card-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin: 0;
+  border: 0.5px solid var(--jigsaw-panel-border);
+  background: var(--background);
+}
+
+.jigsaw-room__history-card-stats div {
+  display: grid;
+  gap: 4px;
+  padding: 12px;
+  border-right: 0.5px solid var(--jigsaw-panel-border);
+}
+
+.jigsaw-room__history-card-stats div:last-child {
+  border-right: 0;
+}
+
+.jigsaw-room__history-card dd {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.jigsaw-room__history-people {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.jigsaw-room__participant-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 0.5px solid var(--jigsaw-panel-border);
+  border-left: 3px solid;
+  padding: 5px 10px;
+  background: var(--jigsaw-panel);
+  font-size: 0.68rem;
+  font-weight: 750;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.jigsaw-room__history-empty {
+  padding: 32px 18px;
+}
+
+.jigsaw-room__history-empty p {
+  max-width: 52ch;
+  margin: 0;
+  color: var(--muted-foreground);
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+/* Responsive */
+@media (max-width: 760px) {
+  .jigsaw-room--profile {
+    padding: 12px;
+  }
+
+  .jigsaw-room__profile-shell {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto auto 1fr;
+    height: 100%;
+  }
+
+  .jigsaw-room__profile-hero {
+    min-height: 240px;
+    border-right: 0;
+  }
+
+  .jigsaw-room__profile-hero h1 {
+    max-width: 10ch;
+  }
+
+  .jigsaw-room__profile-scoreboard,
+  .jigsaw-room__history-panel {
+    grid-column: 1;
+  }
+
+  .jigsaw-room__profile-scoreboard {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .jigsaw-room__profile-scoreboard div:nth-child(2n) {
+    border-right: 0;
+  }
+
+  .jigsaw-room__profile-scoreboard div:last-child {
+    grid-column: 1 / -1;
+    border-top: 0.5px solid var(--jigsaw-panel-border);
+  }
+}

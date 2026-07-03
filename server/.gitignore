@@ -5,6 +5,8 @@ node_modules
 out
 dist
 *.tgz
+native/**/target
+src/shuffle/*.node
 
 # code coverage
 coverage
