@@ -1236,7 +1236,7 @@ export function App() {
             <h1 className="text-sm font-semibold tracking-tight">
               Jigsaw Editor
             </h1>
-            <p className="text-xs text-muted-foreground">
+            <p className="font-mono text-xs text-muted-foreground">
               {layout.items.length
                 ? `${layout.items.length} images loaded`
                 : "Waiting for images"}
@@ -1248,7 +1248,7 @@ export function App() {
 
         <div className="flex flex-wrap items-center gap-2">
           <input
-            className="h-9 w-64 border border-input bg-background px-3 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:ring-1 focus-visible:ring-ring focus-visible:outline-none"
+            className="h-9 w-64 border border-input bg-background px-3 font-mono text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:ring-1 focus-visible:ring-ring focus-visible:outline-none"
             placeholder="Paste bot link or code"
             type="text"
             value={loadCode}
@@ -1282,7 +1282,12 @@ export function App() {
                 ? "TG linked"
                 : "Telegram login"}
           </Button>
-          <span className="max-w-48 truncate text-xs text-muted-foreground">
+          <span
+            className={cn(
+              "max-w-48 truncate text-xs text-muted-foreground",
+              !authSession?.user.displayName && "font-mono"
+            )}
+          >
             {authSession?.user.displayName ?? authStatus}
           </span>
           {telegramWidgetVisible ? (
@@ -1306,7 +1311,7 @@ export function App() {
               <button
                 key={fmt}
                 className={cn(
-                  "px-2 py-0.5 text-xs font-medium uppercase transition-colors",
+                  "px-2 py-0.5 font-mono text-xs font-medium uppercase transition-colors",
                   renderFormat === fmt
                     ? "bg-primary text-primary-foreground"
                     : "text-muted-foreground hover:bg-muted"
@@ -1429,7 +1434,7 @@ export function App() {
                     <span className="grid h-6 min-w-6 place-items-center bg-primary/10 px-1 font-mono text-[10px] font-bold text-primary">
                       {getImageMarkerCode(itemIndex)}
                     </span>
-                    <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground">
+                    <span className="min-w-0 flex-1 truncate font-mono text-xs text-muted-foreground">
                       Layer {layerIndex + 1} / {layout.items.length}
                     </span>
                     <span className="font-mono text-[10px] text-muted-foreground opacity-70">
@@ -1693,7 +1698,7 @@ export function App() {
                   {ASPECT_RATIO_PRESETS.map((preset) => (
                     <Button
                       key={preset.label}
-                      className="h-8 text-xs"
+                      className="h-8 font-mono text-xs"
                       size="sm"
                       variant={
                         activeRatio === preset.label ? "default" : "outline"
@@ -1822,14 +1827,14 @@ export function App() {
                   : "bg-green-500"
             )}
           />
-          <span>{status}</span>
+          <span className="font-mono">{status}</span>
         </div>
         <div className="hidden items-center gap-4 md:flex">
-          <span>
+          <span className="font-mono">
             Canvas: {layout.canvas.width} x {layout.canvas.height}px
           </span>
           {selectedItem && (
-            <span>
+            <span className="font-mono">
               Selection: {selectedItem.width} x {selectedItem.height}px
             </span>
           )}
@@ -1859,7 +1864,7 @@ function PanelHeader({ title, meta }: { title: string; meta: string }) {
   return (
     <div className="flex items-center justify-between border-b px-4 py-2">
       <p className="text-sm font-medium">{title}</p>
-      <p className="text-[10px] tracking-wider text-muted-foreground uppercase">
+      <p className="font-mono text-[10px] tracking-wider text-muted-foreground uppercase">
         {meta}
       </p>
     </div>
@@ -1987,19 +1992,19 @@ function NumberField({
 }) {
   return (
     <label className="block">
-      <span className="mb-1 block text-[10px] tracking-wider text-muted-foreground uppercase">
+      <span className="mb-1 block font-mono text-[10px] tracking-wider text-muted-foreground uppercase">
         {label}
       </span>
       <div className="relative">
         <input
-          className="h-9 w-full rounded-md border border-input bg-transparent px-3 pr-8 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:ring-1 focus-visible:ring-ring focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+          className="h-9 w-full rounded-md border border-input bg-transparent px-3 pr-8 font-mono text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:ring-1 focus-visible:ring-ring focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50"
           inputMode="numeric"
           min={0}
           type="number"
           value={Math.round(value)}
           onChange={(event) => onChange(Number(event.target.value))}
         />
-        <span className="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 text-[10px] text-muted-foreground">
+        <span className="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 font-mono text-[10px] text-muted-foreground">
           px
         </span>
       </div>

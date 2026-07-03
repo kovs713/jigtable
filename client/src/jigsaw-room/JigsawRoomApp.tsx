@@ -1004,9 +1004,12 @@ export function JigsawRoomApp({ roomId }: JigsawRoomAppProps) {
       </dl>
 
       <div className="jigsaw-room__hint">
-        Drag pieces. Wheel zooms to cursor. Empty/solved/middle/right drag pans.
-        Space preview. Shift+Space pause. Drop near the board or a true neighbor
-        to snap.
+        Drag pieces. <kbd className="jigsaw-room__shortcut">Wheel</kbd> zooms
+        to cursor. Empty/solved/
+        <kbd className="jigsaw-room__shortcut">middle/right drag</kbd> pans.
+        <kbd className="jigsaw-room__shortcut">Space</kbd> preview.
+        <kbd className="jigsaw-room__shortcut">Shift+Space</kbd> pause. Drop
+        near the board or a true neighbor to snap.
       </div>
 
       {roomTimer.paused ? (
