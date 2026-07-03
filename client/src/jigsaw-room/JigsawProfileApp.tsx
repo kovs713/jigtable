@@ -1,0 +1,326 @@
+import { useEffect, useMemo, useRef, useState } from "react"
+
+import {
+  fetchAuthMe,
+  fetchJigsawHistory,
+  getTelegramBotUsername,
+  getTelegramLoginWidgetBlocker,
+  hasTelegramWebAppInitData,
+  loginTelegramWebApp,
+  loginTelegramWidget,
+  readLocalAuthSession,
+  saveLocalAuthSession,
+  type AuthSession,
+  type JigsawHistoryItem,
+} from "./multiplayer/auth"
+import { readLocalJigsawSession } from "./multiplayer/client"
+import { formatDate, formatDuration } from "./time"
+
+import "./jigsaw-room.css"
+import "./jigsaw-room-profile.css"
+
+export function JigsawProfileApp() {
+  const widgetRef = useRef<HTMLDivElement | null>(null)
+  const anonSessionRef = useRef(readLocalJigsawSession())
+  const [authSession, setAuthSession] = useState<AuthSession | null>(() =>
+    readLocalAuthSession()
+  )
+  const [history, setHistory] = useState<JigsawHistoryItem[]>([])
+  const [status, setStatus] = useState(() =>
+    readLocalAuthSession() ? "Loading profile..." : "Telegram login required"
+  )
+  const [loading, setLoading] = useState(false)
+  const [widgetVisible, setWidgetVisible] = useState(false)
+  const stats = useMemo(() => createProfileStats(history), [history])
+
+  async function refreshHistory(session: AuthSession): Promise<void> {
+    const nextHistory = await fetchJigsawHistory(session.token)
+
+    setAuthSession(session)
+    setHistory(nextHistory)
+    setStatus(nextHistory.length ? "History synced" : "No solved jigsaws yet")
+  }
+
+  async function loginWithTelegram(): Promise<void> {
+    if (!hasTelegramWebAppInitData()) {
+      if (!getTelegramBotUsername()) {
+        setStatus(
+          "Set VITE_TELEGRAM_BOT_USERNAME to bot username ending with bot"
+        )
+        return
+      }
+
+      const widgetBlocker = getTelegramLoginWidgetBlocker()
+
+      if (widgetBlocker) {
+        setStatus(widgetBlocker)
+        return
+      }
+
+      setWidgetVisible(true)
+      setStatus("Confirm in Telegram widget")
+      return
+    }
+
+    setLoading(true)
+    setStatus("Telegram WebApp login...")
+
+    try {
+      const session = await loginTelegramWebApp(anonSessionRef.current.token)
+      await refreshHistory(session)
+    } catch (error) {
+      setStatus(readErrorMessage(error))
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    const saved = readLocalAuthSession()
+
+    if (!saved) {
+      return
+    }
+
+    const authToken = saved.token
+    let disposed = false
+
+    async function loadProfile(): Promise<void> {
+      setLoading(true)
+
+      try {
+        const session = await fetchAuthMe(authToken)
+        const nextHistory = await fetchJigsawHistory(session.token)
+
+        if (disposed) {
+          return
+        }
+
+        saveLocalAuthSession(session)
+        setAuthSession(session)
+        setHistory(nextHistory)
+        setStatus(
+          nextHistory.length ? "History synced" : "No solved jigsaws yet"
+        )
+      } catch (error) {
+        if (!disposed) {
+          setStatus(readErrorMessage(error))
+        }
+      } finally {
+        if (!disposed) {
+          setLoading(false)
+        }
+      }
+    }
+
+    void loadProfile()
+
+    return () => {
+      disposed = true
+    }
+  }, [])
+
+  useEffect(() => {
+    const host = widgetRef.current
+    const botUsername = getTelegramBotUsername()
+
+    if (!widgetVisible || !host || !botUsername) {
+      return
+    }
+
+    const callbackName = `onJigsawProfileTelegramAuth_${anonSessionRef.current.player.id.replace(/[^a-z0-9]/gi, "")}`
+    const anonSessionToken = anonSessionRef.current.token
+    const callbacks = window as unknown as Record<
+      string,
+      (payload: Record<string, unknown>) => void
+    >
+    const script = document.createElement("script")
+
+    host.replaceChildren()
+    callbacks[callbackName] = (payload) => {
+      setLoading(true)
+      setStatus("Telegram widget login...")
+      void loginTelegramWidget(payload, anonSessionToken)
+        .then(async (session) => {
+          const nextHistory = await fetchJigsawHistory(session.token)
+
+          saveLocalAuthSession(session)
+          setAuthSession(session)
+          setHistory(nextHistory)
+          setWidgetVisible(false)
+          setStatus(
+            nextHistory.length ? "History synced" : "No solved jigsaws yet"
+          )
+        })
+        .catch((error) => {
+          setStatus(readErrorMessage(error))
+        })
+        .finally(() => {
+          setLoading(false)
+        })
+    }
+
+    script.async = true
+    script.src = "https://telegram.org/js/telegram-widget.js?22"
+    script.setAttribute("data-telegram-login", botUsername)
+    script.setAttribute("data-size", "large")
+    script.setAttribute("data-userpic", "false")
+    script.setAttribute("data-request-access", "write")
+    script.setAttribute("data-onauth", `${callbackName}(user)`)
+    host.appendChild(script)
+
+    return () => {
+      delete callbacks[callbackName]
+      host.replaceChildren()
+    }
+  }, [widgetVisible])
+
+  return (
+    <main className="jigsaw-room jigsaw-room--profile">
+      <section className="jigsaw-room__profile-shell">
+        <div className="jigsaw-room__profile-hero">
+          <p className="jigsaw-room__profile-kicker">Player ledger</p>
+          <h1>{authSession?.user.displayName ?? "Guest profile"}</h1>
+          <span className="jigsaw-room__profile-status" aria-live="polite">
+            {status}
+          </span>
+
+          <div className="jigsaw-room__profile-actions">
+            <a
+              href="/jigsaw"
+              className="jigsaw-room__btn jigsaw-room__btn--outline"
+            >
+              Open room
+            </a>
+            <button
+              type="button"
+              className="jigsaw-room__btn jigsaw-room__btn--primary"
+              disabled={loading}
+              onClick={loginWithTelegram}
+            >
+              {loading
+                ? "Loading..."
+                : authSession
+                  ? "Relink Telegram"
+                  : "Telegram login"}
+            </button>
+          </div>
+
+          {widgetVisible ? (
+            <div ref={widgetRef} className="jigsaw-room__telegram-widget" />
+          ) : null}
+        </div>
+
+        <dl className="jigsaw-room__profile-scoreboard">
+          <div>
+            <dt>Solved</dt>
+            <dd>{stats.solved}</dd>
+          </div>
+          <div>
+            <dt>Pieces</dt>
+            <dd>{stats.pieces}</dd>
+          </div>
+          <div>
+            <dt>Time</dt>
+            <dd>{formatDuration(stats.elapsedMs)}</dd>
+          </div>
+          <div>
+            <dt>Snaps</dt>
+            <dd>{stats.snaps}</dd>
+          </div>
+          <div>
+            <dt>Partners</dt>
+            <dd>{stats.partners}</dd>
+          </div>
+        </dl>
+
+        <section
+          className="jigsaw-room__history-panel"
+          aria-label="Jigsaw history"
+        >
+          <div className="jigsaw-room__history-heading">
+            <span>Saved jigsaw history</span>
+            <strong>{history.length} records</strong>
+          </div>
+
+          {history.length ? (
+            <div className="jigsaw-room__history-list">
+              {history.map((item) => (
+                <article
+                  key={item.roomId}
+                  className="jigsaw-room__history-card"
+                >
+                  <div className="jigsaw-room__history-card-header">
+                    <span>{item.source.label}</span>
+                    <strong>{formatDate(item.completedAt)}</strong>
+                  </div>
+
+                  <dl className="jigsaw-room__history-card-stats">
+                    <div>
+                      <dt>Pieces</dt>
+                      <dd>{item.pieceCount}</dd>
+                    </div>
+                    <div>
+                      <dt>Time</dt>
+                      <dd>{formatDuration(item.elapsedMs)}</dd>
+                    </div>
+                    <div>
+                      <dt>Snaps</dt>
+                      <dd>{item.snapCount}</dd>
+                    </div>
+                  </dl>
+
+                  <div className="jigsaw-room__history-people">
+                    {item.participants.map((participant, index) => (
+                      <span
+                        key={`${item.roomId}-${participant.telegramId ?? participant.name}-${index}`}
+                        className="jigsaw-room__participant-chip"
+                        style={{
+                          borderLeftColor: participant.color,
+                          color: participant.color,
+                        }}
+                      >
+                        {participant.name}
+                      </span>
+                    ))}
+                  </div>
+                </article>
+              ))}
+            </div>
+          ) : (
+            <div className="jigsaw-room__history-empty">
+              <p>
+                Finish a jigsaw room while linked with Telegram. Safe refs keep
+                raw image URLs and tokens out of history.
+              </p>
+            </div>
+          )}
+        </section>
+      </section>
+    </main>
+  )
+}
+
+function createProfileStats(history: JigsawHistoryItem[]) {
+  const partners = new Set<string>()
+
+  for (const item of history) {
+    for (const participant of item.participants) {
+      partners.add(participant.telegramId ?? participant.name)
+    }
+  }
+
+  return {
+    solved: history.length,
+    pieces: history.reduce((sum, item) => sum + item.pieceCount, 0),
+    elapsedMs: history.reduce((sum, item) => sum + item.elapsedMs, 0),
+    snaps: history.reduce((sum, item) => sum + item.snapCount, 0),
+    partners: partners.size,
+  }
+}
+
+function readErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : "Profile unavailable"
+}
+
+export default JigsawProfileApp

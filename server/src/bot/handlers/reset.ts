@@ -1,7 +1,14 @@
+import { eq } from "drizzle-orm"
 import type { CommandContext } from "grammy"
 
-import { deletePhoto } from "../../features/delete-photo"
-import type { BotContext } from "../types"
+import type { BotContext } from "@/bot/types"
+import { db } from "@/infra/db"
+import {
+  batchesSchema,
+  batchPhotosSchema,
+  PhotoBatchStatus,
+} from "@/infra/db/schemas"
+import { s3Client } from "@/infra/storage"
 
 export async function handleReset(ctx: CommandContext<BotContext>) {
   await ctx.reply("command reset и че бля")
@@ -11,12 +18,23 @@ export async function handleReset(ctx: CommandContext<BotContext>) {
     return
   }
 
-  ctx.session.isStarted = false
+  if (ctx.session.activeBatchId) {
+    const photos = await db
+      .select()
+      .from(batchPhotosSchema)
+      .where(eq(batchPhotosSchema.batchId, ctx.session.activeBatchId))
 
-  if (ctx.session.photos.length) {
-    for (const photo of ctx.session.photos) {
-      await deletePhoto(ctx.chat.id, ctx.from.id, photo)
+    for (const photo of photos) {
+      await s3Client.delete(photo.objectKey)
     }
-    ctx.session.photos = []
+
+    await db
+      .update(batchesSchema)
+      .set({ status: PhotoBatchStatus.Canceled, updatedAt: new Date() })
+      .where(eq(batchesSchema.batchId, ctx.session.activeBatchId))
   }
+
+  ctx.session.isStarted = false
+  ctx.session.activeBatchId = undefined
+  ctx.session.photos = []
 }

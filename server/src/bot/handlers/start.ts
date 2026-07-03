@@ -1,7 +1,7 @@
 import type { CommandContext } from "grammy"
 
-import type { BotContext } from "../types"
-import { keyboard } from "../ui"
+import type { BotContext } from "@/bot/types"
+import { keyboard } from "@/bot/ui"
 
 export async function handleStart(ctx: CommandContext<BotContext>) {
   await ctx.reply(
