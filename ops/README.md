@@ -51,9 +51,10 @@ POSTGRES_USER=postgres
 POSTGRES_PASSWORD=<strong-password>
 POSTGRES_DB=jigtable
 DB_URL=postgresql://postgres:<strong-password>@postgres:5432/jigtable
+TELEGRAM_PROXY_URL=http://xray:10809
 CLIENT_URL=https://jigtable.ru
 PUBLIC_API_URL=https://api.jigtable.ru
-CORS_ORIGIN=https://jigtable.ru
+CORS_ORIGIN=https://jigtable.ru,https://www.jigtable.ru
 BOT_TOKEN=<telegram-bot-token>
 S3_ENDPOINT=<s3-endpoint>
 S3_REGION=<s3-region>
@@ -62,6 +63,15 @@ S3_ACCESS_KEY_ID=<s3-access-key-id>
 S3_SECRET_ACCESS_KEY=<s3-secret-access-key>
 S3_BUCKET=<s3-bucket>
 ```
+
+- `CORS_ORIGIN` accepts comma-separated origins.
+
+## Telegram Proxy
+
+- Prod Telegram outbound uses local Xray HTTP proxy, no system TUN routing.
+- Copy `ops/xray/config.example.json` to `ops/xray/config.json` on VPS and fill VLESS values.
+- Keep `ops/xray/config.json` uncommitted; it contains proxy secrets.
+- `server` uses `TELEGRAM_PROXY_URL=http://xray:10809` in prod compose.
 
 ## Deploy
 

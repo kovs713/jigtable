@@ -24,7 +24,10 @@ services:
     environment:
       NODE_ENV: production
       PORT: 3000
+      TELEGRAM_PROXY_URL: http://xray:10809
     depends_on:
+      xray:
+        condition: service_started
       postgres:
         condition: service_healthy
     expose:
@@ -39,6 +42,14 @@ services:
       timeout: 5s
       retries: 3
       start_period: 20s
+
+  xray:
+    image: teddysun/xray
+    restart: unless-stopped
+    volumes:
+      - ${XRAY_CONFIG_FILE:-./xray/config.json}:/etc/xray/config.json:ro
+    expose:
+      - "10809"
 
   postgres:
     image: postgres:17-alpine

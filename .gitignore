@@ -26,6 +26,7 @@ report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 .env.dev
 .env.prod
 .env.staging
+ops/xray/config.json
 
 # caches
 .eslintcache
