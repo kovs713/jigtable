@@ -40,6 +40,15 @@ export function startApiServer(bot: Bot<BotContext>): void {
     fetch(request: BunRequest, server) {
       const url = new URL(request.url)
 
+      // Telegram webhook is public; auth is the Telegram secret header only.
+      if (url.pathname === TELEGRAM_WEBHOOK_PATH) {
+        if (request.method !== "POST") {
+          return json({ error: "Method not allowed" }, 405, { Allow: "POST" })
+        }
+
+        return handleTelegramWebhook(bot, request)
+      }
+
       if (url.pathname === "/api/jigsaw/ws") {
         if (server.upgrade(request, { data: {} })) {
           return undefined
@@ -56,12 +65,7 @@ export function startApiServer(bot: Bot<BotContext>): void {
       return json({ error: "Not found" }, 404, undefined, request)
     },
 
-    routes: {
-      ...routes,
-      [TELEGRAM_WEBHOOK_PATH]: {
-        POST: (request: BunRequest) => handleTelegramWebhook(bot, request),
-      },
-    },
+    routes: routes,
 
     websocket: {
       message(socket, message) {
