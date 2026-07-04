@@ -59,11 +59,23 @@ jobs:
         shell: bash
         run: |
           repository="${GITHUB_REPOSITORY,,}"
-          tag="${{ inputs.image_tag }}"
-          if [ -z "$tag" ]; then
+          if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
+            tag="${{ inputs.image_tag }}"
+          else
             tag="$GITHUB_SHA"
           fi
-          echo "image=ghcr.io/${repository}/server:${tag}" >> "$GITHUB_OUTPUT"
+
+          image="ghcr.io/${repository}/server:${tag}"
+
+          {
+            echo "image=${image}"
+            echo "tags<<EOF"
+            echo "${image}"
+            if [ "$GITHUB_REF_NAME" = "master" ]; then
+              echo "ghcr.io/${repository}/server:master"
+            fi
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Build and push image
         uses: docker/build-push-action@v6
@@ -72,7 +84,7 @@ jobs:
           file: server/Dockerfile
           platforms: linux/amd64
           push: true
-          tags: ${{ steps.image.outputs.image }}
+          tags: ${{ steps.image.outputs.tags }}
 
       - name: Setup SSH
         uses: webfactory/ssh-agent@v0.9.0
