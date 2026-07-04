@@ -147,6 +147,21 @@ jobs:
           docker compose -f docker-compose.prod.yml pull server
           docker compose -f docker-compose.prod.yml up -d --remove-orphans
 
+          for attempt in $(seq 1 20); do
+            status="$(docker inspect --format '{{.State.Status}}' jigtable-caddy-1 2>/dev/null || true)"
+            if [ "$status" = running ]; then
+              break
+            fi
+
+            if [ "$attempt" -eq 20 ]; then
+              docker compose -f docker-compose.prod.yml ps
+              docker compose -f docker-compose.prod.yml logs --tail=200 caddy
+              exit 1
+            fi
+
+            sleep 2
+          done
+
           for attempt in $(seq 1 30); do
             status="$(docker inspect --format '{{.State.Health.Status}}' jigtable-server-1 2>/dev/null || true)"
             if [ "$status" = healthy ]; then
@@ -156,6 +171,21 @@ jobs:
             if [ "$attempt" -eq 30 ]; then
               docker compose -f docker-compose.prod.yml ps
               docker compose -f docker-compose.prod.yml logs --tail=200 xray server caddy
+              exit 1
+            fi
+
+            sleep 3
+          done
+
+          for attempt in $(seq 1 20); do
+            if curl -fsS --resolve api.jigtable.ru:443:127.0.0.1 https://api.jigtable.ru/api/health >/dev/null; then
+              break
+            fi
+
+            if [ "$attempt" -eq 20 ]; then
+              docker compose -f docker-compose.prod.yml ps
+              docker compose -f docker-compose.prod.yml logs --tail=200 caddy server
+              ss -lntp | grep -E ':80|:443' || true
               exit 1
             fi
 
@@ -174,5 +204,5 @@ jobs:
             exit 0
           fi
 
-          ssh "$VPS_USER@$VPS_HOST" 'cd /opt/jigtable && docker compose -f docker-compose.prod.yml ps && docker compose -f docker-compose.prod.yml logs --tail=200 xray server caddy'
+          ssh "$VPS_USER@$VPS_HOST" 'cd /opt/jigtable && docker compose -f docker-compose.prod.yml ps && docker compose -f docker-compose.prod.yml logs --tail=200 xray server caddy && ss -lntp | grep -E '\'':80|:443'\'' || true'
           exit 1
