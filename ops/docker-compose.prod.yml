@@ -53,9 +53,9 @@ services:
     healthcheck:
       test:
         - CMD-SHELL
-        - "https_proxy=http://127.0.0.1:10809 wget -qO- -Y on https://api.telegram.org >/dev/null"
+        - "nc -z 127.0.0.1 10809"
       interval: 30s
-      timeout: 10s
+      timeout: 5s
       retries: 3
       start_period: 10s
 
