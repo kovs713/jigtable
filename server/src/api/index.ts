@@ -42,10 +42,10 @@ export function startApiServer(): void {
           return undefined
         }
 
-        return json({ error: "WebSocket upgrade failed" }, 400)
+        return json({ error: "WebSocket upgrade failed" }, 400, undefined, request)
       }
 
-      return json({ error: "Not found" }, 404)
+      return json({ error: "Not found" }, 404, undefined, request)
     },
 
     routes: routes,

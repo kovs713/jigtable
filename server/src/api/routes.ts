@@ -32,7 +32,7 @@ import type {
   JigsawSession,
 } from "@jigtable/jigsaw-core"
 import { services } from "."
-import { CORS_HEADERS } from "./constants"
+import { CORS_HEADERS, corsHeaders } from "./constants"
 import { ApiError } from "./types"
 import {
   imageUrl,
@@ -51,11 +51,12 @@ import {
 
 export const routes = {
   "/*": {
-    OPTIONS: new Response(null, { headers: CORS_HEADERS }),
+    OPTIONS: (request: BunRequest) =>
+      new Response(null, { headers: corsHeaders(request) }),
   },
 
   "/api/health": {
-    GET: json({ ok: true }),
+    GET: route(() => json({ ok: true })),
   },
 
   "/api/auth/telegram-webapp": {
