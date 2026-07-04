@@ -23,6 +23,10 @@ export async function handleTelegramWebhook(
   bot: Bot<BotContext>,
   request: BunRequest
 ): Promise<Response> {
+  if (request.method !== "POST") {
+    return Response.json({ error: "Method Not Allowed" }, { status: 405 })
+  }
+
   const secret = request.headers.get(TELEGRAM_SECRET_HEADER)
   const expectedSecret = telegramWebhookSecret()
 
@@ -31,24 +35,33 @@ export async function handleTelegramWebhook(
     return Response.json({ error: "Unauthorized" }, { status: 401 })
   }
 
-  const update = (await request.json()) as Update
+  let update: Update
+
+  try {
+    update = (await request.json()) as Update
+  } catch (error) {
+    console.error("Telegram webhook invalid JSON", error)
+    return Response.json({ error: "Invalid JSON" }, { status: 400 })
+  }
+
   const updateType = readUpdateType(update)
 
   console.log(`Telegram webhook received ${update.update_id}:${updateType}`)
 
-  void bot
-    .handleUpdate(update)
-    .then(() => {
-      console.log(`Telegram webhook handled ${update.update_id}:${updateType}`)
-    })
-    .catch((error) => {
-      console.error(
-        `Telegram webhook failed ${update.update_id}:${updateType}`,
-        error
-      )
-    })
+  try {
+    await bot.handleUpdate(update)
 
-  return Response.json({ ok: true })
+    console.log(`Telegram webhook handled ${update.update_id}:${updateType}`)
+
+    return Response.json({ ok: true })
+  } catch (error) {
+    console.error(
+      `Telegram webhook failed ${update.update_id}:${updateType}`,
+      error
+    )
+
+    return Response.json({ error: "Telegram update failed" }, { status: 500 })
+  }
 }
 
 function readUpdateType(update: Update): string {

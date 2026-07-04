@@ -24,6 +24,7 @@ export async function createBot(): Promise<Bot<BotContext>> {
     },
   })
 
+  bot.use(logIncomingUpdate)
   bot.use(
     session({
       initial: initialSession,
@@ -42,6 +43,22 @@ export async function createBot(): Promise<Bot<BotContext>> {
   return bot
 }
 
+async function logIncomingUpdate(
+  ctx: BotContext,
+  next: () => Promise<void>
+): Promise<void> {
+  console.log(
+    [
+      `Bot update received ${ctx.update.update_id}:${readUpdateType(ctx)}`,
+      `user=${ctx.from?.id ?? "-"}`,
+      `chat=${ctx.chat?.id ?? "-"}`,
+      `command=${readCommand(ctx) ?? "-"}`,
+    ].join(" ")
+  )
+
+  await next()
+}
+
 async function requireWhitelistedUser(
   ctx: BotContext,
   next: () => Promise<void>
@@ -51,17 +68,24 @@ async function requireWhitelistedUser(
 
   if (command === "whitelist") {
     if (userId && (await isAdminTelegramUserId(userId))) {
+      console.log(`Bot whitelist command allowed user=${userId}`)
       await next()
+    } else {
+      console.warn(`Bot whitelist command denied user=${userId ?? "-"}`)
     }
 
     return
   }
 
   if (!userId || !(await isWhitelistedTelegramUserId(userId))) {
+    console.warn(
+      `Bot update denied by whitelist user=${userId ?? "-"} command=${command ?? "-"}`
+    )
     await ctx.reply("доступ только для whitelist")
     return
   }
 
+  console.log(`Bot update allowed user=${userId} command=${command ?? "-"}`)
   await next()
 }
 
@@ -74,6 +98,16 @@ function readCommand(ctx: BotContext): string | null {
   }
 
   return text.slice(1).split(/\s+/)[0]?.split("@")[0]?.toLowerCase() ?? null
+}
+
+function readUpdateType(ctx: BotContext): string {
+  for (const key of Object.keys(ctx.update)) {
+    if (key !== "update_id") {
+      return key
+    }
+  }
+
+  return "unknown"
 }
 
 export function startBot(bot: Bot<BotContext>): void {
