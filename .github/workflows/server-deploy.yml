@@ -133,9 +133,34 @@ jobs:
           docker compose -f docker-compose.prod.yml exec -T postgres sh -lc 'pg_dump -U "$POSTGRES_USER" "$POSTGRES_DB"' | gzip > "$backup"
 
           docker compose -f docker-compose.prod.yml pull server
-          docker compose -f docker-compose.prod.yml up -d
+          docker compose -f docker-compose.prod.yml up -d --remove-orphans
+
+          for attempt in $(seq 1 30); do
+            status="$(docker inspect --format '{{.State.Health.Status}}' jigtable-server-1 2>/dev/null || true)"
+            if [ "$status" = healthy ]; then
+              break
+            fi
+
+            if [ "$attempt" -eq 30 ]; then
+              docker compose -f docker-compose.prod.yml ps
+              docker compose -f docker-compose.prod.yml logs --tail=200 xray server caddy
+              exit 1
+            fi
+
+            sleep 3
+          done
+
           docker compose -f docker-compose.prod.yml ps
           DEPLOY
 
       - name: Healthcheck
-        run: curl --fail --retry 12 --retry-delay 5 --retry-connrefused https://api.jigtable.ru/api/health
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+        run: |
+          if curl --fail --retry 12 --retry-delay 5 --retry-connrefused https://api.jigtable.ru/api/health; then
+            exit 0
+          fi
+
+          ssh "$VPS_USER@$VPS_HOST" 'cd /opt/jigtable && docker compose -f docker-compose.prod.yml ps && docker compose -f docker-compose.prod.yml logs --tail=200 xray server caddy'
+          exit 1
