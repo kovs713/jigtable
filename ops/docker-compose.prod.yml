@@ -27,7 +27,7 @@ services:
       TELEGRAM_PROXY_URL: http://xray:10809
     depends_on:
       xray:
-        condition: service_started
+        condition: service_healthy
       postgres:
         condition: service_healthy
     expose:
@@ -50,6 +50,14 @@ services:
       - ${XRAY_CONFIG_FILE:-./xray/config.json}:/etc/xray/config.json:ro
     expose:
       - "10809"
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - "wget -qO- -e use_proxy=yes -e https_proxy=http://127.0.0.1:10809 https://api.telegram.org >/dev/null"
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
 
   postgres:
     image: postgres:17-alpine
