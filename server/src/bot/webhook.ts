@@ -1,4 +1,3 @@
-import { createHash } from "node:crypto"
 import type { BunRequest } from "bun"
 import type { Bot } from "grammy"
 import type { Update } from "grammy/types"
@@ -16,11 +15,8 @@ export function telegramWebhookUrl(): string {
   return new URL(TELEGRAM_WEBHOOK_PATH, baseUrl).toString()
 }
 
-export function telegramWebhookSecret(): string {
-  return (
-    readOptionalEnv("TELEGRAM_WEBHOOK_SECRET") ??
-    createHash("sha256").update(readRequiredEnv("BOT_TOKEN")).digest("hex")
-  )
+export function telegramWebhookSecret(): string | undefined {
+  return readOptionalEnv("TELEGRAM_WEBHOOK_SECRET")
 }
 
 export async function handleTelegramWebhook(
@@ -28,8 +24,9 @@ export async function handleTelegramWebhook(
   request: BunRequest
 ): Promise<Response> {
   const secret = request.headers.get(TELEGRAM_SECRET_HEADER)
+  const expectedSecret = telegramWebhookSecret()
 
-  if (secret !== telegramWebhookSecret()) {
+  if (expectedSecret && secret !== expectedSecret) {
     console.warn("Telegram webhook rejected: invalid secret")
     return Response.json({ error: "Unauthorized" }, { status: 401 })
   }
