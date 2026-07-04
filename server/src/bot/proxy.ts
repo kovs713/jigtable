@@ -25,6 +25,16 @@ export function setupTelegramProxy(): void {
   }) as FetchWithBunProxy
 }
 
+export const telegramApiFetch: FetchWithBunProxy = ((input, init) => {
+  const proxyUrl = readOptionalEnv("TELEGRAM_PROXY_URL")
+
+  if (!proxyUrl) {
+    return fetch(input, init)
+  }
+
+  return fetch(input, { ...init, proxy: proxyUrl } as BunProxyInit)
+}) as FetchWithBunProxy
+
 function isTelegramApiRequest(input: FetchInput): boolean {
   const url = readRequestUrl(input)
 

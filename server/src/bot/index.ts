@@ -1,7 +1,8 @@
-import { Bot, session, type Context } from "grammy"
+import { Bot, session, type ApiClientOptions, type Context } from "grammy"
 
 import { isAdminTelegramUserId, isWhitelistedTelegramUserId } from "@/auth"
 import { registerHandlers } from "@/bot/handlers"
+import { telegramApiFetch } from "@/bot/proxy"
 import { drizzleSessionStorage } from "@/bot/session-storage"
 import type { BotContext, SessionData } from "@/bot/types"
 import { telegramWebhookSecret, telegramWebhookUrl } from "@/bot/webhook"
@@ -17,7 +18,11 @@ const initialSession = (): SessionData => ({
 })
 
 export async function createBot(): Promise<Bot<BotContext>> {
-  const bot = new Bot<BotContext>(readRequiredEnv("BOT_TOKEN"))
+  const bot = new Bot<BotContext>(readRequiredEnv("BOT_TOKEN"), {
+    client: {
+      fetch: telegramApiFetch as unknown as ApiClientOptions["fetch"],
+    },
+  })
 
   bot.use(
     session({
