@@ -30,14 +30,36 @@ export async function handleTelegramWebhook(
   const secret = request.headers.get(TELEGRAM_SECRET_HEADER)
 
   if (secret !== telegramWebhookSecret()) {
+    console.warn("Telegram webhook rejected: invalid secret")
     return Response.json({ error: "Unauthorized" }, { status: 401 })
   }
 
   const update = (await request.json()) as Update
+  const updateType = readUpdateType(update)
 
-  void bot.handleUpdate(update).catch((error) => {
-    console.error("Telegram webhook update failed", error)
-  })
+  console.log(`Telegram webhook received ${update.update_id}:${updateType}`)
+
+  void bot
+    .handleUpdate(update)
+    .then(() => {
+      console.log(`Telegram webhook handled ${update.update_id}:${updateType}`)
+    })
+    .catch((error) => {
+      console.error(
+        `Telegram webhook failed ${update.update_id}:${updateType}`,
+        error
+      )
+    })
 
   return Response.json({ ok: true })
+}
+
+function readUpdateType(update: Update): string {
+  for (const key of Object.keys(update)) {
+    if (key !== "update_id") {
+      return key
+    }
+  }
+
+  return "unknown"
 }
