@@ -11,15 +11,19 @@ import { handleStatus } from "./status"
 import { handleSticker } from "./sticker"
 import { handleWhitelist } from "./whitelist"
 
-export async function registerHandlers(bot: Bot<BotContext>) {
-  await bot.api.setMyCommands([
-    { command: "start", description: "welкоме месаге" },
-    { command: "new", description: "начать совать шлаком" },
-    { command: "reset", description: "прервать подачу шлака" },
-    { command: "commit", description: "подтвердить подачу шлака" },
-    { command: "status", description: "узнать статус подачи шлака" },
-    { command: "list", description: "посмотреть свои готовые сборки шлака" },
-  ])
+export function registerHandlers(bot: Bot<BotContext>) {
+  void bot.api
+    .setMyCommands([
+      { command: "start", description: "welкоме месаге" },
+      { command: "new", description: "начать совать шлаком" },
+      { command: "reset", description: "прервать подачу шлака" },
+      { command: "commit", description: "подтвердить подачу шлака" },
+      { command: "status", description: "узнать статус подачи шлака" },
+      { command: "list", description: "посмотреть свои готовые сборки шлака" },
+    ])
+    .catch((error) => {
+      console.error("Failed to set bot commands", error)
+    })
 
   // commands
   bot.command("start", handleStart)

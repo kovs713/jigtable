@@ -27,7 +27,7 @@ export async function createBot(): Promise<Bot<BotContext>> {
   )
   bot.use(requireWhitelistedUser)
 
-  await registerHandlers(bot)
+  registerHandlers(bot)
 
   bot.catch((err) => {
     console.error("Bot error", err)
