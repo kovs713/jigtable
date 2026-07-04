@@ -1,6 +1,8 @@
 name: Server Deploy
 
 on:
+  push:
+    branches: [master]
   workflow_dispatch:
     inputs:
       image_tag:
