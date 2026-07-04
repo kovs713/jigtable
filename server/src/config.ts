@@ -7,6 +7,7 @@ declare module "bun" {
 
     BOT_TOKEN: string
     ADMIN_USER_ID: string
+    TELEGRAM_WEBHOOK_SECRET?: string
 
     S3_ENDPOINT: string
     S3_REGION: string

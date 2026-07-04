@@ -4,7 +4,8 @@ import { isAdminTelegramUserId, isWhitelistedTelegramUserId } from "@/auth"
 import { registerHandlers } from "@/bot/handlers"
 import { drizzleSessionStorage } from "@/bot/session-storage"
 import type { BotContext, SessionData } from "@/bot/types"
-import { readOptionalEnv, readRequiredEnv } from "@/infra/env"
+import { telegramWebhookSecret, telegramWebhookUrl } from "@/bot/webhook"
+import { readRequiredEnv } from "@/infra/env"
 
 const getSessionKey = (ctx: Context): string | undefined =>
   ctx.chat?.id.toString()
@@ -71,27 +72,17 @@ function readCommand(ctx: BotContext): string | null {
 }
 
 export function startBot(bot: Bot<BotContext>): void {
-  const proxyUrl = readOptionalEnv("TELEGRAM_PROXY_URL")
-
-  console.log(
-    proxyUrl ? `Starting bot via proxy ${proxyUrl}` : "Starting bot directly"
-  )
+  const webhookUrl = telegramWebhookUrl()
 
   void bot.api
-    .getMe()
-    .then((botInfo) => {
-      console.log(`Telegram API reachable as @${botInfo.username}`)
+    .setWebhook(webhookUrl, {
+      secret_token: telegramWebhookSecret(),
+    })
+    .then(() => {
+      console.log(`Bot webhook set to ${webhookUrl}`)
     })
     .catch((error) => {
-      console.error("Telegram API probe failed", error)
+      console.error("Bot fatal error", error)
+      process.exit(1)
     })
-
-  void bot.start({
-    onStart(botInfo) {
-      console.log(`Bot polling started as @${botInfo.username}`)
-    },
-  }).catch((error) => {
-    console.error("Bot fatal error", error)
-    process.exit(1)
-  })
 }

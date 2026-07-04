@@ -7,9 +7,9 @@ async function main(): Promise<void> {
 
   const bot = await createBot()
 
-  startBot(bot)
+  startApiServer(bot)
 
-  startApiServer()
+  startBot(bot)
 }
 
 void main().catch((error) => {

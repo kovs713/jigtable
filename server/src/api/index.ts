@@ -1,6 +1,9 @@
 import { serve, type BunRequest } from "bun"
+import type { Bot } from "grammy"
 
 import { TelegramAuthService } from "@/auth"
+import { handleTelegramWebhook, TELEGRAM_WEBHOOK_PATH } from "@/bot/webhook"
+import type { BotContext } from "@/bot/types"
 import { LIMITS } from "@/config"
 import { readPortEnv } from "@/infra/env"
 import { JigsawHistoryStore } from "@/jigsaw-room/history-store"
@@ -26,7 +29,7 @@ export const services = {
   auth: authService,
 }
 
-export function startApiServer(): void {
+export function startApiServer(bot: Bot<BotContext>): void {
   const port = readPortEnv("PORT", 3000)
 
   const server = serve<JigsawSocketData>({
@@ -42,13 +45,23 @@ export function startApiServer(): void {
           return undefined
         }
 
-        return json({ error: "WebSocket upgrade failed" }, 400, undefined, request)
+        return json(
+          { error: "WebSocket upgrade failed" },
+          400,
+          undefined,
+          request
+        )
       }
 
       return json({ error: "Not found" }, 404, undefined, request)
     },
 
-    routes: routes,
+    routes: {
+      ...routes,
+      [TELEGRAM_WEBHOOK_PATH]: {
+        POST: (request: BunRequest) => handleTelegramWebhook(bot, request),
+      },
+    },
 
     websocket: {
       message(socket, message) {
