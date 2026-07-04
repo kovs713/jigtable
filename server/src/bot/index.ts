@@ -4,7 +4,7 @@ import { isAdminTelegramUserId, isWhitelistedTelegramUserId } from "@/auth"
 import { registerHandlers } from "@/bot/handlers"
 import { drizzleSessionStorage } from "@/bot/session-storage"
 import type { BotContext, SessionData } from "@/bot/types"
-import { readRequiredEnv } from "@/infra/env"
+import { readOptionalEnv, readRequiredEnv } from "@/infra/env"
 
 const getSessionKey = (ctx: Context): string | undefined =>
   ctx.chat?.id.toString()
@@ -71,7 +71,26 @@ function readCommand(ctx: BotContext): string | null {
 }
 
 export function startBot(bot: Bot<BotContext>): void {
-  void bot.start().catch((error) => {
+  const proxyUrl = readOptionalEnv("TELEGRAM_PROXY_URL")
+
+  console.log(
+    proxyUrl ? `Starting bot via proxy ${proxyUrl}` : "Starting bot directly"
+  )
+
+  void bot.api
+    .getMe()
+    .then((botInfo) => {
+      console.log(`Telegram API reachable as @${botInfo.username}`)
+    })
+    .catch((error) => {
+      console.error("Telegram API probe failed", error)
+    })
+
+  void bot.start({
+    onStart(botInfo) {
+      console.log(`Bot polling started as @${botInfo.username}`)
+    },
+  }).catch((error) => {
     console.error("Bot fatal error", error)
     process.exit(1)
   })
