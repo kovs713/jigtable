@@ -56,6 +56,7 @@
         "grammy": "^1.44.0",
         "pg": "^8.22.0",
         "sharp": "^0.35.2",
+        "undici": "^7.16.0",
       },
       "devDependencies": {
         "@types/bun": "latest",
