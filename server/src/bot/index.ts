@@ -79,12 +79,14 @@ function readCommand(ctx: BotContext): string | null {
 export function startBot(bot: Bot<BotContext>): void {
   const webhookUrl = telegramWebhookUrl()
   const webhookSecret = telegramWebhookSecret()
+  const webhookOptions = {
+    drop_pending_updates: true,
+    ...(webhookSecret ? { secret_token: webhookSecret } : {}),
+  }
 
   void bot.api
-    .setWebhook(
-      webhookUrl,
-      webhookSecret ? { secret_token: webhookSecret } : undefined
-    )
+    .deleteWebhook({ drop_pending_updates: true })
+    .then(() => bot.api.setWebhook(webhookUrl, webhookOptions))
     .then(() => {
       console.log(`Bot webhook set to ${webhookUrl}`)
     })
