@@ -42,6 +42,31 @@ export function readOptionalOriginEnv(name: string): string | undefined {
   return value ? parseOrigin(name, value) : undefined
 }
 
+export function readOriginListEnv(name: string): string[] {
+  const value = readRequiredEnv(name)
+
+  return parseOriginList(name, value)
+}
+
+export function readOptionalOriginListEnv(name: string): string[] | undefined {
+  const value = readOptionalEnv(name)
+
+  return value ? parseOriginList(name, value) : undefined
+}
+
+function parseOriginList(name: string, value: string): string[] {
+  const origins = value
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean)
+
+  if (origins.length === 0) {
+    throw new Error(`${name} must include at least one URL`)
+  }
+
+  return origins.map((origin) => parseOrigin(name, origin))
+}
+
 function parseOrigin(name: string, value: string): string {
   try {
     return new URL(value).origin

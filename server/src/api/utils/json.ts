@@ -1,13 +1,14 @@
 import type { HeadersInit } from "bun"
 
-import { CORS_HEADERS } from "@/api/constants"
+import { corsHeaders } from "@/api/constants"
 
 export function json(
   value: unknown,
   status = 200,
-  headers?: HeadersInit
+  headers?: HeadersInit,
+  request?: Request
 ): Response {
-  const responseHeaders = new Headers(CORS_HEADERS)
+  const responseHeaders = corsHeaders(request)
 
   responseHeaders.set("Content-Type", "application/json; charset=utf-8")
 
