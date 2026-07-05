@@ -110,7 +110,7 @@ function readUpdateType(ctx: BotContext): string {
   return "unknown"
 }
 
-export function startBot(bot: Bot<BotContext>): void {
+export async function startBot(bot: Bot<BotContext>): Promise<void> {
   const webhookUrl = telegramWebhookUrl()
   const webhookSecret = telegramWebhookSecret()
   const webhookOptions = {
@@ -118,14 +118,9 @@ export function startBot(bot: Bot<BotContext>): void {
     ...(webhookSecret ? { secret_token: webhookSecret } : {}),
   }
 
-  void bot.api
-    .deleteWebhook({ drop_pending_updates: true })
-    .then(() => bot.api.setWebhook(webhookUrl, webhookOptions))
-    .then(() => {
-      console.log(`Bot webhook set to ${webhookUrl}`)
-    })
-    .catch((error) => {
-      console.error("Bot fatal error", error)
-      process.exit(1)
-    })
+  await bot.init()
+  await bot.api.deleteWebhook({ drop_pending_updates: true })
+  await bot.api.setWebhook(webhookUrl, webhookOptions)
+
+  console.log(`Bot webhook set to ${webhookUrl}`)
 }

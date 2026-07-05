@@ -48,6 +48,10 @@ export async function handleTelegramWebhook(
 
   console.log(`Telegram webhook received ${update.update_id}:${updateType}`)
 
+  if (!bot.isInited()) {
+    await bot.init()
+  }
+
   try {
     await bot.handleUpdate(update)
 

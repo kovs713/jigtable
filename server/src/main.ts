@@ -9,7 +9,7 @@ async function main(): Promise<void> {
 
   startApiServer(bot)
 
-  startBot(bot)
+  await startBot(bot)
 }
 
 void main().catch((error) => {
