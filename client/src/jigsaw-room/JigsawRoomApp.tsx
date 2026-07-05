@@ -76,6 +76,7 @@ import "./jigsaw-room-game.css"
 import "./jigsaw-room.css"
 
 const JIGSAW_IMAGE_URL = "/test_jigsaw.png"
+const DEV_ROOM_ID = "dev-room"
 const ACTIVE_JIGSAW_CONFIG = JIGSAW_CONFIG_2000
 const GROUP_MOVE_SEND_INTERVAL_MS = 66
 
@@ -219,7 +220,16 @@ export function JigsawRoomApp({ roomId }: JigsawRoomAppProps) {
         let initialSnapshot: JigsawRoomSnapshot | null = null
 
         if (roomId) {
-          initialSnapshot = await fetchJigsawRoomSnapshot(roomId)
+          try {
+            initialSnapshot = await fetchJigsawRoomSnapshot(roomId)
+          } catch (error) {
+            if (!isLocalDevRoom(roomId)) {
+              throw error
+            }
+
+            setSessionStatus("offline")
+            setSessionMessage("Local test room")
+          }
         }
 
         const imageTexture = await loadImageTexture(
@@ -855,6 +865,21 @@ export function JigsawRoomApp({ roomId }: JigsawRoomAppProps) {
     }, 900)
   }
 
+  function zoomInView(): void {
+    runtimeRef.current?.camera.zoomIn()
+    refreshStatsNow()
+  }
+
+  function zoomOutView(): void {
+    runtimeRef.current?.camera.zoomOut()
+    refreshStatsNow()
+  }
+
+  function resetViewZoom(): void {
+    runtimeRef.current?.camera.resetView()
+    refreshStatsNow()
+  }
+
   return (
     <div className="jigsaw-room">
       <div ref={mountRef} className="jigsaw-room__stage" />
@@ -1003,9 +1028,36 @@ export function JigsawRoomApp({ roomId }: JigsawRoomAppProps) {
         </div>
       </dl>
 
+      <div className="jigsaw-room__zoom-controls" aria-label="Zoom controls">
+        <button
+          type="button"
+          onClick={zoomOutView}
+          disabled={!ready}
+          aria-label="Zoom out"
+        >
+          -
+        </button>
+        <button
+          type="button"
+          onClick={resetViewZoom}
+          disabled={!ready}
+          aria-label="Fit puzzle to screen"
+        >
+          Fit
+        </button>
+        <button
+          type="button"
+          onClick={zoomInView}
+          disabled={!ready}
+          aria-label="Zoom in"
+        >
+          +
+        </button>
+      </div>
+
       <div className="jigsaw-room__hint">
-        Drag pieces. <kbd className="jigsaw-room__shortcut">Wheel</kbd> zooms
-        to cursor. Empty/solved/
+        Drag pieces. <kbd className="jigsaw-room__shortcut">Wheel</kbd>, pinch,
+        or zoom buttons zoom. Empty/solved/
         <kbd className="jigsaw-room__shortcut">middle/right drag</kbd> pans.
         <kbd className="jigsaw-room__shortcut">Space</kbd> preview.
         <kbd className="jigsaw-room__shortcut">Shift+Space</kbd> pause. Drop
@@ -1128,6 +1180,10 @@ function getSessionStatusText(
 
 function readErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : "Session unavailable"
+}
+
+function isLocalDevRoom(roomId: string): boolean {
+  return import.meta.env.DEV && roomId === DEV_ROOM_ID
 }
 
 function isEditableTarget(target: EventTarget | null): boolean {

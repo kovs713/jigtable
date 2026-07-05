@@ -52,7 +52,10 @@ export function setupPieceInteractions({
   let drag: DragState | null = null
 
   function onPointerDown(event: PointerEvent): void {
-    if (event.button !== 0) {
+    if (
+      event.button !== 0 ||
+      (event.pointerType === "touch" && camera.isTouchGestureActive)
+    ) {
       return
     }
 
@@ -102,6 +105,11 @@ export function setupPieceInteractions({
       return
     }
 
+    if (event.pointerType === "touch" && camera.isTouchGestureActive) {
+      cancelDrag({ notifyDrop: true })
+      return
+    }
+
     if (canDragGroup?.(drag.groupId) === false) {
       cancelDrag()
       return
@@ -143,7 +151,7 @@ export function setupPieceInteractions({
     onChange?.()
   }
 
-  function cancelDrag(): void {
+  function cancelDrag(options: { notifyDrop?: boolean } = {}): void {
     if (!drag) {
       return
     }
@@ -154,6 +162,11 @@ export function setupPieceInteractions({
 
     if (canvas.hasPointerCapture(cancelledDrag.pointerId)) {
       canvas.releasePointerCapture(cancelledDrag.pointerId)
+    }
+
+    if (options.notifyDrop) {
+      onGroupDrop?.(cancelledDrag.groupId)
+      onChange?.()
     }
   }
 
