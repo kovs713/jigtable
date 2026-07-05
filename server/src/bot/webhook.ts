@@ -46,26 +46,20 @@ export async function handleTelegramWebhook(
 
   const updateType = readUpdateType(update)
 
-  console.log(`Telegram webhook received ${update.update_id}:${updateType}`)
+  void (async () => {
+    if (!bot.isInited()) {
+      await bot.init()
+    }
 
-  if (!bot.isInited()) {
-    await bot.init()
-  }
-
-  try {
     await bot.handleUpdate(update)
-
-    console.log(`Telegram webhook handled ${update.update_id}:${updateType}`)
-
-    return Response.json({ ok: true })
-  } catch (error) {
+  })().catch((error) => {
     console.error(
       `Telegram webhook failed ${update.update_id}:${updateType}`,
       error
     )
+  })
 
-    return Response.json({ error: "Telegram update failed" }, { status: 500 })
-  }
+  return Response.json({ ok: true })
 }
 
 function readUpdateType(update: Update): string {
