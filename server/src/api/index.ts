@@ -1,9 +1,6 @@
 import { serve, type BunRequest } from "bun"
-import type { Bot } from "grammy"
 
 import { TelegramAuthService } from "@/auth"
-import { handleTelegramWebhook, TELEGRAM_WEBHOOK_PATH } from "@/bot/webhook"
-import type { BotContext } from "@/bot/types"
 import { LIMITS } from "@/config"
 import { readPortEnv } from "@/infra/env"
 import { JigsawHistoryStore } from "@/jigsaw-room/history-store"
@@ -29,7 +26,7 @@ export const services = {
   auth: authService,
 }
 
-export function startApiServer(bot: Bot<BotContext>): void {
+export function startApiServer(): void {
   const port = readPortEnv("PORT", 3000)
 
   const server = serve<JigsawSocketData>({
@@ -39,15 +36,6 @@ export function startApiServer(bot: Bot<BotContext>): void {
 
     fetch(request: BunRequest, server) {
       const url = new URL(request.url)
-
-      // Telegram webhook is public; auth is the Telegram secret header only.
-      if (url.pathname === TELEGRAM_WEBHOOK_PATH) {
-        if (request.method !== "POST") {
-          return json({ error: "Method not allowed" }, 405, { Allow: "POST" })
-        }
-
-        return handleTelegramWebhook(bot, request)
-      }
 
       if (url.pathname === "/api/jigsaw/ws") {
         if (server.upgrade(request, { data: {} })) {

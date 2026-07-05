@@ -157,7 +157,7 @@ jobs:
           docker compose -f docker-compose.prod.yml exec -T postgres sh -lc 'pg_dump -U "$POSTGRES_USER" "$POSTGRES_DB"' | gzip > "$backup"
 
           docker compose -f docker-compose.prod.yml pull server
-          docker compose -f docker-compose.prod.yml run --rm --no-deps server sh -lc "grep -q 'telegramApiFetch' /app/server/src/bot/index.ts && grep -q 'setWebhook' /app/server/src/bot/index.ts"
+          docker compose -f docker-compose.prod.yml run --rm --no-deps server sh -lc "grep -q 'telegramApiFetch' /app/server/src/bot/index.ts && grep -q 'bot.start' /app/server/src/bot/index.ts"
           docker compose -f docker-compose.prod.yml up -d --pull always --remove-orphans --force-recreate server caddy
 
           expected_image_id="$(docker image inspect "$SERVER_IMAGE" --format '{{.Id}}')"

@@ -5,7 +5,6 @@ import { registerHandlers } from "@/bot/handlers"
 import { telegramApiFetch } from "@/bot/proxy"
 import { drizzleSessionStorage } from "@/bot/session-storage"
 import type { BotContext, SessionData } from "@/bot/types"
-import { telegramWebhookSecret, telegramWebhookUrl } from "@/bot/webhook"
 import { readRequiredEnv } from "@/infra/env"
 
 const getSessionKey = (ctx: Context): string | undefined =>
@@ -24,7 +23,6 @@ export async function createBot(): Promise<Bot<BotContext>> {
     },
   })
 
-  bot.use(logIncomingUpdate)
   bot.use(
     session({
       initial: initialSession,
@@ -43,22 +41,6 @@ export async function createBot(): Promise<Bot<BotContext>> {
   return bot
 }
 
-async function logIncomingUpdate(
-  ctx: BotContext,
-  next: () => Promise<void>
-): Promise<void> {
-  console.log(
-    [
-      `Bot update received ${ctx.update.update_id}:${readUpdateType(ctx)}`,
-      `user=${ctx.from?.id ?? "-"}`,
-      `chat=${ctx.chat?.id ?? "-"}`,
-      `command=${readCommand(ctx) ?? "-"}`,
-    ].join(" ")
-  )
-
-  await next()
-}
-
 async function requireWhitelistedUser(
   ctx: BotContext,
   next: () => Promise<void>
@@ -68,7 +50,6 @@ async function requireWhitelistedUser(
 
   if (command === "whitelist") {
     if (userId && (await isAdminTelegramUserId(userId))) {
-      console.log(`Bot whitelist command allowed user=${userId}`)
       await next()
     } else {
       console.warn(`Bot whitelist command denied user=${userId ?? "-"}`)
@@ -85,7 +66,6 @@ async function requireWhitelistedUser(
     return
   }
 
-  console.log(`Bot update allowed user=${userId} command=${command ?? "-"}`)
   await next()
 }
 
@@ -100,27 +80,18 @@ function readCommand(ctx: BotContext): string | null {
   return text.slice(1).split(/\s+/)[0]?.split("@")[0]?.toLowerCase() ?? null
 }
 
-function readUpdateType(ctx: BotContext): string {
-  for (const key of Object.keys(ctx.update)) {
-    if (key !== "update_id") {
-      return key
-    }
-  }
-
-  return "unknown"
-}
-
-export async function startBot(bot: Bot<BotContext>): Promise<void> {
-  const webhookUrl = telegramWebhookUrl()
-  const webhookSecret = telegramWebhookSecret()
-  const webhookOptions = {
-    drop_pending_updates: true,
-    ...(webhookSecret ? { secret_token: webhookSecret } : {}),
-  }
-
-  await bot.init()
-  await bot.api.deleteWebhook({ drop_pending_updates: true })
-  await bot.api.setWebhook(webhookUrl, webhookOptions)
-
-  console.log(`Bot webhook set to ${webhookUrl}`)
+export function startBot(bot: Bot<BotContext>): void {
+  void bot.api
+    .deleteWebhook({ drop_pending_updates: true })
+    .then(() =>
+      bot.start({
+        onStart(botInfo) {
+          console.log(`Bot polling started as @${botInfo.username}`)
+        },
+      })
+    )
+    .catch((error) => {
+      console.error("Bot fatal error", error)
+      process.exit(1)
+    })
 }
