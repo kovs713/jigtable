@@ -5,7 +5,6 @@ import { registerHandlers } from "@/bot/handlers"
 import { telegramApiFetch } from "@/bot/proxy"
 import { drizzleSessionStorage } from "@/bot/session-storage"
 import type { BotContext, SessionData } from "@/bot/types"
-import { readRequiredEnv } from "@/infra/env"
 
 const getSessionKey = (ctx: Context): string | undefined =>
   ctx.chat?.id.toString()
@@ -17,7 +16,7 @@ const initialSession = (): SessionData => ({
 })
 
 export async function createBot(): Promise<Bot<BotContext>> {
-  const bot = new Bot<BotContext>(readRequiredEnv("BOT_TOKEN"), {
+  const bot = new Bot<BotContext>(process.env.BOT_TOKEN, {
     client: {
       fetch: telegramApiFetch as unknown as ApiClientOptions["fetch"],
     },

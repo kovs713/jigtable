@@ -1,10 +1,8 @@
 import { SQL } from "bun"
 import { drizzle } from "drizzle-orm/bun-sql"
 
-import { readRequiredEnv } from "@/infra/env"
-
 const createDb = () => {
-  const client = new SQL(readRequiredEnv("DB_URL"))
+  const client = new SQL(process.env.DB_URL)
   return drizzle({ client })
 }
 

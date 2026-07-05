@@ -19,7 +19,6 @@ import {
   batchPhotosSchema,
   PhotoBatchStatus,
 } from "@/infra/db/schemas"
-import { readOriginEnv, readRequiredEnv } from "@/infra/env"
 import { s3Client } from "@/infra/storage"
 import { createJigsawSafeAssetRef } from "@/jigsaw-room/history-store"
 import type { CreateJigsawRoomInput } from "@/jigsaw-room/room-manager"
@@ -565,7 +564,7 @@ async function readImageSize(
     return { width: 3168, height: 1782 }
   }
 
-  const url = new URL(imageUrl, readRequiredEnv("CLIENT_URL"))
+  const url = new URL(imageUrl, process.env.CLIENT_URL!)
 
   if (url.pathname.startsWith("/api/batches/")) {
     const parts = url.pathname.split("/").filter(Boolean)
@@ -610,10 +609,9 @@ function assertJigsawImageFetchAllowed(url: URL): void {
     throw new ApiError("Jigsaw image URL must be HTTP(S)", 400)
   }
 
-  const allowedOrigins = new Set([
-    readOriginEnv("CLIENT_URL"),
-    readOriginEnv("PUBLIC_API_URL"),
-  ])
+  const allowedOrigins = new Set(
+    process.env.CORS_ORIGIN.split(",").map((origin) => origin.trim())
+  )
 
   if (!allowedOrigins.has(url.origin)) {
     throw new ApiError("Jigsaw image origin is not allowed", 400)

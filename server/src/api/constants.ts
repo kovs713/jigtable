@@ -1,9 +1,3 @@
-import { readOptionalOriginListEnv, readOriginListEnv } from "@/infra/env"
-
-const corsOrigins =
-  readOptionalOriginListEnv("CORS_ORIGIN") ?? readOriginListEnv("CLIENT_URL")
-const fallbackCorsOrigin = readFallbackOrigin(corsOrigins)
-
 export const CORS_HEADERS = {
   "Access-Control-Allow-Origin": fallbackCorsOrigin,
   "Access-Control-Allow-Headers": "authorization,content-type",
@@ -15,7 +9,7 @@ export function corsHeaders(request?: Request): Headers {
   const headers = new Headers(CORS_HEADERS)
   const origin = request?.headers.get("Origin")
 
-  if (origin && corsOrigins.includes(origin)) {
+  if (origin && process.env.CORS_ORIGIN.includes(origin)) {
     headers.set("Access-Control-Allow-Origin", origin)
   }
 

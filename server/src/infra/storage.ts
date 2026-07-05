@@ -1,11 +1,9 @@
 import { S3Client } from "bun"
 
-import { readRequiredEnv } from "@/infra/env"
-
 export const s3Client = new S3Client({
-  accessKeyId: readRequiredEnv("S3_ACCESS_KEY_ID"),
-  secretAccessKey: readRequiredEnv("S3_SECRET_ACCESS_KEY"),
-  endpoint: readRequiredEnv("S3_ENDPOINT"),
-  region: readRequiredEnv("S3_REGION"),
-  bucket: readRequiredEnv("S3_BUCKET"),
+  accessKeyId: process.env.S3_ACCESS_KEY_ID!,
+  secretAccessKey: process.env.S3_SECRET_ACCESS_KEY!,
+  endpoint: process.env.S3_ENDPOINT!,
+  region: process.env.S3_REGION!,
+  bucket: process.env.S3_BUCKET!,
 })

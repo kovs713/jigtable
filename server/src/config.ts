@@ -3,6 +3,7 @@ declare module "bun" {
     PORT: string
     CLIENT_URL: string
     PUBLIC_API_URL: string
+    CORS_ORIGIN: string
     NODE_ENV?: string
 
     BOT_TOKEN: string

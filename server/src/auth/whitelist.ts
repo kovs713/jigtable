@@ -2,7 +2,6 @@ import { eq } from "drizzle-orm"
 
 import { db } from "@/infra/db"
 import { whitelistUsersSchema } from "@/infra/db/schemas"
-import { readOptionalEnv } from "@/infra/env"
 
 export const WHITELIST_DENIED_MESSAGE = "Telegram user is not whitelisted"
 
@@ -78,9 +77,7 @@ export function parseTelegramUserId(value: string | number): number | null {
 }
 
 function isConfiguredAdminTelegramUserId(userId: number): boolean {
-  const adminUserId = parseTelegramUserId(
-    readOptionalEnv("ADMIN_USER_ID") ?? ""
-  )
+  const adminUserId = parseTelegramUserId(process.env.ADMIN_USER_ID)
 
   return adminUserId === userId
 }

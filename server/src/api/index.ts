@@ -2,7 +2,6 @@ import { serve, type BunRequest } from "bun"
 
 import { TelegramAuthService } from "@/auth"
 import { LIMITS } from "@/config"
-import { readPortEnv } from "@/infra/env"
 import { JigsawHistoryStore } from "@/jigsaw-room/history-store"
 import {
   JigsawRoomManager,
@@ -27,7 +26,7 @@ export const services = {
 }
 
 export function startApiServer(): void {
-  const port = readPortEnv("PORT", 3000)
+  const port = Number(process.env.PORT) ?? 3000
 
   const server = serve<JigsawSocketData>({
     port,
