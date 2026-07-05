@@ -127,7 +127,13 @@ jobs:
           VPS_HOST: ${{ secrets.VPS_HOST }}
           VPS_USER: ${{ secrets.VPS_USER }}
         run: |
-          ssh "$VPS_USER@$VPS_HOST" "SERVER_IMAGE='$SERVER_IMAGE' bash -s" <<'DEPLOY'
+          remote_script="$(ssh "$VPS_USER@$VPS_HOST" 'mktemp /tmp/jigtable-server-deploy.XXXXXX.sh')"
+          cleanup() {
+            ssh "$VPS_USER@$VPS_HOST" "rm -f '$remote_script'" || true
+          }
+          trap cleanup EXIT
+
+          ssh "$VPS_USER@$VPS_HOST" "cat > '$remote_script'" <<'DEPLOY'
           set -euo pipefail
 
           cd /opt/jigtable
@@ -153,11 +159,14 @@ jobs:
             sleep 2
           done
 
+          echo "Backing up Postgres"
           backup="backups/pre-deploy-$(date +%Y%m%d%H%M%S).sql.gz"
           docker compose -f docker-compose.prod.yml exec -T postgres sh -lc 'pg_dump -U "$POSTGRES_USER" "$POSTGRES_DB"' | gzip > "$backup"
 
+          echo "Pulling server image"
           docker compose -f docker-compose.prod.yml pull server
           docker compose -f docker-compose.prod.yml run --rm --no-deps server sh -lc "grep -q 'telegramApiFetch' /app/server/src/bot/index.ts && grep -q 'bot.start' /app/server/src/bot/index.ts"
+          echo "Recreating server and caddy"
           docker compose -f docker-compose.prod.yml up -d --pull always --remove-orphans --force-recreate server caddy
 
           expected_image_id="$(docker image inspect "$SERVER_IMAGE" --format '{{.Id}}')"
@@ -216,6 +225,8 @@ jobs:
 
           docker compose -f docker-compose.prod.yml ps
           DEPLOY
+
+          ssh "$VPS_USER@$VPS_HOST" "SERVER_IMAGE='$SERVER_IMAGE' bash '$remote_script'"
 
       - name: Healthcheck
         env:
