@@ -6,9 +6,9 @@ on:
   workflow_dispatch:
     inputs:
       image_tag:
-        description: Image tag.
+        description: Optional image tag override.
         required: false
-        default: master
+        default: ""
         type: string
 
 permissions:
@@ -61,12 +61,14 @@ jobs:
       - name: Resolve image
         id: image
         shell: bash
+        env:
+          INPUT_IMAGE_TAG: ${{ inputs.image_tag }}
         run: |
           repository="${GITHUB_REPOSITORY,,}"
-          if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
-            tag="${{ inputs.image_tag }}"
-          else
-            tag="$GITHUB_SHA"
+          tag="$GITHUB_SHA"
+
+          if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ] && [ -n "$INPUT_IMAGE_TAG" ]; then
+            tag="$INPUT_IMAGE_TAG"
           fi
 
           image="ghcr.io/${repository}/server:${tag}"
@@ -156,7 +158,16 @@ jobs:
 
           docker compose -f docker-compose.prod.yml pull server
           docker compose -f docker-compose.prod.yml run --rm --no-deps server sh -lc "grep -q 'telegramApiFetch' /app/server/src/bot/index.ts && grep -q 'setWebhook' /app/server/src/bot/index.ts"
-          docker compose -f docker-compose.prod.yml up -d --remove-orphans --force-recreate server caddy
+          docker compose -f docker-compose.prod.yml up -d --pull always --remove-orphans --force-recreate server caddy
+
+          expected_image_id="$(docker image inspect "$SERVER_IMAGE" --format '{{.Id}}')"
+          running_image_id="$(docker inspect --format '{{.Image}}' jigtable-server-1)"
+          if [ "$running_image_id" != "$expected_image_id" ]; then
+            echo "Server is not running deployed image"
+            echo "expected: $SERVER_IMAGE $expected_image_id"
+            echo "running: $running_image_id"
+            exit 1
+          fi
 
           for attempt in $(seq 1 20); do
             status="$(docker inspect --format '{{.State.Status}}' jigtable-caddy-1 2>/dev/null || true)"
