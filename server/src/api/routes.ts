@@ -124,7 +124,7 @@ export const routes = {
     }),
   },
 
-  "/api/jigsaws/sessions": {
+  "/api/sessions": {
     POST: route(async (request: BunRequest) => {
       assertRateLimit(
         request,
@@ -162,7 +162,7 @@ export const routes = {
     }),
   },
 
-  "/api/jigsaws/sessions/current": {
+  "/api/sessions/current": {
     GET: route(async (request: BunRequest) => {
       const session = await requireJigsawSession(request, services.sessions)
 
@@ -190,7 +190,7 @@ export const routes = {
     }),
   },
 
-  "/api/jigsaws/rooms": {
+  "/api/rooms": {
     POST: route(async (request: BunRequest) => {
       await requireAuthenticatedUser(request, services.auth)
       assertRateLimit(
@@ -243,7 +243,7 @@ export const routes = {
     }),
   },
 
-  "/api/jigsaws/rooms/:roomId": {
+  "/api/rooms/:roomId": {
     GET: route(async (request: BunRequest) => {
       const roomId = request.params.roomId ?? ""
       const state = services.rooms.getRoomSnapshot(roomId)

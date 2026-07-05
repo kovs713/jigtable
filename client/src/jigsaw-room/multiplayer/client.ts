@@ -115,7 +115,7 @@ export async function restoreJigsawSession(
   fallback: JigsawSession,
   roomId?: string
 ): Promise<JigsawSession> {
-  const response = await fetch(`${API_BASE_URL}/api/jigsaws/sessions`, {
+  const response = await fetch(`${API_BASE_URL}/api/sessions`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -147,7 +147,7 @@ export async function saveJigsawSessionProfile(
   sessionToken: string,
   profile: Pick<JigsawPlayer, "name" | "color">
 ): Promise<JigsawSession> {
-  const response = await fetch(`${API_BASE_URL}/api/jigsaws/sessions/current`, {
+  const response = await fetch(`${API_BASE_URL}/api/sessions/current`, {
     method: "PATCH",
     headers: {
       Authorization: `Bearer ${sessionToken}`,

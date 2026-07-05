@@ -16,7 +16,7 @@ export async function createJigsawRoom(
   input: CreateJigsawRoomInput,
   authToken: string
 ): Promise<CreateJigsawRoomResponse> {
-  const response = await fetch(`${API_BASE_URL}/api/jigsaws/rooms`, {
+  const response = await fetch(`${API_BASE_URL}/api/rooms`, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${authToken}`,
@@ -32,7 +32,7 @@ export async function fetchJigsawRoomSnapshot(
   roomId: string
 ): Promise<JigsawRoomSnapshot> {
   const response = await fetch(
-    `${API_BASE_URL}/api/jigsaws/rooms/${encodeURIComponent(roomId)}`
+    `${API_BASE_URL}/api/rooms/${encodeURIComponent(roomId)}`
   )
   const payload = await readJsonResponse<unknown>(response)
 
