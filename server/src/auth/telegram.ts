@@ -36,6 +36,7 @@ export interface AuthenticatedUser {
 export interface AuthSessionResult {
   token: string
   user: AuthenticatedUser
+  expiresAt: string
 }
 
 export class TelegramAuthService {
@@ -57,10 +58,14 @@ export class TelegramAuthService {
       expiresAt,
     })
 
-    return { token, user } satisfies AuthSessionResult
+    return {
+      token,
+      user,
+      expiresAt: expiresAt.toISOString(),
+    } satisfies AuthSessionResult
   }
 
-  async getUser(token: string): Promise<AuthenticatedUser | null> {
+  async getSession(token: string): Promise<AuthSessionResult | null> {
     const tokenHash = SHA256.hash(token, "hex")
     const sessionRows = await db
       .select()
@@ -98,7 +103,15 @@ export class TelegramAuthService {
       .set({ updatedAt: new Date() })
       .where(eq(authSessionsSchema.tokenHash, tokenHash))
 
-    return toAuthenticatedUser(user)
+    return {
+      token,
+      user: toAuthenticatedUser(user),
+      expiresAt: session.expiresAt.toISOString(),
+    }
+  }
+
+  async getUser(token: string): Promise<AuthenticatedUser | null> {
+    return (await this.getSession(token))?.user ?? null
   }
 
   async logout(token: string): Promise<void> {

@@ -1,7 +1,8 @@
 import { API_BASE_URL, TELEGRAM_BOT_USERNAME } from "@/config"
 
-const AUTH_SESSION_STORAGE_KEY = "jigsaw-room-auth"
+const AUTH_SESSION_STORAGE_KEY = "jigsaw-room-auth-v2"
 const LEGACY_AUTH_SESSION_STORAGE_KEY = "jigsaw-room-auth"
+const LOCAL_AUTH_SESSION_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000
 
 export interface AuthUser {
   id: string
@@ -17,6 +18,7 @@ export interface AuthUser {
 export interface AuthSession {
   token: string
   user: AuthUser
+  expiresAt: string
 }
 
 export interface JigsawHistoryItem {
@@ -51,20 +53,60 @@ declare global {
 
 export function readLocalAuthSession(): AuthSession | null {
   try {
-    const raw =
-      localStorage.getItem(AUTH_SESSION_STORAGE_KEY) ??
-      localStorage.getItem(LEGACY_AUTH_SESSION_STORAGE_KEY)
-    const value = raw ? JSON.parse(raw) : null
+    const raw = localStorage.getItem(AUTH_SESSION_STORAGE_KEY)
+    const legacyRaw = raw
+      ? null
+      : localStorage.getItem(LEGACY_AUTH_SESSION_STORAGE_KEY)
+    const fallbackExpiresAt = legacyRaw ? createLocalExpiresAt() : undefined
+    const source = raw ?? legacyRaw
+    const value = source ? JSON.parse(source) : null
+    const session = parseAuthSession(value, fallbackExpiresAt)
 
-    return parseAuthSession(value)
+    if (!session) {
+      clearLocalAuthSession()
+      return null
+    }
+
+    if (legacyRaw) {
+      saveLocalAuthSession(session)
+    }
+
+    return session
   } catch {
+    clearLocalAuthSession()
     return null
   }
 }
 
 export function saveLocalAuthSession(session: AuthSession): void {
+  if (isAuthSessionExpired(session)) {
+    clearLocalAuthSession(session.token)
+    return
+  }
+
   localStorage.setItem(AUTH_SESSION_STORAGE_KEY, JSON.stringify(session))
   localStorage.removeItem(LEGACY_AUTH_SESSION_STORAGE_KEY)
+}
+
+export function clearLocalAuthSession(token?: string): void {
+  let storedToken: string | null
+
+  try {
+    storedToken = token ? readStoredAuthToken() : null
+  } catch {
+    storedToken = null
+  }
+
+  if (token && storedToken && storedToken !== token) {
+    return
+  }
+
+  try {
+    localStorage.removeItem(AUTH_SESSION_STORAGE_KEY)
+    localStorage.removeItem(LEGACY_AUTH_SESSION_STORAGE_KEY)
+  } catch {
+    // Ignore storage access errors; callers already handle auth failure.
+  }
 }
 
 export function hasTelegramWebAppInitData(): boolean {
@@ -120,13 +162,31 @@ export async function fetchAuthMe(token: string): Promise<AuthSession> {
   const response = await fetch(`${API_BASE_URL}/api/auth/me`, {
     headers: authHeaders(token),
   })
-  const payload = await readJson(response)
+  let payload: unknown
+
+  try {
+    payload = await readJson(response)
+  } catch (error) {
+    if (response.status === 401) {
+      clearLocalAuthSession(token)
+    }
+
+    throw error
+  }
 
   if (!isRecord(payload) || !isRecord(payload.user)) {
     throw new Error("Invalid auth response")
   }
 
-  return { token, user: payload.user as unknown as AuthUser }
+  const session = parseAuthSession({ ...payload, token })
+
+  if (!session) {
+    throw new Error("Invalid auth response")
+  }
+
+  saveLocalAuthSession(session)
+
+  return session
 }
 
 export async function fetchJigsawHistory(
@@ -183,14 +243,24 @@ function authHeaders(token: string): HeadersInit {
   return { Authorization: `Bearer ${token}` }
 }
 
-function parseAuthSession(value: unknown): AuthSession | null {
+function parseAuthSession(
+  value: unknown,
+  fallbackExpiresAt?: string
+): AuthSession | null {
   if (!isRecord(value) || typeof value.token !== "string") {
     return null
   }
 
   const user = parseAuthUser(value.user)
+  const expiresAt = readDateString(value.expiresAt) ?? fallbackExpiresAt
 
-  return user ? { token: value.token, user } : null
+  if (!user || !expiresAt) {
+    return null
+  }
+
+  const session = { token: value.token, user, expiresAt }
+
+  return isAuthSessionExpired(session) ? null : session
 }
 
 function parseAuthUser(value: unknown): AuthUser | null {
@@ -218,6 +288,40 @@ function parseAuthUser(value: unknown): AuthUser | null {
 
 function readNullableString(value: unknown): string | null {
   return typeof value === "string" ? value : null
+}
+
+function readDateString(value: unknown): string | null {
+  if (typeof value !== "string") {
+    return null
+  }
+
+  const dateMs = Date.parse(value)
+
+  return Number.isFinite(dateMs) ? new Date(dateMs).toISOString() : null
+}
+
+function createLocalExpiresAt(): string {
+  return new Date(Date.now() + LOCAL_AUTH_SESSION_MAX_AGE_MS).toISOString()
+}
+
+function isAuthSessionExpired(session: AuthSession): boolean {
+  return Date.parse(session.expiresAt) <= Date.now()
+}
+
+function readStoredAuthToken(): string | null {
+  const raw =
+    localStorage.getItem(AUTH_SESSION_STORAGE_KEY) ??
+    localStorage.getItem(LEGACY_AUTH_SESSION_STORAGE_KEY)
+
+  if (!raw) {
+    return null
+  }
+
+  const value = JSON.parse(raw)
+
+  return isRecord(value) && typeof value.token === "string"
+    ? value.token
+    : null
 }
 
 function normalizeTelegramBotUsername(value: unknown): string {

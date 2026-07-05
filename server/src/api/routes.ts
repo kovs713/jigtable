@@ -98,9 +98,9 @@ export const routes = {
 
   "/api/auth/me": {
     GET: route(async (request: BunRequest) => {
-      const user = await requireAuthenticatedUser(request, services.auth)
+      const session = await requireAuthenticatedSession(request, services.auth)
 
-      return json({ user })
+      return json({ user: session.user, expiresAt: session.expiresAt })
     }),
   },
 
@@ -436,19 +436,26 @@ async function requireAuthenticatedUser(
   request: BunRequest,
   auth: TelegramAuthService
 ) {
+  return (await requireAuthenticatedSession(request, auth)).user
+}
+
+async function requireAuthenticatedSession(
+  request: BunRequest,
+  auth: TelegramAuthService
+) {
   const token = readAuthToken(request)
 
   if (!token) {
     throw new ApiError("Auth token required", 401)
   }
 
-  const user = await auth.getUser(token)
+  const session = await auth.getSession(token)
 
-  if (!user) {
+  if (!session) {
     throw new ApiError("Auth session not found", 401)
   }
 
-  return user
+  return session
 }
 
 const rateLimits = new Map<string, { resetAt: number; count: number }>()
