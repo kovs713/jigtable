@@ -26,27 +26,44 @@ export async function handlePhoto(ctx: PhotoContext) {
     return
   }
 
-  const file = await ctx.api.getFile(bestPhoto.file_id)
-  if (!file.file_path) {
-    throw new Error("Telegram file path missing")
+  try {
+    const file = await ctx.api.getFile(bestPhoto.file_id)
+    if (!file.file_path) {
+      throw new Error("Telegram file path missing")
+    }
+
+    const photoId = crypto.randomUUID()
+    const objectKey = batchPhotoObjectKey(ctx.session.activeBatchId, photoId)
+    const fileUrl = `https://api.telegram.org/file/bot${process.env.BOT_TOKEN}/${file.file_path}`
+    const uploaded = await uploadPhotoToObjectKey(fileUrl, objectKey)
+    const sortOrder = ctx.session.photos.length
+
+    await db.insert(batchPhotosSchema).values({
+      fileId: photoId,
+      batchId: ctx.session.activeBatchId,
+      objectKey: uploaded.objectKey,
+      contentType: uploaded.contentType,
+      sortOrder,
+      width: bestPhoto.width,
+      height: bestPhoto.height,
+    })
+
+    ctx.session.photos.push(photoId)
+  } catch (error) {
+    console.error("Photo upload failed", {
+      userId: ctx.from?.id ?? "-",
+      batchId: ctx.session.activeBatchId,
+      telegramFileId: bestPhoto.file_id,
+      error: getErrorMessage(error),
+    })
+
+    await ctx.reply("не смог загрузить картинку, попробуй еще раз")
+    return
   }
 
-  const photoId = crypto.randomUUID()
-  const objectKey = batchPhotoObjectKey(ctx.session.activeBatchId, photoId)
-  const fileUrl = `https://api.telegram.org/file/bot${process.env.BOT_TOKEN}/${file.file_path}`
-  const uploaded = await uploadPhotoToObjectKey(fileUrl, objectKey)
-  const sortOrder = ctx.session.photos.length
-
-  await db.insert(batchPhotosSchema).values({
-    fileId: photoId,
-    batchId: ctx.session.activeBatchId,
-    objectKey: uploaded.objectKey,
-    contentType: uploaded.contentType,
-    sortOrder,
-    width: bestPhoto.width,
-    height: bestPhoto.height,
-  })
-
-  ctx.session.photos.push(photoId)
   await ctx.reply(`принял ${ctx.session.photos.length}`)
+}
+
+function getErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error)
 }
