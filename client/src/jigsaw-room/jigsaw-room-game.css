@@ -586,19 +586,29 @@
 /* Responsive */
 @media (max-width: 760px) {
   .jigsaw-room__toolbar {
-    top: 12px;
-    right: 12px;
-    left: 12px;
+    top: 8px;
+    right: 8px;
+    left: 8px;
     width: auto;
     min-width: 0;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
   }
 
   .jigsaw-room__brand {
     min-width: 0;
-    flex: 1 1 auto;
+    flex: 0 0 auto;
+    padding: 0 8px;
     border-right: 0.5px solid var(--jigsaw-panel-border);
     border-bottom: 0;
+  }
+
+  .jigsaw-room__brand strong,
+  .jigsaw-room__completion {
+    display: none;
+  }
+
+  .jigsaw-room__timer {
+    font-size: 0.66rem;
   }
 
   .jigsaw-room__completion {
@@ -611,16 +621,23 @@
   }
 
   .jigsaw-room__actions {
-    flex: 1 1 100%;
+    flex: 1 1 auto;
+    min-width: 0;
   }
 
   .jigsaw-room__actions > button,
   .jigsaw-room__arrange summary,
   .jigsaw-room__settings summary {
     min-width: 0;
+    min-height: 36px;
     flex: 1 1 0;
-    padding-inline: 4px;
-    font-size: 0.65rem;
+    padding-inline: 3px;
+    font-size: 0.58rem;
+    letter-spacing: 0.03em;
+  }
+
+  .jigsaw-room__arrange-panel {
+    right: -42px;
   }
 }
 
