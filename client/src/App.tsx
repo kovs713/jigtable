@@ -1360,35 +1360,6 @@ export function App() {
             </Button>
           ) : null}
         </div>
-
-        <div className="ml-auto hidden items-center gap-6 lg:flex">
-          <div className="flex w-48 items-center gap-2">
-            <span className="w-12 text-right font-mono text-xs text-muted-foreground">
-              Zoom {zoom}%
-            </span>
-            <Slider
-              className="w-full"
-              max={140}
-              min={18}
-              value={[zoom]}
-              onValueChange={([value]) => setZoom(value ?? DEFAULT_ZOOM)}
-            />
-          </div>
-          <div className="flex w-48 items-center gap-2">
-            <span className="w-16 text-right font-mono text-xs text-muted-foreground">
-              Canvas {canvasMaxSide}px
-            </span>
-            <Slider
-              className="w-full"
-              max={MAX_CANVAS_SIZE}
-              min={MIN_CANVAS_SIZE}
-              value={[canvasMaxSide]}
-              onValueChange={([value]) =>
-                updateCanvasScale(value ?? canvasMaxSide)
-              }
-            />
-          </div>
-        </div>
       </header>
 
       <div className="grid min-h-0 grid-cols-1 overflow-hidden lg:grid-cols-[280px_minmax(0,1fr)_320px]">
@@ -1691,6 +1662,25 @@ export function App() {
                   label="Height"
                   value={layout.canvas.height}
                   onChange={(value) => updateCanvasSize("height", value)}
+                />
+              </div>
+
+              <div className="space-y-3 border p-3">
+                <SliderField
+                  label="View zoom"
+                  max={140}
+                  min={18}
+                  value={zoom}
+                  valueLabel={`${zoom}%`}
+                  onChange={(value) => setZoom(value)}
+                />
+                <SliderField
+                  label="Canvas scale"
+                  max={MAX_CANVAS_SIZE}
+                  min={MIN_CANVAS_SIZE}
+                  value={canvasMaxSide}
+                  valueLabel={`${canvasMaxSide}px`}
+                  onChange={updateCanvasScale}
                 />
               </div>
 
@@ -2014,6 +2004,41 @@ function NumberField({
           px
         </span>
       </div>
+    </label>
+  )
+}
+
+function SliderField({
+  label,
+  value,
+  valueLabel,
+  min,
+  max,
+  onChange,
+}: {
+  label: string
+  value: number
+  valueLabel: string
+  min: number
+  max: number
+  onChange: (value: number) => void
+}) {
+  return (
+    <label className="grid gap-2">
+      <span className="flex items-center justify-between gap-3">
+        <span className="font-mono text-[10px] tracking-wider text-muted-foreground uppercase">
+          {label}
+        </span>
+        <span className="font-mono text-[10px] text-muted-foreground">
+          {valueLabel}
+        </span>
+      </span>
+      <Slider
+        max={max}
+        min={min}
+        value={[value]}
+        onValueChange={([nextValue]) => onChange(nextValue ?? value)}
+      />
     </label>
   )
 }
