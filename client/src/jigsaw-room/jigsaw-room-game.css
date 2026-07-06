@@ -181,7 +181,7 @@
   right: 18px;
   bottom: 188px;
   display: grid;
-  grid-template-columns: minmax(140px, 1fr) 60px 84px 96px;
+  grid-template-columns: minmax(120px, 1fr) 56px 56px 80px 92px;
   gap: 0;
   min-width: 300px;
   font-size: 0.72rem;
@@ -656,7 +656,7 @@
     right: 12px;
     bottom: auto;
     left: 12px;
-    grid-template-columns: 1fr 60px 84px 96px;
+    grid-template-columns: 1fr 56px 56px 80px 92px;
     min-width: 0;
   }
 

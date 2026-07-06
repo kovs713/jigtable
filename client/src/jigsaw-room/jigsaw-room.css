@@ -1,4 +1,5 @@
 .jigsaw-room {
+  --jigsaw-room-bg: var(--background);
   --jigsaw-panel: color-mix(in oklch, var(--card), transparent 8%);
   --jigsaw-panel-strong: color-mix(in oklch, var(--card), var(--foreground) 3%);
   --jigsaw-panel-border: color-mix(in oklch, var(--border), transparent 8%);
@@ -10,7 +11,7 @@
 
   --jigsaw-pixi-board-fill: color-mix(
     in oklch,
-    var(--background),
+    var(--jigsaw-room-bg),
     var(--foreground) 4%
   );
   --jigsaw-pixi-board-stroke: var(--border);
@@ -33,11 +34,11 @@
   background:
     linear-gradient(
       135deg,
-      color-mix(in oklch, var(--background), var(--primary) 5%),
-      var(--background) 52%,
-      color-mix(in oklch, var(--background), var(--foreground) 3%)
+      color-mix(in oklch, var(--jigsaw-room-bg), var(--primary) 5%),
+      var(--jigsaw-room-bg) 52%,
+      color-mix(in oklch, var(--jigsaw-room-bg), var(--foreground) 3%)
     ),
-    var(--background);
+    var(--jigsaw-room-bg);
 }
 
 .jigsaw-room::before {

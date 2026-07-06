@@ -24,6 +24,7 @@ export interface JigsawScene {
   piecesLayer: Container
   overlayLayer: Container
   setPreviewVisible: (visible: boolean) => void
+  setColors: (colors: SceneColors) => void
 }
 
 export function createJigsawScene(
@@ -39,7 +40,9 @@ export function createJigsawScene(
 
   overlayLayer.eventMode = "none"
 
-  boardLayer.addChild(createSolutionArea(state, colors))
+  const solutionArea = new Graphics()
+  drawSolutionArea(solutionArea, state, colors)
+  boardLayer.addChild(solutionArea)
 
   const preview = createPreviewOverlay(state, imageTexture, colors)
   preview.visible = false
@@ -55,6 +58,9 @@ export function createJigsawScene(
     overlayLayer,
     setPreviewVisible(visible: boolean) {
       preview.visible = visible
+    },
+    setColors(nextColors: SceneColors) {
+      drawSolutionArea(solutionArea, state, nextColors)
     },
   }
 }
@@ -73,19 +79,21 @@ export function readSceneColors(root: HTMLElement): SceneColors {
   }
 }
 
-function createSolutionArea(state: JigsawState, colors: SceneColors): Graphics {
+function drawSolutionArea(
+  area: Graphics,
+  state: JigsawState,
+  colors: SceneColors
+): void {
   const board = getJigsawBounds(state.config)
-  const area = new Graphics()
 
   area
+    .clear()
     .rect(board.x, board.y, board.width, board.height)
     .fill({ color: colors.boardFill, alpha: 0.7 })
 
   area
     .rect(board.x, board.y, board.width, board.height)
     .stroke({ width: 2, color: colors.boardStroke, alpha: 0.95 })
-
-  return area
 }
 
 function drawSolutionCutLines(area: Graphics, state: JigsawState): void {

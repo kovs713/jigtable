@@ -81,6 +81,10 @@ const ACTIVE_JIGSAW_CONFIG = JIGSAW_CONFIG_2000
 const GROUP_MOVE_SEND_INTERVAL_MS = 66
 const SOLVED_CELEBRATION_MS = 5600
 const FIREWORK_BURSTS = Array.from({ length: 4 }, (_, index) => index)
+const LIGHT_ROOM_BACKGROUND = "#f2efe4"
+const DARK_ROOM_BACKGROUND = "#151a20"
+const IMAGE_BRIGHTNESS_THRESHOLD = 0.52
+const ROOM_BACKGROUND_STORAGE_PREFIX = "jigsaw-room-background:"
 
 type JigsawSessionStatus =
   "local" | "restoring" | "saved" | "saving" | "offline" | "error"
@@ -116,6 +120,7 @@ export function JigsawRoomApp({ roomId }: JigsawRoomAppProps) {
   const initialSession = initialSessionRef.current ?? readLocalJigsawSession()
 
   initialSessionRef.current = initialSession
+  const roomRef = useRef<HTMLDivElement | null>(null)
   const mountRef = useRef<HTMLDivElement | null>(null)
   const telegramWidgetRef = useRef<HTMLDivElement | null>(null)
   const runtimeRef = useRef<JigsawRuntime | null>(null)
@@ -163,6 +168,9 @@ export function JigsawRoomApp({ roomId }: JigsawRoomAppProps) {
   )
   const [timerNow, setTimerNow] = useState(() => Date.now())
   const [stats, setStats] = useState<JigsawStats>(EMPTY_STATS)
+  const [roomBackgroundColor, setRoomBackgroundColor] = useState(
+    LIGHT_ROOM_BACKGROUND
+  )
   const elapsedMs = getTimerElapsedMs(roomTimer, timerNow)
   const solved = stats.totalPieces > 0 && stats.placedPieces >= stats.totalPieces
   const remainingPieces = Math.max(stats.totalPieces - stats.placedPieces, 0)
@@ -174,6 +182,9 @@ export function JigsawRoomApp({ roomId }: JigsawRoomAppProps) {
   const completionClassName = solved
     ? "jigsaw-room__completion jigsaw-room__completion--solved"
     : "jigsaw-room__completion"
+  const roomStyle = createRoomBackgroundStyle(
+    roomBackgroundColor
+  ) as React.CSSProperties
 
   roomTimerRef.current = roomTimer
   handleServerMessageRef.current = handleServerMessage
@@ -256,15 +267,24 @@ export function JigsawRoomApp({ roomId }: JigsawRoomAppProps) {
           }
         }
 
-        const imageTexture = await loadImageTexture(
+        const loadedImage = await loadImageTexture(
           initialSnapshot?.jigsaw.imageUrl ?? JIGSAW_IMAGE_URL
         )
+        const imageTexture = loadedImage.texture
 
         if (disposed) {
           imageTexture.destroy(true)
           destroyJigsawPixiApp(app)
           return
         }
+
+        const autoBackground = getAutoRoomBackground(
+          loadedImage.averageLuminance
+        )
+        const nextBackground =
+          readStoredRoomBackground(activeRoomId) ?? autoBackground
+
+        applyRoomBackground(nextBackground, { syncScene: false })
 
         const jigsawConfig =
           initialSnapshot?.jigsaw.config ??
@@ -283,7 +303,7 @@ export function JigsawRoomApp({ roomId }: JigsawRoomAppProps) {
           scatterAllPieces(state)
         }
 
-        const colors = readSceneColors(bootHost)
+        const colors = readSceneColors(roomRef.current ?? bootHost)
         const scene = createJigsawScene(app, state, imageTexture, colors)
         const pieces = createPieceViews(
           scene.piecesLayer,
@@ -594,6 +614,38 @@ export function JigsawRoomApp({ roomId }: JigsawRoomAppProps) {
       window.removeEventListener("keydown", onKeyDown)
     }
   }, [])
+
+  function applyRoomBackground(
+    color: string,
+    { syncScene = true }: { syncScene?: boolean } = {}
+  ): void {
+    setRoomBackgroundColor(color)
+
+    const root = roomRef.current
+
+    if (!root) {
+      return
+    }
+
+    setRoomBackgroundStyle(root, color)
+
+    if (syncScene) {
+      runtimeRef.current?.scene.setColors(readSceneColors(root))
+    }
+  }
+
+  function changeRoomBackground(
+    event: React.ChangeEvent<HTMLInputElement>
+  ): void {
+    const color = normalizeHexColor(event.target.value)
+
+    if (!color) {
+      return
+    }
+
+    applyRoomBackground(color)
+    saveStoredRoomBackground(activeRoomId, color)
+  }
 
   function refreshStatsNow(): void {
     const runtime = runtimeRef.current
@@ -935,7 +987,7 @@ export function JigsawRoomApp({ roomId }: JigsawRoomAppProps) {
   }
 
   return (
-    <div className="jigsaw-room">
+    <div ref={roomRef} className="jigsaw-room" style={roomStyle}>
       <div ref={mountRef} className="jigsaw-room__stage" />
 
       <div className="jigsaw-room__toolbar" aria-label="Jigsaw room controls">
@@ -1025,6 +1077,15 @@ export function JigsawRoomApp({ roomId }: JigsawRoomAppProps) {
                 color: event.target.value,
               }))
             }}
+          />
+        </label>
+        <label className="jigsaw-room__profile-bg-color">
+          <span>Bg</span>
+          <input
+            type="color"
+            value={roomBackgroundColor}
+            aria-label="Room background color"
+            onChange={changeRoomBackground}
           />
         </label>
         <button
@@ -1262,6 +1323,128 @@ function isEditableTarget(target: EventTarget | null): boolean {
     target.tagName === "TEXTAREA" ||
     target.tagName === "SELECT"
   )
+}
+
+function getAutoRoomBackground(averageLuminance: number | null): string {
+  if (averageLuminance === null) {
+    return LIGHT_ROOM_BACKGROUND
+  }
+
+  return averageLuminance >= IMAGE_BRIGHTNESS_THRESHOLD
+    ? DARK_ROOM_BACKGROUND
+    : LIGHT_ROOM_BACKGROUND
+}
+
+function readStoredRoomBackground(roomId: string): string | null {
+  if (!roomId) {
+    return null
+  }
+
+  try {
+    return normalizeHexColor(
+      window.localStorage.getItem(`${ROOM_BACKGROUND_STORAGE_PREFIX}${roomId}`)
+    )
+  } catch {
+    return null
+  }
+}
+
+function saveStoredRoomBackground(roomId: string, color: string): void {
+  if (!roomId) {
+    return
+  }
+
+  try {
+    window.localStorage.setItem(
+      `${ROOM_BACKGROUND_STORAGE_PREFIX}${roomId}`,
+      color
+    )
+  } catch {
+    // Local preference only; ignore blocked storage.
+  }
+}
+
+function setRoomBackgroundStyle(root: HTMLElement, color: string): void {
+  const styles = createRoomBackgroundStyle(color)
+
+  for (const [property, value] of Object.entries(styles)) {
+    root.style.setProperty(property, value)
+  }
+}
+
+function createRoomBackgroundStyle(color: string): Record<string, string> {
+  const contrast = getHexLuminance(color) > 0.52 ? "#000000" : "#ffffff"
+
+  return {
+    "--jigsaw-room-bg": color,
+    "--jigsaw-pixi-board-fill": mixHexColors(color, contrast, 0.08),
+    "--jigsaw-pixi-board-stroke": mixHexColors(color, contrast, 0.24),
+    "--jigsaw-pixi-board-grid": mixHexColors(color, contrast, 0.16),
+  }
+}
+
+function normalizeHexColor(value: string | null): string | null {
+  if (!value) {
+    return null
+  }
+
+  const trimmed = value.trim()
+  const shortHex = trimmed.match(/^#([0-9a-f]{3})$/i)
+
+  if (shortHex) {
+    return `#${shortHex[1]
+      .split("")
+      .map((digit) => `${digit}${digit}`)
+      .join("")}`.toLowerCase()
+  }
+
+  return /^#[0-9a-f]{6}$/i.test(trimmed) ? trimmed.toLowerCase() : null
+}
+
+function mixHexColors(base: string, overlay: string, amount: number): string {
+  const baseRgb = hexToRgb(base)
+  const overlayRgb = hexToRgb(overlay)
+
+  return rgbToHex({
+    red: baseRgb.red + (overlayRgb.red - baseRgb.red) * amount,
+    green: baseRgb.green + (overlayRgb.green - baseRgb.green) * amount,
+    blue: baseRgb.blue + (overlayRgb.blue - baseRgb.blue) * amount,
+  })
+}
+
+function getHexLuminance(color: string): number {
+  const { red, green, blue } = hexToRgb(color)
+
+  return (0.2126 * red + 0.7152 * green + 0.0722 * blue) / 255
+}
+
+function hexToRgb(color: string): { red: number; green: number; blue: number } {
+  const normalized = normalizeHexColor(color) ?? LIGHT_ROOM_BACKGROUND
+  const value = Number.parseInt(normalized.slice(1), 16)
+
+  return {
+    red: (value >> 16) & 255,
+    green: (value >> 8) & 255,
+    blue: value & 255,
+  }
+}
+
+function rgbToHex({
+  red,
+  green,
+  blue,
+}: {
+  red: number
+  green: number
+  blue: number
+}): string {
+  return `#${[red, green, blue]
+    .map((channel) => {
+      const normalized = Math.min(255, Math.max(0, Math.round(channel)))
+
+      return normalized.toString(16).padStart(2, "0")
+    })
+    .join("")}`
 }
 
 export default JigsawRoomApp
