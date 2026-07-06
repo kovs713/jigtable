@@ -1,6 +1,17 @@
 import * as React from "react"
 
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import { Separator } from "@/components/ui/separator"
+import { Slider } from "@/components/ui/slider"
+import { Toggle } from "@/components/ui/toggle"
 import { API_BASE_URL } from "@/config"
 import { cn } from "@/lib/utils"
 import {
@@ -1244,11 +1255,14 @@ export function App() {
           </div>
         </div>
 
-        <div className="mx-2 hidden h-8 w-px bg-border md:block" />
+        <Separator
+          orientation="vertical"
+          className="mx-2 hidden h-8 md:block"
+        />
 
         <div className="flex flex-wrap items-center gap-2">
-          <input
-            className="h-9 w-64 border border-input bg-transparent px-3 font-mono text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:ring-1 focus-visible:ring-ring focus-visible:outline-none"
+          <Input
+            className="h-9 w-64 font-mono text-sm"
             placeholder="Paste bot link or code"
             type="text"
             value={loadCode}
@@ -1294,7 +1308,10 @@ export function App() {
             <div ref={telegramWidgetRef} className="min-h-8" />
           ) : null}
 
-          <div className="mx-2 hidden h-8 w-px bg-border md:block" />
+          <Separator
+            orientation="vertical"
+            className="mx-2 hidden h-8 md:block"
+          />
 
           <Button
             className="h-9"
@@ -1306,22 +1323,19 @@ export function App() {
             Save Edits
           </Button>
 
-          <div className="flex h-9 items-center gap-1 border p-1">
-            {(["png", "jpg", "jpeg"] as const).map((fmt) => (
-              <button
-                key={fmt}
-                className={cn(
-                  "px-2 py-0.5 font-mono text-xs font-medium uppercase transition-colors",
-                  renderFormat === fmt
-                    ? "bg-primary text-primary-foreground"
-                    : "text-muted-foreground hover:bg-muted"
-                )}
-                onClick={() => setRenderFormat(fmt)}
-              >
-                {fmt}
-              </button>
-            ))}
-          </div>
+          <Select
+            value={renderFormat}
+            onValueChange={(value) => setRenderFormat(value as RenderFormat)}
+          >
+            <SelectTrigger className="h-9 w-20 font-mono text-xs uppercase">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="png">PNG</SelectItem>
+              <SelectItem value="jpg">JPG</SelectItem>
+              <SelectItem value="jpeg">JPEG</SelectItem>
+            </SelectContent>
+          </Select>
 
           <Button
             disabled={!remoteBatch || !authSession}
@@ -1352,27 +1366,25 @@ export function App() {
             <span className="w-12 text-right font-mono text-xs text-muted-foreground">
               Zoom {zoom}%
             </span>
-            <input
-              className="w-full cursor-pointer accent-primary"
+            <Slider
+              className="w-full"
               max={140}
               min={18}
-              type="range"
-              value={zoom}
-              onChange={(event) => setZoom(Number(event.target.value))}
+              value={[zoom]}
+              onValueChange={([value]) => setZoom(value ?? DEFAULT_ZOOM)}
             />
           </div>
           <div className="flex w-48 items-center gap-2">
             <span className="w-16 text-right font-mono text-xs text-muted-foreground">
               Canvas {canvasMaxSide}px
             </span>
-            <input
-              className="w-full cursor-pointer accent-primary"
+            <Slider
+              className="w-full"
               max={MAX_CANVAS_SIZE}
               min={MIN_CANVAS_SIZE}
-              type="range"
-              value={canvasMaxSide}
-              onChange={(event) =>
-                updateCanvasScale(Number(event.target.value))
+              value={[canvasMaxSide]}
+              onValueChange={([value]) =>
+                updateCanvasScale(value ?? canvasMaxSide)
               }
             />
           </div>
@@ -1713,22 +1725,16 @@ export function App() {
 
               <div className="flex items-center justify-between border p-2">
                 <span className="text-sm">Canvas markers</span>
-                <Button
-                  className={cn(
-                    "relative h-5 w-9 transition-colors",
-                    showCanvasMarkers ? "bg-primary" : "bg-muted"
-                  )}
-                  onClick={() => setShowCanvasMarkers((current) => !current)}
+                <Toggle
+                  aria-label="Toggle canvas markers"
+                  className="h-8 font-mono text-xs data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
+                  pressed={showCanvasMarkers}
+                  size="sm"
+                  variant="outline"
+                  onPressedChange={setShowCanvasMarkers}
                 >
-                  <span
-                    className={cn(
-                      "absolute h-4 w-4 bg-background transition-transform",
-                      showCanvasMarkers
-                        ? "translate-x-2"
-                        : "translate-x-[-0.5rem]"
-                    )}
-                  />
-                </Button>
+                  {showCanvasMarkers ? "On" : "Off"}
+                </Toggle>
               </div>
             </div>
           </section>
@@ -1996,8 +2002,8 @@ function NumberField({
         {label}
       </span>
       <div className="relative">
-        <input
-          className="h-9 w-full border border-input bg-transparent px-3 pr-8 font-mono text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:ring-1 focus-visible:ring-ring focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+        <Input
+          className="h-9 w-full pr-8 font-mono text-sm"
           inputMode="numeric"
           min={0}
           type="number"

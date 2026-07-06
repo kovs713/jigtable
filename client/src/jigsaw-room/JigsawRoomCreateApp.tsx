@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Slider } from "@/components/ui/slider"
 import type { CreateJigsawRoomResponse } from "@jigtable/jigsaw-core/multiplayer/protocol"
 import {
   fetchAuthMe,
@@ -298,15 +300,16 @@ export function JigsawRoomCreateApp() {
         <div className="jigsaw-room__create-form">
           <label className="jigsaw-room__input-group">
             <span>Image URL</span>
-            <input
+            <Input
+              aria-invalid={isError}
+              className="jigsaw-room__input"
+              placeholder="https://example.com/image.png"
               type="url"
               value={imageUrl}
               onChange={(event) => {
                 setImageUrl(event.target.value)
                 setImgValid(true)
               }}
-              placeholder="https://example.com/image.png"
-              aria-invalid={isError}
             />
           </label>
 
@@ -350,13 +353,13 @@ export function JigsawRoomCreateApp() {
                 </button>
               ))}
             </div>
-            <input
-              type="range"
-              min={48}
+            <Slider
+              className="jigsaw-room__slider"
               max={2_000}
+              min={48}
               step={1}
-              value={pieceCount}
-              onChange={(event) => setPieceCount(Number(event.target.value))}
+              value={[pieceCount]}
+              onValueChange={([value]) => setPieceCount(value ?? 48)}
             />
           </label>
 

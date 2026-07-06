@@ -218,6 +218,12 @@
   cursor: pointer;
 }
 
+.jigsaw-room__slider {
+  grid-column: 1 / -1;
+  grid-row: 3;
+  min-height: 28px;
+}
+
 .jigsaw-room__slider-group input[type="range"]::-webkit-slider-runnable-track {
   width: 100%;
   height: 3px;
