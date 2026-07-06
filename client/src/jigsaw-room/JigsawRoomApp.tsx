@@ -1066,20 +1066,12 @@ export function JigsawRoomApp({ roomId }: JigsawRoomAppProps) {
           <dd>{stats.zoom.toFixed(2)}x</dd>
         </div>
         <div>
-          <dt>Total</dt>
-          <dd>{stats.totalPieces}</dd>
-        </div>
-        <div>
-          <dt>Placed</dt>
-          <dd>{stats.placedPieces}</dd>
-        </div>
-        <div>
           <dt>Groups</dt>
           <dd>{stats.groupsCount}</dd>
         </div>
         <div>
-          <dt>Snaps</dt>
-          <dd>{stats.snapCount}</dd>
+          <dt>Players</dt>
+          <dd>{playersCount}</dd>
         </div>
       </dl>
 

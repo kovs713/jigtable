@@ -134,7 +134,7 @@
 /* Scoreboard */
 .jigsaw-room__profile-scoreboard {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   grid-column: 2;
   margin: 0;
   border-bottom: 0.5px solid var(--jigsaw-panel-border);
@@ -277,7 +277,7 @@
 
 .jigsaw-room__history-card-stats {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   margin: 0;
   border: 0.5px solid var(--jigsaw-panel-border);
   background: var(--background);

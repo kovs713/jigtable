@@ -225,10 +225,6 @@ export function JigsawProfileApp() {
             <dd>{formatDuration(stats.elapsedMs)}</dd>
           </div>
           <div>
-            <dt>Snaps</dt>
-            <dd>{stats.snaps}</dd>
-          </div>
-          <div>
             <dt>Partners</dt>
             <dd>{stats.partners}</dd>
           </div>
@@ -263,10 +259,6 @@ export function JigsawProfileApp() {
                     <div>
                       <dt>Time</dt>
                       <dd>{formatDuration(item.elapsedMs)}</dd>
-                    </div>
-                    <div>
-                      <dt>Snaps</dt>
-                      <dd>{item.snapCount}</dd>
                     </div>
                   </dl>
 
@@ -314,7 +306,6 @@ function createProfileStats(history: JigsawHistoryItem[]) {
     solved: history.length,
     pieces: history.reduce((sum, item) => sum + item.pieceCount, 0),
     elapsedMs: history.reduce((sum, item) => sum + item.elapsedMs, 0),
-    snaps: history.reduce((sum, item) => sum + item.snapCount, 0),
     partners: partners.size,
   }
 }
