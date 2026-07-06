@@ -161,8 +161,6 @@ jobs:
 
           rollback() {
             echo "Deploy failed, attempting rollback"
-            docker compose -f docker-compose.prod.yml ps
-            docker compose -f docker-compose.prod.yml logs --tail=200 server caddy || true
             if [ -n "$previous_image_id" ]; then
               echo "Rolling back server to previous image: $previous_image_id"
               # force-recreate из локального образа по id, без pull
@@ -205,9 +203,6 @@ jobs:
           echo "Pulling server image"
           docker compose -f docker-compose.prod.yml pull server
 
-          docker compose -f docker-compose.prod.yml run --rm --no-deps server \
-            sh -lc 'cd /app/server && bun run bot:selfcheck'
-
           echo "Recreating server and caddy"
           docker compose -f docker-compose.prod.yml up -d --pull always --remove-orphans --force-recreate server caddy
 
@@ -227,8 +222,7 @@ jobs:
             fi
 
             if [ "$attempt" -eq 20 ]; then
-              docker compose -f docker-compose.prod.yml ps
-              docker compose -f docker-compose.prod.yml logs --tail=200 caddy
+              echo "Caddy did not become running"
               exit 1
             fi
 
@@ -242,8 +236,7 @@ jobs:
             fi
 
             if [ "$attempt" -eq 30 ]; then
-              docker compose -f docker-compose.prod.yml ps
-              docker compose -f docker-compose.prod.yml logs --tail=200 xray server caddy
+              echo "Server did not become healthy"
               exit 1
             fi
 
@@ -256,9 +249,7 @@ jobs:
             fi
 
             if [ "$attempt" -eq 20 ]; then
-              docker compose -f docker-compose.prod.yml ps
-              docker compose -f docker-compose.prod.yml logs --tail=200 caddy server
-              ss -lntp | grep -E ':80|:443' || true
+              echo "Public API healthcheck failed"
               exit 1
             fi
 
@@ -266,7 +257,6 @@ jobs:
           done
 
           trap - ERR
-          docker compose -f docker-compose.prod.yml ps
           DEPLOY
 
           ssh "$VPS_USER@$VPS_HOST" "SERVER_IMAGE='$SERVER_IMAGE' bash '$remote_script'"
@@ -280,5 +270,4 @@ jobs:
             exit 0
           fi
 
-          ssh "$VPS_USER@$VPS_HOST" 'cd /opt/jigtable && docker compose -f docker-compose.prod.yml ps && docker compose -f docker-compose.prod.yml logs --tail=200 xray server caddy && ss -lntp | grep -E '\'':80|:443'\'' || true'
           exit 1
