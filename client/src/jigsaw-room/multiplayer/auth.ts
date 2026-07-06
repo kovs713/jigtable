@@ -158,6 +158,10 @@ export async function loginTelegramWidget(
   })
 }
 
+export async function loginDev(): Promise<AuthSession> {
+  return requestAuth("/api/auth/dev-login", {})
+}
+
 export async function fetchAuthMe(token: string): Promise<AuthSession> {
   const response = await fetch(`${API_BASE_URL}/api/auth/me`, {
     headers: authHeaders(token),

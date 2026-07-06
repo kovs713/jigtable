@@ -1,6 +1,6 @@
 import type { Application } from "pixi.js"
 import type * as React from "react"
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 
 import {
   createImageJigsawConfig,
@@ -76,13 +76,15 @@ import "./jigsaw-room-game.css"
 import "./jigsaw-room.css"
 
 const JIGSAW_IMAGE_URL = "/test_jigsaw.png"
-const DEV_ROOM_ID = "dev-room"
 const ACTIVE_JIGSAW_CONFIG = JIGSAW_CONFIG_2000
-const GROUP_MOVE_SEND_INTERVAL_MS = 66
-const SOLVED_CELEBRATION_MS = 5600
-const FIREWORK_BURSTS = Array.from({ length: 4 }, (_, index) => index)
+// multiplayer piece-move broadcast throttle — ~30 events/sec
+const GROUP_MOVE_SEND_INTERVAL_MS = 33
+const SOLVED_CELEBRATION_MS = 12_000
+const FIREWORK_COUNT = 40
 const LIGHT_ROOM_BACKGROUND = "#f2efe4"
 const DARK_ROOM_BACKGROUND = "#151a20"
+const LIGHT_ROOM_PIECE_HIGHLIGHT = "#14596b"
+const DARK_ROOM_PIECE_HIGHLIGHT = "#f4d35e"
 const IMAGE_BRIGHTNESS_THRESHOLD = 0.52
 const ROOM_BACKGROUND_STORAGE_PREFIX = "jigsaw-room-background:"
 
@@ -123,6 +125,7 @@ export function JigsawRoomApp({ roomId }: JigsawRoomAppProps) {
   const roomRef = useRef<HTMLDivElement | null>(null)
   const mountRef = useRef<HTMLDivElement | null>(null)
   const telegramWidgetRef = useRef<HTMLDivElement | null>(null)
+  const settingsRef = useRef<HTMLDetailsElement | null>(null)
   const runtimeRef = useRef<JigsawRuntime | null>(null)
   const multiplayerRef = useRef<JigsawMultiplayerClient | null>(null)
   const handleServerMessageRef = useRef<
@@ -144,15 +147,10 @@ export function JigsawRoomApp({ roomId }: JigsawRoomAppProps) {
   const [showSolvedCelebration, setShowSolvedCelebration] = useState(false)
   const [connectionStatus, setConnectionStatus] =
     useState<MultiplayerStatus>("connecting")
-  const [playersCount, setPlayersCount] = useState(1)
-  const [lastServerEvent, setLastServerEvent] = useState("none")
   const [roomStatus, setRoomStatus] = useState("Starting Pixi room...")
   const [sessionStatus, setSessionStatus] =
     useState<JigsawSessionStatus>("local")
   const [sessionMessage, setSessionMessage] = useState("")
-  const [playerProfile, setPlayerProfile] = useState<JigsawPlayer>(
-    initialSession.player
-  )
   const [authSession, setAuthSession] = useState<AuthSession | null>(() =>
     readLocalAuthSession()
   )
@@ -172,8 +170,37 @@ export function JigsawRoomApp({ roomId }: JigsawRoomAppProps) {
     LIGHT_ROOM_BACKGROUND
   )
   const elapsedMs = getTimerElapsedMs(roomTimer, timerNow)
-  const solved = stats.totalPieces > 0 && stats.placedPieces >= stats.totalPieces
+  const solved =
+    stats.totalPieces > 0 && stats.placedPieces >= stats.totalPieces
   const remainingPieces = Math.max(stats.totalPieces - stats.placedPieces, 0)
+
+  const fireworkBursts = useMemo(() => {
+    if (!showSolvedCelebration) return []
+    return Array.from({ length: FIREWORK_COUNT }, (_, i) => {
+      const isCenterBurst = i < 7
+      const isFinale = i >= FIREWORK_COUNT - 5
+      let delay: number
+      if (isCenterBurst) {
+        delay = Math.random() * 180
+      } else if (isFinale) {
+        delay = 6800 + Math.random() * 300
+      } else {
+        delay = 300 + Math.random() * 6500
+      }
+      return {
+        delay,
+        top: isCenterBurst || isFinale
+          ? 30 + Math.random() * 40
+          : Math.random() * 100,
+        left: isCenterBurst || isFinale
+          ? 30 + Math.random() * 40
+          : Math.random() * 100,
+        size: isCenterBurst || isFinale
+          ? 7 + Math.random() * 4
+          : 4 + Math.random() * 4,
+      }
+    })
+  }, [showSolvedCelebration])
   const completionLabel = !ready
     ? "Loading"
     : solved
@@ -182,6 +209,7 @@ export function JigsawRoomApp({ roomId }: JigsawRoomAppProps) {
   const completionClassName = solved
     ? "jigsaw-room__completion jigsaw-room__completion--solved"
     : "jigsaw-room__completion"
+  const canQuickSolve = import.meta.env.DEV
   const roomStyle = createRoomBackgroundStyle(
     roomBackgroundColor
   ) as React.CSSProperties
@@ -589,6 +617,12 @@ export function JigsawRoomApp({ roomId }: JigsawRoomAppProps) {
 
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent): void {
+      if (event.key === "Escape" && settingsRef.current?.open) {
+        event.preventDefault()
+        settingsRef.current.open = false
+        return
+      }
+
       if (
         event.code !== "Space" ||
         event.repeat ||
@@ -630,7 +664,10 @@ export function JigsawRoomApp({ roomId }: JigsawRoomAppProps) {
     setRoomBackgroundStyle(root, color)
 
     if (syncScene) {
-      runtimeRef.current?.scene.setColors(readSceneColors(root))
+      const colors = readSceneColors(root)
+
+      runtimeRef.current?.scene.setColors(colors)
+      runtimeRef.current?.pieces.setHighlightColor(colors.pieceHighlight)
     }
   }
 
@@ -673,7 +710,6 @@ export function JigsawRoomApp({ roomId }: JigsawRoomAppProps) {
     saveLocalJigsawSession(session)
     sessionRef.current = session
     playerRef.current = session.player
-    setPlayerProfile(session.player)
     setProfileForm({
       name: session.player.name,
       color: session.player.color,
@@ -782,8 +818,6 @@ export function JigsawRoomApp({ roomId }: JigsawRoomAppProps) {
       return
     }
 
-    setLastServerEvent(message.type)
-
     if (message.type === "session:paused") {
       applyRoomTimer(message.timer)
       runtime?.interactions.cancelDrag()
@@ -798,7 +832,6 @@ export function JigsawRoomApp({ roomId }: JigsawRoomAppProps) {
 
     if (message.type === "room:state") {
       setRoomStatus("")
-      setPlayersCount(message.state.players.length)
       applyRoomTimer(message.state.timer)
       groupLocksRef.current.clear()
 
@@ -824,7 +857,6 @@ export function JigsawRoomApp({ roomId }: JigsawRoomAppProps) {
     }
 
     if (message.type === "player:joined") {
-      setPlayersCount(message.playersCount)
       return
     }
 
@@ -841,7 +873,6 @@ export function JigsawRoomApp({ roomId }: JigsawRoomAppProps) {
     }
 
     if (message.type === "player:left") {
-      setPlayersCount(message.playersCount)
       runtime?.cursors.removeCursor(message.playerId)
       return
     }
@@ -895,7 +926,6 @@ export function JigsawRoomApp({ roomId }: JigsawRoomAppProps) {
         groupsCount: message.stats.groupsCount,
         snapCount: message.stats.snapCount,
       }))
-      setPlayersCount(message.stats.playersCount)
       return
     }
 
@@ -971,6 +1001,35 @@ export function JigsawRoomApp({ roomId }: JigsawRoomAppProps) {
     }, 900)
   }
 
+  function quickSolveDevRoom(): void {
+    const runtime = runtimeRef.current
+
+    if (!runtime || !canQuickSolve) {
+      return
+    }
+
+    for (const [pieceId, piece] of Object.entries(runtime.state.pieces)) {
+      const definition = runtime.state.definitions[pieceId]
+
+      if (!definition) {
+        continue
+      }
+
+      piece.x = definition.correctX
+      piece.y = definition.correctY
+      piece.placed = true
+      piece.locked = true
+    }
+
+    for (const group of Object.values(runtime.state.groups)) {
+      group.locked = true
+    }
+
+    runtime.interactions.cancelDrag()
+    runtime.pieces.syncAll()
+    refreshStatsNow()
+  }
+
   function zoomInView(): void {
     runtimeRef.current?.camera.zoomIn()
     refreshStatsNow()
@@ -990,7 +1049,10 @@ export function JigsawRoomApp({ roomId }: JigsawRoomAppProps) {
     <div ref={roomRef} className="jigsaw-room" style={roomStyle}>
       <div ref={mountRef} className="jigsaw-room__stage" />
 
-      <div className="jigsaw-room__toolbar" aria-label="Jigsaw room controls">
+      <div
+        className="jigsaw-room__toolbar corner-brackets"
+        aria-label="Jigsaw room controls"
+      >
         <div className="jigsaw-room__brand">
           <strong>Jigsaw room</strong>
           <span className="jigsaw-room__timer">
@@ -1024,6 +1086,35 @@ export function JigsawRoomApp({ roomId }: JigsawRoomAppProps) {
           >
             Highlight
           </button>
+          {canQuickSolve ? (
+            <button type="button" onClick={quickSolveDevRoom} disabled={!ready}>
+              Solve
+            </button>
+          ) : null}
+          <button
+            type="button"
+            onClick={zoomOutView}
+            disabled={!ready}
+            aria-label="Zoom out"
+          >
+            -
+          </button>
+          <button
+            type="button"
+            onClick={resetViewZoom}
+            disabled={!ready}
+            aria-label="Fit puzzle to screen"
+          >
+            Fit
+          </button>
+          <button
+            type="button"
+            onClick={zoomInView}
+            disabled={!ready}
+            aria-label="Zoom in"
+          >
+            +
+          </button>
           {/* <button */}
           {/*   type="button" */}
           {/*   onClick={shuffleUnsolved} */}
@@ -1044,132 +1135,80 @@ export function JigsawRoomApp({ roomId }: JigsawRoomAppProps) {
           >
             Profile
           </button>
+          <details ref={settingsRef} className="jigsaw-room__settings">
+            <summary>Settings</summary>
+            <form
+              className="jigsaw-room__settings-panel corner-brackets"
+              aria-label="Player and room settings"
+              onSubmit={saveProfile}
+            >
+              <label>
+                <span>Nick</span>
+                <input
+                  type="text"
+                  value={profileForm.name}
+                  maxLength={24}
+                  onChange={(event) => {
+                    setProfileForm((current) => ({
+                      ...current,
+                      name: event.target.value,
+                    }))
+                  }}
+                />
+              </label>
+              <label>
+                <span>Player color</span>
+                <input
+                  type="color"
+                  value={profileForm.color}
+                  onChange={(event) => {
+                    setProfileForm((current) => ({
+                      ...current,
+                      color: event.target.value,
+                    }))
+                  }}
+                />
+              </label>
+              <label>
+                <span>Background</span>
+                <input
+                  type="color"
+                  value={roomBackgroundColor}
+                  aria-label="Room background color"
+                  onChange={changeRoomBackground}
+                />
+              </label>
+              <button
+                type="submit"
+                disabled={
+                  sessionStatus === "restoring" ||
+                  sessionStatus === "saving" ||
+                  !profileForm.name.trim()
+                }
+              >
+                {sessionStatus === "saving" ? "Saving" : "Save profile"}
+              </button>
+              <button
+                type="button"
+                disabled={sessionStatus === "restoring"}
+                onClick={() => void loginWithTelegram()}
+              >
+                {authSession ? "Telegram linked" : "Telegram login"}
+              </button>
+              <p>
+                {getSessionStatusText(sessionStatus, sessionMessage)}.{" "}
+                {authStatus}
+                {historyCount === null ? "" : `. Solved ${historyCount}`}
+              </p>
+              {telegramWidgetVisible ? (
+                <div
+                  ref={telegramWidgetRef}
+                  className="jigsaw-room__telegram-widget"
+                />
+              ) : null}
+            </form>
+          </details>
         </div>
-      </div>
-
-      <form
-        className="jigsaw-room__profile"
-        aria-label="Player profile"
-        onSubmit={saveProfile}
-      >
-        <label>
-          <span>Nick</span>
-          <input
-            type="text"
-            value={profileForm.name}
-            maxLength={24}
-            onChange={(event) => {
-              setProfileForm((current) => ({
-                ...current,
-                name: event.target.value,
-              }))
-            }}
-          />
-        </label>
-        <label className="jigsaw-room__profile-color">
-          <span>Color</span>
-          <input
-            type="color"
-            value={profileForm.color}
-            onChange={(event) => {
-              setProfileForm((current) => ({
-                ...current,
-                color: event.target.value,
-              }))
-            }}
-          />
-        </label>
-        <label className="jigsaw-room__profile-bg-color">
-          <span>Bg</span>
-          <input
-            type="color"
-            value={roomBackgroundColor}
-            aria-label="Room background color"
-            onChange={changeRoomBackground}
-          />
-        </label>
-        <button
-          type="submit"
-          disabled={
-            sessionStatus === "restoring" ||
-            sessionStatus === "saving" ||
-            !profileForm.name.trim()
-          }
-        >
-          {sessionStatus === "saving" ? "Saving" : "Save"}
-        </button>
-        <button
-          type="button"
-          disabled={sessionStatus === "restoring"}
-          onClick={() => void loginWithTelegram()}
-        >
-          {authSession ? "TG linked" : "TG login"}
-        </button>
-        <p>
-          {getSessionStatusText(sessionStatus, sessionMessage)}. {authStatus}
-          {historyCount === null ? "" : `. Solved ${historyCount}`}
-        </p>
-        {telegramWidgetVisible ? (
-          <div
-            ref={telegramWidgetRef}
-            className="jigsaw-room__telegram-widget"
-          />
-        ) : null}
-      </form>
-
-      <dl className="jigsaw-room__stats" aria-label="Jigsaw stats">
-        <div>
-          <dt>FPS</dt>
-          <dd>{Math.round(stats.fps)}</dd>
-        </div>
-        <div>
-          <dt>Zoom</dt>
-          <dd>{stats.zoom.toFixed(2)}x</dd>
-        </div>
-        <div>
-          <dt>Groups</dt>
-          <dd>{stats.groupsCount}</dd>
-        </div>
-        <div>
-          <dt>Players</dt>
-          <dd>{playersCount}</dd>
-        </div>
-      </dl>
-
-      <div className="jigsaw-room__zoom-controls" aria-label="Zoom controls">
-        <button
-          type="button"
-          onClick={zoomOutView}
-          disabled={!ready}
-          aria-label="Zoom out"
-        >
-          -
-        </button>
-        <button
-          type="button"
-          onClick={resetViewZoom}
-          disabled={!ready}
-          aria-label="Fit puzzle to screen"
-        >
-          Fit
-        </button>
-        <button
-          type="button"
-          onClick={zoomInView}
-          disabled={!ready}
-          aria-label="Zoom in"
-        >
-          +
-        </button>
-      </div>
-
-      <div className="jigsaw-room__hint">
-        Drag pieces. <kbd className="jigsaw-room__shortcut">Wheel</kbd>, pinch,
-        or zoom buttons zoom. Empty/solved/
-        <kbd className="jigsaw-room__shortcut">middle/right drag</kbd> pans.
-        <kbd className="jigsaw-room__shortcut">Space</kbd> preview.
-        <kbd className="jigsaw-room__shortcut">Shift+Space</kbd> pause. Drop
-        near the board or a true neighbor to snap.
       </div>
 
       {roomTimer.paused ? (
@@ -1188,8 +1227,16 @@ export function JigsawRoomApp({ roomId }: JigsawRoomAppProps) {
           aria-live="polite"
         >
           <div className="jigsaw-room__fireworks" aria-hidden="true">
-            {FIREWORK_BURSTS.map((burst) => (
-              <span key={burst} />
+            {fireworkBursts.map((burst, i) => (
+              <span
+                key={i}
+                style={{
+                  top: `${burst.top}%`,
+                  left: `${burst.left}%`,
+                  "--size": `${burst.size}px`,
+                  animationDelay: `${burst.delay}ms`,
+                } as React.CSSProperties}
+              />
             ))}
           </div>
           <div className="jigsaw-room__solved-card">
@@ -1198,31 +1245,6 @@ export function JigsawRoomApp({ roomId }: JigsawRoomAppProps) {
           </div>
         </div>
       ) : null}
-
-      <div className="jigsaw-room__multiplayer" aria-label="Multiplayer debug">
-        <div>
-          <span>Status</span>
-          <strong>{connectionStatus}</strong>
-        </div>
-        <div>
-          <span>Room</span>
-          <strong>{activeRoomId}</strong>
-        </div>
-        <div>
-          <span>Player</span>
-          <strong style={{ color: playerProfile.color }}>
-            {playerProfile.name}
-          </strong>
-        </div>
-        <div>
-          <span>Players</span>
-          <strong>{playersCount}</strong>
-        </div>
-        <div>
-          <span>Last</span>
-          <strong>{lastServerEvent}</strong>
-        </div>
-      </div>
 
       {!ready && (
         <div className="jigsaw-room__loading">
@@ -1308,8 +1330,8 @@ function readErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : "Session unavailable"
 }
 
-function isLocalDevRoom(roomId: string): boolean {
-  return import.meta.env.DEV && roomId === DEV_ROOM_ID
+function isLocalDevRoom(_roomId: string): boolean {
+  return import.meta.env.DEV
 }
 
 function isEditableTarget(target: EventTarget | null): boolean {
@@ -1373,13 +1395,19 @@ function setRoomBackgroundStyle(root: HTMLElement, color: string): void {
 }
 
 function createRoomBackgroundStyle(color: string): Record<string, string> {
-  const contrast = getHexLuminance(color) > 0.52 ? "#000000" : "#ffffff"
+  const isLight = getHexLuminance(color) > 0.52
+  const contrast = isLight ? "#000000" : "#ffffff"
 
   return {
     "--jigsaw-room-bg": color,
     "--jigsaw-pixi-board-fill": mixHexColors(color, contrast, 0.08),
     "--jigsaw-pixi-board-stroke": mixHexColors(color, contrast, 0.24),
     "--jigsaw-pixi-board-grid": mixHexColors(color, contrast, 0.16),
+    "--jigsaw-pixi-preview-overlay": contrast,
+    "--jigsaw-pixi-preview-overlay-alpha": isLight ? "0.18" : "0.12",
+    "--jigsaw-pixi-piece-highlight": isLight
+      ? LIGHT_ROOM_PIECE_HIGHLIGHT
+      : DARK_ROOM_PIECE_HIGHLIGHT,
   }
 }
 

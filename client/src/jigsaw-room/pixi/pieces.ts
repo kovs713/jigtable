@@ -33,6 +33,7 @@ export interface PieceViewSet {
   syncPieces: (pieceIds: PieceId[]) => void
   syncAll: () => void
   setAllHighlighted: (highlighted: boolean) => void
+  setHighlightColor: (color: number) => void
   raiseGroup: (groupId: GroupId) => void
   destroy: () => void
 }
@@ -55,8 +56,7 @@ export function createPieceViews(
     imageTexture,
     state,
     definitions,
-    metrics,
-    highlightColor
+    metrics
   )
   let allHighlighted = false
 
@@ -80,6 +80,7 @@ export function createPieceViews(
     highlightSprite.visible = false
     highlightSprite.width = metrics.textureWidth
     highlightSprite.height = metrics.textureHeight
+    highlightSprite.tint = highlightColor
 
     pieceTextures.push(pieceTexture)
     pieceTextures.push(atlasPiece.highlightTexture)
@@ -184,6 +185,12 @@ export function createPieceViews(
     }
   }
 
+  function setHighlightColor(color: number): void {
+    for (const view of byId.values()) {
+      view.highlightSprite.tint = color
+    }
+  }
+
   function isPieceHighlightable(pieceId: PieceId): boolean {
     const piece = state.pieces[pieceId]
 
@@ -221,6 +228,7 @@ export function createPieceViews(
     syncPieces,
     syncAll,
     setAllHighlighted,
+    setHighlightColor,
     raiseGroup,
     destroy() {
       const children = layer.removeChildren()
@@ -261,8 +269,7 @@ function createPieceAtlas(
   imageTexture: Texture,
   state: JigsawState,
   definitions: PieceDefinition[],
-  metrics: ShapeMetrics,
-  highlightColor: number
+  metrics: ShapeMetrics
 ): { atlasTextures: Texture[]; byId: Map<PieceId, AtlasPieceTexture> } {
   const byId = new Map<PieceId, AtlasPieceTexture>()
   const atlasTextures: Texture[] = []
@@ -330,10 +337,10 @@ function createPieceAtlas(
       context.save()
       context.translate(atlasX, atlasY)
       context.scale(metrics.scale, metrics.scale)
-      context.lineWidth = 1.15
+      context.lineWidth = 0.8
       context.lineJoin = "round"
       context.lineCap = "round"
-      context.strokeStyle = "rgba(5, 10, 16, 0.66)"
+      context.strokeStyle = "rgba(5, 10, 16, 0.28)"
       context.stroke(hitPath)
       context.restore()
 
@@ -342,11 +349,8 @@ function createPieceAtlas(
       highlightContext.scale(metrics.scale, metrics.scale)
       highlightContext.lineJoin = "round"
       highlightContext.lineCap = "round"
-      highlightContext.strokeStyle = colorToCanvasRgba(highlightColor, 0.18)
-      highlightContext.lineWidth = 3.2
-      highlightContext.stroke(hitPath)
-      highlightContext.strokeStyle = colorToCanvasRgba(highlightColor, 0.58)
-      highlightContext.lineWidth = 1.4
+      highlightContext.strokeStyle = "rgba(255, 255, 255, 0.55)"
+      highlightContext.lineWidth = 1.2
       highlightContext.stroke(hitPath)
       highlightContext.restore()
 
@@ -383,14 +387,6 @@ function createPieceAtlas(
   }
 
   return { atlasTextures, byId }
-}
-
-function colorToCanvasRgba(color: number, alpha: number): string {
-  const red = (color >> 16) & 255
-  const green = (color >> 8) & 255
-  const blue = color & 255
-
-  return `rgba(${red}, ${green}, ${blue}, ${alpha})`
 }
 
 function createShapeMetrics(state: JigsawState): ShapeMetrics {

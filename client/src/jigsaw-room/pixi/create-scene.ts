@@ -12,7 +12,8 @@ export interface SceneColors {
   boardFill: number
   boardStroke: number
   boardGrid: number
-  previewStroke: number
+  previewOverlay: number
+  previewOverlayAlpha: number
   pieceStroke: number
   pieceHighlight: number
   placedStroke: number
@@ -44,7 +45,15 @@ export function createJigsawScene(
   drawSolutionArea(solutionArea, state, colors)
   boardLayer.addChild(solutionArea)
 
-  const preview = createPreviewOverlay(state, imageTexture, colors)
+  const previewOverlay = new Graphics()
+  const previewGrid = new Graphics()
+  const preview = createPreviewOverlay(
+    state,
+    imageTexture,
+    colors,
+    previewOverlay,
+    previewGrid,
+  )
   preview.visible = false
   overlayLayer.addChild(preview)
 
@@ -61,6 +70,8 @@ export function createJigsawScene(
     },
     setColors(nextColors: SceneColors) {
       drawSolutionArea(solutionArea, state, nextColors)
+      drawPreviewOverlay(previewOverlay, state, nextColors)
+      drawPreviewGrid(previewGrid, state, nextColors)
     },
   }
 }
@@ -72,7 +83,12 @@ export function readSceneColors(root: HTMLElement): SceneColors {
     boardFill: readColor(style, "--jigsaw-pixi-board-fill", 0x101820),
     boardStroke: readColor(style, "--jigsaw-pixi-board-stroke", 0x6c7a89),
     boardGrid: readColor(style, "--jigsaw-pixi-board-grid", 0x344252),
-    previewStroke: readColor(style, "--jigsaw-pixi-preview-stroke", 0xd8e6f2),
+    previewOverlay: readColor(style, "--jigsaw-pixi-preview-overlay", 0xffffff),
+    previewOverlayAlpha: readNumber(
+      style,
+      "--jigsaw-pixi-preview-overlay-alpha",
+      0.12
+    ),
     pieceStroke: readColor(style, "--jigsaw-pixi-piece-stroke", 0x0a1018),
     pieceHighlight: readColor(style, "--jigsaw-pixi-piece-highlight", 0xffee88),
     placedStroke: readColor(style, "--jigsaw-pixi-placed-stroke", 0xc6f36a),
@@ -220,29 +236,48 @@ function edgePointToWorld(
 function createPreviewOverlay(
   state: JigsawState,
   imageTexture: Texture,
-  colors: SceneColors
+  colors: SceneColors,
+  overlay: Graphics,
+  grid: Graphics,
 ): Container {
   const board = getJigsawBounds(state.config)
   const preview = new Container({ label: "jigsaw-preview" })
   const image = new Sprite({ texture: imageTexture })
-  const grid = new Graphics()
-  const border = new Graphics()
 
   image.position.set(board.x, board.y)
   image.width = board.width
   image.height = board.height
   image.alpha = 0.42
 
-  drawSolutionCutLines(grid, state)
-  grid.stroke({ width: 1, color: colors.boardGrid, alpha: 0.72 })
+  drawPreviewOverlay(overlay, state, colors)
+  drawPreviewGrid(grid, state, colors)
 
-  border
-    .rect(board.x, board.y, board.width, board.height)
-    .stroke({ width: 3, color: colors.previewStroke, alpha: 0.8 })
-
-  preview.addChild(image, grid, border)
+  preview.addChild(image, overlay, grid)
 
   return preview
+}
+
+function drawPreviewGrid(
+  grid: Graphics,
+  state: JigsawState,
+  colors: SceneColors
+): void {
+  grid.clear()
+  drawSolutionCutLines(grid, state)
+  grid.stroke({ width: 1, color: colors.pieceStroke, alpha: 0.25 })
+}
+
+function drawPreviewOverlay(
+  overlay: Graphics,
+  state: JigsawState,
+  colors: SceneColors
+): void {
+  const board = getJigsawBounds(state.config)
+
+  overlay
+    .clear()
+    .rect(board.x, board.y, board.width, board.height)
+    .fill({ color: colors.previewOverlay, alpha: colors.previewOverlayAlpha })
 }
 
 function readColor(
@@ -290,6 +325,16 @@ function readColor(
     (clampChannel(channels[1]) << 8) |
     clampChannel(channels[2])
   )
+}
+
+function readNumber(
+  style: CSSStyleDeclaration,
+  property: string,
+  fallback: number
+): number {
+  const parsed = Number.parseFloat(style.getPropertyValue(property).trim())
+
+  return Number.isNaN(parsed) ? fallback : parsed
 }
 
 function clampChannel(value: number): number {

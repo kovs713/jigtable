@@ -7,6 +7,7 @@ import {
   getTelegramBotUsername,
   getTelegramLoginWidgetBlocker,
   hasTelegramWebAppInitData,
+  loginDev,
   loginTelegramWebApp,
   loginTelegramWidget,
   readLocalAuthSession,
@@ -19,7 +20,7 @@ import "./jigsaw-room.css"
 import "./jigsaw-room-create.css"
 
 const DEFAULT_IMAGE_URL = "/test_jigsaw.png"
-const PIECE_COUNT_OPTIONS = [48, 100, 150, 300, 600, 1_000, 1_500, 2_000]
+const PRESETS = [48, 100, 300, 600, 1_000, 1_500, 2_000]
 
 export function JigsawRoomCreateApp() {
   const widgetRef = useRef<HTMLDivElement | null>(null)
@@ -137,6 +138,23 @@ export function JigsawRoomCreateApp() {
     }
   }
 
+  async function loginWithDev(): Promise<void> {
+    setAuthLoading(true)
+    setAuthStatus("Dev login...")
+
+    try {
+      const session = await loginDev()
+
+      saveLocalAuthSession(session)
+      setAuthSession(session)
+      setAuthStatus("Dev session active")
+    } catch (error) {
+      setAuthStatus(readErrorMessage(error))
+    } finally {
+      setAuthLoading(false)
+    }
+  }
+
   useEffect(() => {
     const host = widgetRef.current
     const botUsername = getTelegramBotUsername()
@@ -237,7 +255,7 @@ export function JigsawRoomCreateApp() {
 
   return (
     <main className="jigsaw-room jigsaw-room--create">
-      <section className="jigsaw-room__create-panel">
+      <section className="jigsaw-room__create-panel corner-brackets">
         <div className="jigsaw-room__create-copy">
           <p className="jigsaw-room__create-kicker">Multiplayer jigsaw</p>
           <h1>Create room</h1>
@@ -258,6 +276,15 @@ export function JigsawRoomCreateApp() {
                 : authSession
                   ? "TG linked"
                   : "Telegram login"}
+            </Button>
+            <Button
+              size="sm"
+              type="button"
+              variant="outline"
+              disabled={authLoading}
+              onClick={() => void loginWithDev()}
+            >
+              Dev login
             </Button>
             <span className="jigsaw-room__create-status" role="status">
               {authStatus}
@@ -304,23 +331,34 @@ export function JigsawRoomCreateApp() {
             )}
           </div>
 
-          <fieldset>
-            <legend>Target pieces</legend>
-            <div className="jigsaw-room__piece-options" role="radiogroup">
-              {PIECE_COUNT_OPTIONS.map((option) => (
+          <label className="jigsaw-room__slider-group">
+            <span>Pieces</span>
+            <output className="jigsaw-room__slider-value">
+              {pieceCount.toLocaleString()}
+            </output>
+            <div className="jigsaw-room__presets" role="radiogroup">
+              {PRESETS.map((p) => (
                 <button
-                  key={option}
+                  key={p}
                   type="button"
                   role="radio"
-                  aria-checked={pieceCount === option}
-                  className={pieceCount === option ? "is-selected" : ""}
-                  onClick={() => setPieceCount(option)}
+                  aria-checked={pieceCount === p}
+                  className={pieceCount === p ? "is-active" : ""}
+                  onClick={() => setPieceCount(p)}
                 >
-                  {option.toLocaleString()}
+                  {p >= 1_000 ? `${p / 1_000}k` : p}
                 </button>
               ))}
             </div>
-          </fieldset>
+            <input
+              type="range"
+              min={48}
+              max={2_000}
+              step={1}
+              value={pieceCount}
+              onChange={(event) => setPieceCount(Number(event.target.value))}
+            />
+          </label>
 
           <Button
             className="jigsaw-room__submit-btn"

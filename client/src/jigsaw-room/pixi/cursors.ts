@@ -5,7 +5,8 @@ import type { Application } from "pixi.js"
 import type { JigsawMultiplayerClient } from "../multiplayer/client"
 import type { CameraController } from "./camera"
 
-const CURSOR_SEND_INTERVAL_MS = 50
+// multiplayer cursor broadcast throttle — 40 events/sec
+const CURSOR_SEND_INTERVAL_MS = 25
 
 export interface RemoteCursorViewSet {
   applyCursor: (cursor: JigsawPlayerCursor) => void
