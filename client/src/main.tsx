@@ -40,8 +40,19 @@ export function RootApp() {
 
 function RouteLoading() {
   return (
-    <main className="flex min-h-svh items-center justify-center bg-background text-sm text-muted-foreground">
-      Loading...
+    <main className="canvas-grid flex min-h-svh items-center justify-center bg-background p-6 text-foreground">
+      <section className="glass corner-brackets grid min-w-64 gap-3 border p-5 text-card-foreground shadow-sm">
+        <div className="flex items-center gap-3">
+          <span
+            aria-hidden="true"
+            className="size-3 animate-pulse bg-primary shadow-[0_0_18px_color-mix(in_oklch,var(--primary),transparent_45%)]"
+          />
+          <span className="text-sm font-semibold tracking-tight">Jigtable</span>
+        </div>
+        <p className="font-mono text-xs tracking-[0.18em] text-muted-foreground uppercase">
+          Loading workspace
+        </p>
+      </section>
     </main>
   )
 }
