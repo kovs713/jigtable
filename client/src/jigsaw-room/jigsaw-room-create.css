@@ -187,12 +187,17 @@
   transition:
     background-color 0.15s,
     color 0.15s,
-    border-color 0.15s;
+    border-color 0.15s,
+    transform 0.16s ease;
 }
 
 .jigsaw-room__presets button:hover {
   background: color-mix(in oklch, var(--primary), transparent 90%);
   color: var(--foreground);
+}
+
+.jigsaw-room__presets button:active {
+  transform: translateY(1px) scale(0.98);
 }
 
 .jigsaw-room__presets button.is-active {

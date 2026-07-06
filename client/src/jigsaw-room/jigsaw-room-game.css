@@ -124,7 +124,8 @@
   list-style: none;
   transition:
     background-color 0.2s ease,
-    color 0.2s ease;
+    color 0.2s ease,
+    transform 0.16s ease;
 }
 
 .jigsaw-room__settings {
@@ -149,6 +150,11 @@
 .jigsaw-room__actions > button[aria-pressed="true"] {
   color: var(--primary-foreground);
   background: var(--primary);
+}
+
+.jigsaw-room__actions > button:active:not(:disabled),
+.jigsaw-room__settings summary:active {
+  transform: translateY(1px) scale(0.98);
 }
 
 .jigsaw-room__actions > button:focus-visible,
@@ -252,6 +258,9 @@
   font-weight: 750;
   letter-spacing: 0.1em;
   text-transform: uppercase;
+  transition:
+    background-color 0.2s ease,
+    transform 0.16s ease;
 }
 
 .jigsaw-room__settings-panel button:nth-of-type(2) {
@@ -260,6 +269,10 @@
 
 .jigsaw-room__settings-panel button:hover:not(:disabled) {
   background: color-mix(in oklch, var(--primary), transparent 88%);
+}
+
+.jigsaw-room__settings-panel button:active:not(:disabled) {
+  transform: translateY(1px) scale(0.98);
 }
 
 .jigsaw-room__settings-panel p {

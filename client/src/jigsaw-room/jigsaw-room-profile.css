@@ -99,7 +99,8 @@
   transition:
     background-color 0.2s ease,
     color 0.2s ease,
-    border-color 0.2s ease;
+    border-color 0.2s ease,
+    transform 0.16s ease;
 }
 
 .jigsaw-room__btn--outline {
@@ -116,6 +117,10 @@
 .jigsaw-room__btn:hover:not(:disabled) {
   background: color-mix(in oklch, var(--primary), transparent 15%);
   border-color: var(--primary);
+}
+
+.jigsaw-room__btn:active:not(:disabled) {
+  transform: translateY(1px) scale(0.98);
 }
 
 .jigsaw-room__btn:focus-visible {
