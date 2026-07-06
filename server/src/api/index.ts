@@ -8,8 +8,10 @@ import {
   type JigsawSocketData,
 } from "@/jigsaw-room/room-manager"
 import { JigsawSessionStore } from "@/jigsaw-room/session-store"
-import { routes } from "./routes"
-import { json } from "./utils"
+import { errorResponse } from "./errors"
+import { cors, errorBoundary } from "./middlewares"
+import { registerRoutes } from "./routes"
+import { createRouter } from "./types"
 
 const jigsawSessionsService = new JigsawSessionStore()
 const jigsawHistoryService = new JigsawHistoryStore()
@@ -28,6 +30,13 @@ export const services = {
 export function startApiServer(): void {
   const port = Number(process.env.PORT) ?? 3000
 
+  const router = createRouter({
+    services,
+    middleware: [cors(), errorBoundary()],
+  })
+
+  registerRoutes(router)
+
   const server = serve<JigsawSocketData>({
     port,
 
@@ -41,18 +50,11 @@ export function startApiServer(): void {
           return undefined
         }
 
-        return json(
-          { error: "WebSocket upgrade failed" },
-          400,
-          undefined,
-          request
-        )
+        return errorResponse("WebSocket upgrade failed", 400)
       }
 
-      return json({ error: "Not found" }, 404, undefined, request)
+      return router.fetch(request)
     },
-
-    routes: routes,
 
     websocket: {
       message(socket, message) {

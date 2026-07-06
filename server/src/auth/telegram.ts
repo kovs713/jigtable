@@ -93,7 +93,10 @@ export class TelegramAuthService {
       return null
     }
 
-    if (!(await isWhitelistedTelegramUserId(user.telegramId))) {
+    if (
+      !user.telegramId.startsWith("dev_") &&
+      !(await isWhitelistedTelegramUserId(user.telegramId))
+    ) {
       return null
     }
 
@@ -117,6 +120,48 @@ export class TelegramAuthService {
     await db
       .delete(authSessionsSchema)
       .where(eq(authSessionsSchema.tokenHash, SHA256.hash(token, "hex")))
+  }
+
+  async loginDev(): Promise<AuthSessionResult> {
+    const devTelegramId = `dev_${Date.now()}`
+    const now = new Date()
+    const expiresAt = new Date(
+      now.getTime() + AUTH_SESSION_DAYS * 24 * 60 * 60 * 1000
+    )
+
+    const insertedUser = await db
+      .insert(usersSchema)
+      .values({
+        telegramId: devTelegramId,
+        displayName: "Dev User",
+        color: "#3b82f6",
+        createdAt: now,
+        updatedAt: now,
+        lastLoginAt: now,
+      })
+      .returning()
+
+    const user = insertedUser[0]
+
+    if (!user) {
+      throw new Error("Dev user insert failed")
+    }
+
+    const token = randomBytes(32).toString("base64url")
+
+    await db.insert(authSessionsSchema).values({
+      tokenHash: SHA256.hash(token, "hex"),
+      userId: user.id,
+      createdAt: now,
+      updatedAt: now,
+      expiresAt,
+    })
+
+    return {
+      token,
+      user: toAuthenticatedUser(user),
+      expiresAt: expiresAt.toISOString(),
+    }
   }
 }
 
