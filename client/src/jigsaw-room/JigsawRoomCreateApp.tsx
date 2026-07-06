@@ -23,6 +23,7 @@ import "./jigsaw-room-create.css"
 
 const DEFAULT_IMAGE_URL = "/test_jigsaw.png"
 const PRESETS = [48, 100, 300, 600, 1_000, 1_500, 2_000]
+const DEV_LOGIN_ENABLED = import.meta.env.DEV
 
 export function JigsawRoomCreateApp() {
   const widgetRef = useRef<HTMLDivElement | null>(null)
@@ -279,15 +280,17 @@ export function JigsawRoomCreateApp() {
                   ? "TG linked"
                   : "Telegram login"}
             </Button>
-            <Button
-              size="sm"
-              type="button"
-              variant="outline"
-              disabled={authLoading}
-              onClick={() => void loginWithDev()}
-            >
-              Dev login
-            </Button>
+            {DEV_LOGIN_ENABLED ? (
+              <Button
+                size="sm"
+                type="button"
+                variant="outline"
+                disabled={authLoading}
+                onClick={() => void loginWithDev()}
+              >
+                Dev login
+              </Button>
+            ) : null}
             <span className="jigsaw-room__create-status" role="status">
               {authStatus}
             </span>
