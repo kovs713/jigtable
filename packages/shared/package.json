@@ -1,0 +1,12 @@
+{
+  "name": "@jigtable/shared",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./schemas": "./src/schema.ts",
+    "./types": "./src/types.ts",
+    "./utils": "./src/utils.ts"
+  }
+}

@@ -31,6 +31,12 @@
       "@jigtable/jigsaw-core/*": [
         "../packages/jigsaw-core/src/*"
       ],
+      "@jigtable/shared": [
+        "../packages/shared/src/index.ts"
+      ],
+      "@jigtable/shared/*": [
+        "../packages/shared/src/*"
+      ],
       "@/*": [
         "./src/*"
       ]

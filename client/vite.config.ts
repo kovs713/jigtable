@@ -12,6 +12,10 @@ export default defineConfig({
         __dirname,
         "../packages/jigsaw-core/src"
       ),
+      "@jigtable/shared": path.resolve(
+        __dirname,
+        "../packages/shared/src"
+      ),
       "@": path.resolve(__dirname, "./src"),
     },
   },
