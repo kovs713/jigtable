@@ -79,6 +79,8 @@ const JIGSAW_IMAGE_URL = "/test_jigsaw.png"
 const DEV_ROOM_ID = "dev-room"
 const ACTIVE_JIGSAW_CONFIG = JIGSAW_CONFIG_2000
 const GROUP_MOVE_SEND_INTERVAL_MS = 66
+const SOLVED_CELEBRATION_MS = 5600
+const FIREWORK_BURSTS = Array.from({ length: 4 }, (_, index) => index)
 
 type JigsawSessionStatus =
   "local" | "restoring" | "saved" | "saving" | "offline" | "error"
@@ -128,10 +130,13 @@ export function JigsawRoomApp({ roomId }: JigsawRoomAppProps) {
   const roomTimerRef = useRef<JigsawRoomTimer>(createInitialTimer())
   const lastMoveSentAtRef = useRef(0)
   const highlightTimerRef = useRef<number | null>(null)
+  const solvedCelebrationTimerRef = useRef<number | null>(null)
+  const solvedAnnouncedRef = useRef(false)
   const activeRoomId = roomId ?? ""
   const [ready, setReady] = useState(false)
   const [previewVisible, setPreviewVisible] = useState(false)
   const [piecesHighlighted, setPiecesHighlighted] = useState(false)
+  const [showSolvedCelebration, setShowSolvedCelebration] = useState(false)
   const [connectionStatus, setConnectionStatus] =
     useState<MultiplayerStatus>("connecting")
   const [playersCount, setPlayersCount] = useState(1)
@@ -159,6 +164,16 @@ export function JigsawRoomApp({ roomId }: JigsawRoomAppProps) {
   const [timerNow, setTimerNow] = useState(() => Date.now())
   const [stats, setStats] = useState<JigsawStats>(EMPTY_STATS)
   const elapsedMs = getTimerElapsedMs(roomTimer, timerNow)
+  const solved = stats.totalPieces > 0 && stats.placedPieces >= stats.totalPieces
+  const remainingPieces = Math.max(stats.totalPieces - stats.placedPieces, 0)
+  const completionLabel = !ready
+    ? "Loading"
+    : solved
+      ? "Solved"
+      : `${remainingPieces} left`
+  const completionClassName = solved
+    ? "jigsaw-room__completion jigsaw-room__completion--solved"
+    : "jigsaw-room__completion"
 
   roomTimerRef.current = roomTimer
   handleServerMessageRef.current = handleServerMessage
@@ -177,6 +192,15 @@ export function JigsawRoomApp({ roomId }: JigsawRoomAppProps) {
 
     async function boot() {
       setReady(false)
+      setStats(EMPTY_STATS)
+      setShowSolvedCelebration(false)
+      solvedAnnouncedRef.current = false
+
+      if (solvedCelebrationTimerRef.current !== null) {
+        window.clearTimeout(solvedCelebrationTimerRef.current)
+        solvedCelebrationTimerRef.current = null
+      }
+
       setRoomStatus(roomId ? "Loading room..." : "Invite link required")
 
       if (!roomId) {
@@ -430,6 +454,36 @@ export function JigsawRoomApp({ roomId }: JigsawRoomAppProps) {
       cleanup()
     }
   }, [activeRoomId, roomId])
+
+  useEffect(() => {
+    if (!solved) {
+      return
+    }
+
+    if (solvedAnnouncedRef.current) {
+      return
+    }
+
+    solvedAnnouncedRef.current = true
+    setShowSolvedCelebration(true)
+
+    if (solvedCelebrationTimerRef.current !== null) {
+      window.clearTimeout(solvedCelebrationTimerRef.current)
+    }
+
+    solvedCelebrationTimerRef.current = window.setTimeout(() => {
+      setShowSolvedCelebration(false)
+      solvedCelebrationTimerRef.current = null
+    }, SOLVED_CELEBRATION_MS)
+  }, [solved])
+
+  useEffect(() => {
+    return () => {
+      if (solvedCelebrationTimerRef.current !== null) {
+        window.clearTimeout(solvedCelebrationTimerRef.current)
+      }
+    }
+  }, [])
 
   useEffect(() => {
     const interval = window.setInterval(() => {
@@ -891,6 +945,7 @@ export function JigsawRoomApp({ roomId }: JigsawRoomAppProps) {
             {formatElapsedTime(elapsedMs)}
             {roomTimer.paused ? " paused" : ""}
           </span>
+          <span className={completionClassName}>{completionLabel}</span>
         </div>
         <div className="jigsaw-room__actions">
           <button
@@ -1070,6 +1125,24 @@ export function JigsawRoomApp({ roomId }: JigsawRoomAppProps) {
           {roomTimer.pausedByPlayerName
             ? ` by ${roomTimer.pausedByPlayerName}`
             : ""}
+        </div>
+      ) : null}
+
+      {showSolvedCelebration ? (
+        <div
+          className="jigsaw-room__solved-celebration"
+          role="status"
+          aria-live="polite"
+        >
+          <div className="jigsaw-room__fireworks" aria-hidden="true">
+            {FIREWORK_BURSTS.map((burst) => (
+              <span key={burst} />
+            ))}
+          </div>
+          <div className="jigsaw-room__solved-card">
+            <span>Jigsaw solved</span>
+            <strong>{formatElapsedTime(elapsedMs)}</strong>
+          </div>
         </div>
       ) : null}
 

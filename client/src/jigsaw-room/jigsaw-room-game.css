@@ -67,6 +67,26 @@
   letter-spacing: 0.12em;
 }
 
+.jigsaw-room__completion {
+  width: max-content;
+  padding: 2px 6px;
+  border: 0.5px solid var(--jigsaw-panel-border);
+  color: var(--jigsaw-panel-muted);
+  background: var(--background);
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.jigsaw-room__completion--solved {
+  border-color: color-mix(in oklch, var(--primary), transparent 45%);
+  color: var(--primary-foreground);
+  background: var(--primary);
+  box-shadow: 0 0 22px color-mix(in oklch, var(--primary), transparent 58%);
+}
+
 .jigsaw-room__actions {
   display: flex;
 }
@@ -351,6 +371,160 @@
   border: 1px solid color-mix(in oklch, var(--primary), transparent 20%);
 }
 
+/* Solved Celebration */
+.jigsaw-room__solved-celebration {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.jigsaw-room__solved-card {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  gap: 8px;
+  min-width: min(360px, calc(100vw - 48px));
+  padding: 22px 28px;
+  border: 0.5px solid color-mix(in oklch, var(--primary), transparent 32%);
+  color: var(--primary-foreground);
+  text-align: center;
+  text-transform: uppercase;
+  background:
+    linear-gradient(
+      135deg,
+      color-mix(in oklch, var(--primary), var(--foreground) 10%),
+      var(--primary)
+    ),
+    var(--primary);
+  box-shadow:
+    0 24px 90px color-mix(in oklch, var(--primary), transparent 45%),
+    inset 0 0 0 1px color-mix(in oklch, var(--primary-foreground), transparent 82%);
+  animation: jigsaw-solved-card 5.6s ease both;
+}
+
+.jigsaw-room__solved-card span {
+  font-size: 0.78rem;
+  font-weight: 850;
+  letter-spacing: 0.24em;
+}
+
+.jigsaw-room__solved-card strong {
+  font-family: var(--font-mono);
+  font-size: 1.4rem;
+  line-height: 1;
+  letter-spacing: 0.08em;
+}
+
+.jigsaw-room__fireworks {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  overflow: hidden;
+}
+
+.jigsaw-room__fireworks span {
+  --size: 7px;
+
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: var(--size);
+  height: var(--size);
+  border: 0.5px solid color-mix(in oklch, var(--primary-foreground), transparent 50%);
+  background: var(--primary);
+  box-shadow:
+    0 -42px 0 0 var(--primary),
+    30px -30px 0 0 color-mix(in oklch, var(--primary), var(--foreground) 20%),
+    42px 0 0 0 var(--primary),
+    30px 30px 0 0 color-mix(in oklch, var(--primary), var(--background) 18%),
+    0 42px 0 0 var(--primary),
+    -30px 30px 0 0 color-mix(in oklch, var(--primary), var(--foreground) 18%),
+    -42px 0 0 0 var(--primary),
+    -30px -30px 0 0 color-mix(in oklch, var(--primary), var(--background) 18%);
+  opacity: 0;
+  transform: translate(-50%, -50%) scale(0);
+  animation: jigsaw-firework 1.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.jigsaw-room__fireworks span:nth-child(1) {
+  animation-delay: 120ms;
+}
+
+.jigsaw-room__fireworks span:nth-child(2) {
+  top: 34%;
+  left: 30%;
+  --size: 6px;
+  animation-delay: 520ms;
+}
+
+.jigsaw-room__fireworks span:nth-child(3) {
+  top: 36%;
+  left: 70%;
+  --size: 6px;
+  animation-delay: 820ms;
+}
+
+.jigsaw-room__fireworks span:nth-child(4) {
+  top: 67%;
+  left: 52%;
+  --size: 6px;
+  animation-delay: 1160ms;
+}
+
+@keyframes jigsaw-solved-card {
+  0% {
+    opacity: 0;
+    transform: translateY(16px) scale(0.96);
+  }
+
+  10%,
+  78% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+
+  100% {
+    opacity: 0;
+    transform: translateY(-12px) scale(0.98);
+  }
+}
+
+@keyframes jigsaw-firework {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0);
+  }
+
+  12% {
+    opacity: 1;
+  }
+
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(1.8);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .jigsaw-room__solved-card,
+  .jigsaw-room__fireworks span {
+    animation: none;
+  }
+
+  .jigsaw-room__solved-card {
+    opacity: 1;
+    transform: none;
+  }
+
+  .jigsaw-room__fireworks span {
+    opacity: 0;
+  }
+}
+
 /* Multiplayer Debug */
 .jigsaw-room__multiplayer {
   right: 18px;
@@ -439,6 +613,15 @@
     flex: 1 1 100%;
     border-right: 0;
     border-bottom: 0.5px solid var(--jigsaw-panel-border);
+  }
+
+  .jigsaw-room__completion {
+    max-width: 100%;
+  }
+
+  .jigsaw-room__solved-card {
+    min-width: min(320px, calc(100vw - 32px));
+    padding: 18px 20px;
   }
 
   .jigsaw-room__actions {
