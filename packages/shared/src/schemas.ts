@@ -1,4 +1,4 @@
-import { Result } from "./types"
+import type { Result } from "./types"
 import { isRecord } from "./utils"
 
 export interface Schema<T> {
@@ -29,11 +29,11 @@ export function number(opts?: { min?: number; max?: number }): Schema<number> {
       const v = Math.round(value)
 
       if (opts?.min !== undefined && v < opts.min) {
-        return { ok: false, error: `${path} must be <= ${opts.min}` }
+        return { ok: false, error: `${path} must be >= ${opts.min}` }
       }
 
       if (opts?.max !== undefined && v > opts.max) {
-        return { ok: false, error: `${path} must be >= ${opts.max}` }
+        return { ok: false, error: `${path} must be <= ${opts.max}` }
       }
 
       return { ok: true, value: v }
@@ -61,13 +61,13 @@ export function object<T extends Record<string, Schema<any>>>(
   shape: T
 ): Schema<{ [K in keyof T]: Infer<T[K]> }> {
   return {
-    parse(value: unknown, path = "") {
+    parse(value: unknown, path = ""): Result<{ [K in keyof T]: Infer<T[K]> }> {
       if (!value || typeof value !== "object") {
         return { ok: false, error: `${path || "value"} must be object` }
       }
 
       const obj = value as Record<string, unknown>
-      const result: any = {}
+      const parsedObject: Partial<{ [K in keyof T]: Infer<T[K]> }> = {}
 
       for (const key in shape) {
         const schema = shape[key]
@@ -77,10 +77,31 @@ export function object<T extends Record<string, Schema<any>>>(
           throw new Error(`Schema for key ${String(key)} is undefined`)
         }
 
-        result[key] = schema.parse(obj[key], nextPath)
+        const result = schema.parse(obj[key], nextPath)
+
+        if (!result.ok) {
+          return result
+        }
+
+        parsedObject[key] = result.value
       }
 
-      return result
+      return {
+        ok: true,
+        value: parsedObject as { [K in keyof T]: Infer<T[K]> },
+      }
+    },
+  }
+}
+
+export function record(): Schema<Record<string, unknown>> {
+  return {
+    parse(value, path = "value"): Result<Record<string, unknown>> {
+      if (!isRecord(value)) {
+        return { ok: false, error: `${path} must be object` }
+      }
+
+      return { ok: true, value }
     },
   }
 }
@@ -94,8 +115,8 @@ export function array<T>(schema: Schema<T>): Schema<T[]> {
 
       const values: T[] = []
 
-      for (let i = 0; i <= value.length; i++) {
-        const result = schema.parse(value)
+      for (let i = 0; i < value.length; i++) {
+        const result = schema.parse(value[i], `${path}[${i}]`)
 
         if (!result.ok) {
           return result
@@ -125,10 +146,19 @@ export function map<K, V>(
       const result = new Map<K, V>()
 
       for (const [rawKey, rawVal] of Object.entries(value)) {
-        const key = keySchema.parse(rawKey)
-        const val = valueSchema.parse(rawVal)
+        const key = keySchema.parse(rawKey, `${path}.key`)
 
-        result.set(key, val)
+        if (!key.ok) {
+          return key
+        }
+
+        const val = valueSchema.parse(rawVal, `${path}.${rawKey}`)
+
+        if (!val.ok) {
+          return val
+        }
+
+        result.set(key.value, val.value)
       }
 
       return { ok: true, value: result }
@@ -136,11 +166,11 @@ export function map<K, V>(
   }
 }
 
-export function optional<T>(schema: Schema<T>): Schema<T> {
+export function optional<T>(schema: Schema<T>): Schema<T | undefined> {
   return {
-    parse(value, path = "value"): Result<T> {
+    parse(value, path = "value"): Result<T | undefined> {
       if (value === undefined || value === null) {
-        return { ok: false, error: "Value if optional" }
+        return { ok: true, value: undefined }
       }
 
       return schema.parse(value, path)
@@ -184,9 +214,30 @@ export function refine<T>(
 //     },
 // );
 
-export const Json = <T>(schema: Schema<T>) => ({
+export const Json = <T>(schema: Schema<T>, opts?: { maxBytes?: number }) => ({
   async parse(request: Request): Promise<Result<T>> {
+    const contentLengthHeader = request.headers.get("content-length")
+
+    if (contentLengthHeader && opts?.maxBytes !== undefined) {
+      const contentLength = Number(contentLengthHeader)
+
+      if (!Number.isFinite(contentLength) || contentLength < 0) {
+        return { ok: false, error: "Invalid Content-Length" }
+      }
+
+      if (contentLength > opts.maxBytes) {
+        return { ok: false, error: "Request body too large" }
+      }
+    }
+
     const text = await request.text()
+
+    if (
+      opts?.maxBytes !== undefined &&
+      new TextEncoder().encode(text).byteLength > opts.maxBytes
+    ) {
+      return { ok: false, error: "Request body too large" }
+    }
 
     if (!text) {
       return { ok: false, error: "Empty body" }
