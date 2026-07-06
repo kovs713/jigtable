@@ -21,7 +21,7 @@ permissions:
 
 concurrency:
   group: server-deploy-production
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   deploy:
@@ -31,7 +31,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
@@ -72,6 +72,10 @@ jobs:
           tag="$GITHUB_SHA"
 
           if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ] && [ -n "$INPUT_IMAGE_TAG" ]; then
+            if ! [[ "$INPUT_IMAGE_TAG" =~ ^[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}$ ]]; then
+              echo "Invalid image_tag: $INPUT_IMAGE_TAG" >&2
+              exit 1
+            fi
             tag="$INPUT_IMAGE_TAG"
           fi
 
@@ -95,6 +99,8 @@ jobs:
           platforms: linux/amd64
           push: true
           tags: ${{ steps.image.outputs.tags }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
       - name: Setup SSH
         uses: webfactory/ssh-agent@v0.9.0
@@ -106,7 +112,7 @@ jobs:
           VPS_HOST: ${{ secrets.VPS_HOST }}
         run: |
           mkdir -p ~/.ssh
-          ssh-keyscan -H "$VPS_HOST" >> ~/.ssh/known_hosts
+          ssh-keyscan -t ed25519 -H "$VPS_HOST" >> ~/.ssh/known_hosts
 
       - name: Upload compose config
         env:
@@ -148,6 +154,32 @@ jobs:
 
           echo "Deploying $SERVER_IMAGE"
 
+          previous_image_id=""
+          if docker inspect jigtable-server-1 >/dev/null 2>&1; then
+            previous_image_id="$(docker inspect --format '{{.Image}}' jigtable-server-1)"
+          fi
+
+          rollback() {
+            echo "Deploy failed, attempting rollback"
+            docker compose -f docker-compose.prod.yml ps
+            docker compose -f docker-compose.prod.yml logs --tail=200 server caddy || true
+            if [ -n "$previous_image_id" ]; then
+              echo "Rolling back server to previous image: $previous_image_id"
+              # force-recreate из локального образа по id, без pull
+              docker compose -f docker-compose.prod.yml up -d --no-deps --force-recreate \
+                --scale server=0 server || true
+              docker run -d --name jigtable-server-1-rollback-check "$previous_image_id" true >/dev/null 2>&1 || true
+              docker rm -f jigtable-server-1-rollback-check >/dev/null 2>&1 || true
+              # Пересобираем через compose, привязывая тот же image id тегом :rollback
+              docker tag "$previous_image_id" jigtable-server-rollback:latest
+              SERVER_IMAGE=jigtable-server-rollback:latest docker compose -f docker-compose.prod.yml up -d --no-deps --force-recreate server
+              echo "Rollback attempted. VERIFY MANUALLY before trusting this state."
+            else
+              echo "No previous image recorded, cannot auto-rollback."
+            fi
+          }
+          trap rollback ERR
+
           docker compose -f docker-compose.prod.yml up -d postgres
 
           for attempt in $(seq 1 30); do
@@ -167,9 +199,15 @@ jobs:
           backup="backups/pre-deploy-$(date +%Y%m%d%H%M%S).sql.gz"
           docker compose -f docker-compose.prod.yml exec -T postgres sh -lc 'pg_dump -U "$POSTGRES_USER" "$POSTGRES_DB"' | gzip > "$backup"
 
+          find backups -maxdepth 1 -name 'pre-deploy-*.sql.gz' -printf '%T@ %p\n' \
+            | sort -rn | tail -n +15 | cut -d' ' -f2- | xargs -r rm -f
+
           echo "Pulling server image"
           docker compose -f docker-compose.prod.yml pull server
-          docker compose -f docker-compose.prod.yml run --rm --no-deps server sh -lc "grep -q 'telegramApiFetch' /app/server/src/bot/index.ts && grep -q 'bot.start' /app/server/src/bot/index.ts"
+
+          docker compose -f docker-compose.prod.yml run --rm --no-deps server \
+            sh -lc 'cd /app/server && bun run bot:selfcheck'
+
           echo "Recreating server and caddy"
           docker compose -f docker-compose.prod.yml up -d --pull always --remove-orphans --force-recreate server caddy
 
@@ -227,6 +265,7 @@ jobs:
             sleep 3
           done
 
+          trap - ERR
           docker compose -f docker-compose.prod.yml ps
           DEPLOY
 
