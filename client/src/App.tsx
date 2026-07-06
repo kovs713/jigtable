@@ -1331,9 +1331,15 @@ export function App() {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="png">PNG</SelectItem>
-              <SelectItem value="jpg">JPG</SelectItem>
-              <SelectItem value="jpeg">JPEG</SelectItem>
+              <SelectItem className="font-mono text-xs uppercase" value="png">
+                PNG
+              </SelectItem>
+              <SelectItem className="font-mono text-xs uppercase" value="jpg">
+                JPG
+              </SelectItem>
+              <SelectItem className="font-mono text-xs uppercase" value="jpeg">
+                JPEG
+              </SelectItem>
             </SelectContent>
           </Select>
 
