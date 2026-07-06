@@ -6,6 +6,7 @@ import type {
   JigsawConfig,
   JigsawState,
 } from "../jigsaw/types"
+import type { ArrangeLoosePiecesMode } from "../jigsaw/scatter"
 
 export interface JigsawPlayer {
   id: string
@@ -91,6 +92,7 @@ export type ClientToServerMessage =
   | { type: "group:move"; groupId: GroupId; x: number; y: number }
   | { type: "group:drop"; groupId: GroupId; x: number; y: number }
   | { type: "group:release"; groupId: GroupId }
+  | { type: "groups:arrange"; mode: ArrangeLoosePiecesMode }
   | { type: "cursor:move"; x: number; y: number }
   | { type: "cursor:hide" }
   | { type: "session:pause" }
@@ -131,5 +133,6 @@ export type ServerToClientMessage =
       groups: Record<GroupId, GroupState>
       snapCount: number
     }
+  | { type: "groups:arranged"; pieces: Record<PieceId, PieceState> }
   | { type: "stats:updated"; stats: JigsawRoomStats }
   | { type: "error"; code: string; message: string }

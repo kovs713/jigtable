@@ -30,6 +30,69 @@ export function scatterUnsolvedGroups(
   scatterGroups(state, groupIds, seed, false)
 }
 
+export type ArrangeLoosePiecesMode =
+  | "perimeter"
+  | "top"
+  | "right"
+  | "bottom"
+  | "left"
+
+export function arrangeLoosePieces(
+  state: JigsawState,
+  mode: ArrangeLoosePiecesMode
+): PieceId[] {
+  const board = getJigsawBounds(state.config)
+  const groups = Object.values(state.groups).filter(
+    (group): group is GroupState =>
+      !group.locked &&
+      group.pieceIds.length > 0 &&
+      group.pieceIds.some((pieceId) => !state.pieces[pieceId]?.placed)
+  )
+
+  if (groups.length === 0) {
+    return []
+  }
+
+  const margin = getScatterVisualMargin(state.config)
+  const gap = state.config.scatterGap
+  const boundsByGroup = new Map<GroupId, WorldRect>()
+  let maxWidth = 0
+  let maxHeight = 0
+
+  for (const group of groups) {
+    const bounds = getGroupBounds(state, group.pieceIds, margin)
+    boundsByGroup.set(group.id, bounds)
+    maxWidth = Math.max(maxWidth, bounds.width)
+    maxHeight = Math.max(maxHeight, bounds.height)
+  }
+
+  const slots = createArrangeSlots(
+    board,
+    groups.length,
+    maxWidth + gap,
+    maxHeight + gap,
+    gap,
+    mode
+  )
+  const affectedPieceIds: PieceId[] = []
+
+  for (let index = 0; index < groups.length; index++) {
+    const group = groups[index]
+    const bounds = group ? boundsByGroup.get(group.id) : null
+    const slot = slots[index]
+
+    if (!group || !bounds || !slot) {
+      continue
+    }
+
+    affectedPieceIds.push(
+      ...translateGroup(state, group.id, slot.x - bounds.x, slot.y - bounds.y)
+    )
+  }
+
+  return affectedPieceIds
+}
+
 function scatterGroups(
   state: JigsawState,
   groupIds: GroupId[],
@@ -186,6 +249,86 @@ function createScatterSlots(
   }
 
   return slots
+}
+
+function createArrangeSlots(
+  board: WorldRect,
+  count: number,
+  slotWidth: number,
+  slotHeight: number,
+  gap: number,
+  mode: ArrangeLoosePiecesMode
+): Array<{ x: number; y: number }> {
+  if (mode !== "perimeter") {
+    return createSideSlots(board, count, slotWidth, slotHeight, gap, mode)
+  }
+
+  const sideCounts = splitAcrossSides(count)
+
+  return [
+    ...createSideSlots(board, sideCounts.top, slotWidth, slotHeight, gap, "top"),
+    ...createSideSlots(board, sideCounts.right, slotWidth, slotHeight, gap, "right"),
+    ...createSideSlots(board, sideCounts.bottom, slotWidth, slotHeight, gap, "bottom"),
+    ...createSideSlots(board, sideCounts.left, slotWidth, slotHeight, gap, "left"),
+  ]
+}
+
+function createSideSlots(
+  board: WorldRect,
+  count: number,
+  slotWidth: number,
+  slotHeight: number,
+  gap: number,
+  side: Exclude<ArrangeLoosePiecesMode, "perimeter">
+): Array<{ x: number; y: number }> {
+  const slots: Array<{ x: number; y: number }> = []
+  const horizontal = side === "top" || side === "bottom"
+  const columns = Math.max(1, Math.ceil(board.width / slotWidth))
+  const rows = Math.max(1, Math.ceil(board.height / slotHeight))
+  const primaryCount = horizontal ? columns : rows
+
+  for (let index = 0; slots.length < count; index++) {
+    const lane = Math.floor(index / primaryCount)
+    const primary = index % primaryCount
+
+    if (side === "top") {
+      slots.push({
+        x: board.x + primary * slotWidth,
+        y: board.y - gap - slotHeight * (lane + 1),
+      })
+    } else if (side === "bottom") {
+      slots.push({
+        x: board.x + primary * slotWidth,
+        y: board.y + board.height + gap + slotHeight * lane,
+      })
+    } else if (side === "left") {
+      slots.push({
+        x: board.x - gap - slotWidth * (lane + 1),
+        y: board.y + primary * slotHeight,
+      })
+    } else {
+      slots.push({
+        x: board.x + board.width + gap + slotWidth * lane,
+        y: board.y + primary * slotHeight,
+      })
+    }
+  }
+
+  return slots
+}
+
+function splitAcrossSides(
+  count: number
+): Record<Exclude<ArrangeLoosePiecesMode, "perimeter">, number> {
+  const base = Math.floor(count / 4)
+  const extra = count % 4
+
+  return {
+    top: base + (extra > 0 ? 1 : 0),
+    right: base + (extra > 1 ? 1 : 0),
+    bottom: base + (extra > 2 ? 1 : 0),
+    left: base,
+  }
 }
 
 function rectsOverlap(a: WorldRect, b: WorldRect): boolean {

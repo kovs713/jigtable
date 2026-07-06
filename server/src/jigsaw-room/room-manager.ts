@@ -1,4 +1,5 @@
 import type { ServerWebSocket } from "bun"
+import type { ArrangeLoosePiecesMode } from "@jigtable/jigsaw-core"
 
 import type {
   ClientToServerMessage,
@@ -16,6 +17,7 @@ import type {
   ServerToClientMessage,
 } from "@jigtable/jigsaw-core"
 import {
+  arrangeLoosePieces,
   createImageJigsawConfig,
   createJigsawState,
   JIGSAW_CONFIG_2000,
@@ -170,6 +172,11 @@ export class JigsawRoomManager {
 
     if (message.type === "group:release") {
       this.releaseGroup(room, player, message.groupId)
+      return
+    }
+
+    if (message.type === "groups:arrange") {
+      this.arrangeGroups(room, message.mode)
       return
     }
 
@@ -471,6 +478,28 @@ export class JigsawRoomManager {
     this.releaseGroup(room, player, groupId)
     broadcast(room, { type: "stats:updated", stats: getStats(room) })
     this.recordCompletionIfSolved(room)
+  }
+
+  private arrangeGroups(
+    room: JigsawRoom,
+    mode: ArrangeLoosePiecesMode
+  ): void {
+    if (room.timer.paused) {
+      return
+    }
+
+    const affectedPieceIds = arrangeLoosePieces(room.state, mode)
+
+    if (affectedPieceIds.length === 0) {
+      return
+    }
+
+    room.updatedAt = Date.now()
+    broadcast(room, {
+      type: "groups:arranged",
+      pieces: pickPieces(room.state, affectedPieceIds),
+    })
+    broadcast(room, { type: "stats:updated", stats: getStats(room) })
   }
 
   private releaseGroup(
