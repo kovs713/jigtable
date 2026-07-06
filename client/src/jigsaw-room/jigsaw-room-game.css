@@ -104,6 +104,7 @@
 }
 
 .jigsaw-room__actions > button,
+.jigsaw-room__arrange summary,
 .jigsaw-room__settings summary {
   display: inline-flex;
   align-items: center;
@@ -128,21 +129,25 @@
     transform 0.16s ease;
 }
 
+.jigsaw-room__arrange,
 .jigsaw-room__settings {
   position: relative;
   display: flex;
   align-items: stretch;
 }
 
+.jigsaw-room__arrange summary,
 .jigsaw-room__settings summary {
   height: 100%;
 }
 
+.jigsaw-room__arrange summary::-webkit-details-marker,
 .jigsaw-room__settings summary::-webkit-details-marker {
   display: none;
 }
 
 .jigsaw-room__actions > button:hover:not(:disabled),
+.jigsaw-room__arrange summary:hover,
 .jigsaw-room__settings summary:hover {
   background: color-mix(in oklch, var(--primary), transparent 88%);
 }
@@ -153,11 +158,13 @@
 }
 
 .jigsaw-room__actions > button:active:not(:disabled),
+.jigsaw-room__arrange summary:active,
 .jigsaw-room__settings summary:active {
   transform: translateY(1px) scale(0.98);
 }
 
 .jigsaw-room__actions > button:focus-visible,
+.jigsaw-room__arrange summary:focus-visible,
 .jigsaw-room__settings summary:focus-visible {
   outline: none;
   box-shadow: inset 0 0 0 2px
@@ -165,6 +172,51 @@
 }
 
 .jigsaw-room__actions > button:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+.jigsaw-room__arrange-panel {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 5;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(112px, 1fr));
+  width: min(280px, calc(100vw - 36px));
+  border: 0.5px solid var(--jigsaw-panel-border);
+  background-color: var(--popover);
+  box-shadow: 0 18px 60px color-mix(in oklch, black, transparent 78%);
+  backdrop-filter: blur(calc(var(--panel-blur) * 1.5))
+    saturate(var(--panel-saturate));
+  -webkit-backdrop-filter: blur(calc(var(--panel-blur) * 1.5))
+    saturate(var(--panel-saturate));
+}
+
+.jigsaw-room__arrange-panel button {
+  min-height: 38px;
+  border: 0;
+  border-right: 0.5px solid var(--jigsaw-panel-border);
+  border-bottom: 0.5px solid var(--jigsaw-panel-border);
+  color: var(--foreground);
+  background: transparent;
+  font: inherit;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.jigsaw-room__arrange-panel button:first-child {
+  grid-column: 1 / -1;
+}
+
+.jigsaw-room__arrange-panel button:hover:not(:disabled) {
+  background: color-mix(in oklch, var(--primary), transparent 88%);
+}
+
+.jigsaw-room__arrange-panel button:disabled {
   cursor: not-allowed;
   opacity: 0.4;
 }
@@ -563,6 +615,7 @@
   }
 
   .jigsaw-room__actions > button,
+  .jigsaw-room__arrange summary,
   .jigsaw-room__settings summary {
     min-width: 0;
     flex: 1 1 0;
@@ -590,6 +643,7 @@
   }
 
   .jigsaw-room__actions > button,
+  .jigsaw-room__arrange summary,
   .jigsaw-room__settings summary {
     min-width: 64px;
     height: 40px;

@@ -12,7 +12,11 @@ import {
   getGroupAnchor,
   moveGroupToAnchor,
 } from "@jigtable/jigsaw-core/jigsaw/groups"
-import { scatterAllPieces } from "@jigtable/jigsaw-core/jigsaw/scatter"
+import {
+  arrangeLoosePieces,
+  type ArrangeLoosePiecesMode,
+  scatterAllPieces,
+} from "@jigtable/jigsaw-core/jigsaw/scatter"
 import type {
   JigsawState,
   JigsawStats,
@@ -87,6 +91,16 @@ const LIGHT_ROOM_PIECE_HIGHLIGHT = "#00b8d9"
 const DARK_ROOM_PIECE_HIGHLIGHT = "#f7ff4d"
 const IMAGE_BRIGHTNESS_THRESHOLD = 0.52
 const ROOM_BACKGROUND_STORAGE_PREFIX = "jigsaw-room-background:"
+const ARRANGE_MODES = [
+  { mode: "perimeter", label: "All sides" },
+  { mode: "top", label: "Top side" },
+  { mode: "right", label: "Right side" },
+  { mode: "bottom", label: "Bottom side" },
+  { mode: "left", label: "Left side" },
+] as const satisfies ReadonlyArray<{
+  mode: ArrangeLoosePiecesMode
+  label: string
+}>
 
 type JigsawSessionStatus =
   "local" | "restoring" | "saved" | "saving" | "offline" | "error"
@@ -441,6 +455,13 @@ export function JigsawRoomApp({ roomId }: JigsawRoomAppProps) {
             return multiplayerRef.current
           },
         })
+        const closeSettings = () => {
+          if (settingsRef.current?.open) {
+            settingsRef.current.open = false
+          }
+        }
+
+        app.canvas.addEventListener("pointerdown", closeSettings)
         const debug = createDebugTicker(app, state, camera, setStats)
 
         runtimeRef.current = {
@@ -479,6 +500,7 @@ export function JigsawRoomApp({ roomId }: JigsawRoomAppProps) {
           cursors.destroy()
           pieces.destroy()
           imageTexture.destroy(true)
+          app.canvas.removeEventListener("pointerdown", closeSettings)
           destroyJigsawPixiApp(app)
         }
 
@@ -921,6 +943,21 @@ export function JigsawRoomApp({ roomId }: JigsawRoomAppProps) {
       return
     }
 
+    if (message.type === "groups:arranged") {
+      if (!runtime) {
+        return
+      }
+
+      for (const [pieceId, piece] of Object.entries(message.pieces)) {
+        runtime.state.pieces[pieceId] = structuredClone(piece)
+      }
+
+      runtime.interactions.cancelDrag()
+      runtime.pieces.syncPieces(Object.keys(message.pieces))
+      refreshStatsNow()
+      return
+    }
+
     if (message.type === "stats:updated") {
       setStats((current) => ({
         ...current,
@@ -1033,6 +1070,31 @@ export function JigsawRoomApp({ roomId }: JigsawRoomAppProps) {
     refreshStatsNow()
   }
 
+  function arrangePieces(mode: ArrangeLoosePiecesMode): void {
+    const runtime = runtimeRef.current
+
+    if (!runtime || !ready || roomTimer.paused) {
+      return
+    }
+
+    const connection = multiplayerRef.current
+
+    if (connection?.isConnected()) {
+      connection.send({ type: "groups:arrange", mode })
+      return
+    }
+
+    const movedPieceIds = arrangeLoosePieces(runtime.state, mode)
+
+    if (movedPieceIds.length === 0) {
+      return
+    }
+
+    runtime.interactions.cancelDrag()
+    runtime.pieces.syncPieces(movedPieceIds)
+    refreshStatsNow()
+  }
+
   function zoomInView(): void {
     runtimeRef.current?.camera.zoomIn()
     refreshStatsNow()
@@ -1089,6 +1151,24 @@ export function JigsawRoomApp({ roomId }: JigsawRoomAppProps) {
           >
             Highlight
           </button>
+          <details className="jigsaw-room__arrange">
+            <summary>Arrange</summary>
+            <div className="jigsaw-room__arrange-panel corner-brackets">
+              {ARRANGE_MODES.map(({ mode, label }) => (
+                <button
+                  key={mode}
+                  type="button"
+                  onClick={(event) => {
+                    arrangePieces(mode)
+                    event.currentTarget.closest("details")?.removeAttribute("open")
+                  }}
+                  disabled={!ready || roomTimer.paused}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </details>
           {canQuickSolve ? (
             <button type="button" onClick={quickSolveDevRoom} disabled={!ready}>
               Solve
