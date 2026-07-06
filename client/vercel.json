@@ -4,7 +4,6 @@
   "buildCommand": "bun run build",
   "installCommand": "bun install",
   "outputDirectory": "dist",
-  "ignoreCommand": "git diff --quiet HEAD^ HEAD -- . ../packages",
   "headers": [
     {
       "source": "/assets/(.*)",
