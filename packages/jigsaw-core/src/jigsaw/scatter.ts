@@ -259,76 +259,119 @@ function createArrangeSlots(
   gap: number,
   mode: ArrangeLoosePiecesMode
 ): Array<{ x: number; y: number }> {
-  if (mode !== "perimeter") {
-    return createSideSlots(board, count, slotWidth, slotHeight, gap, mode)
+  const slots = createBalancedPerimeterSlots(
+    board,
+    count,
+    slotWidth,
+    slotHeight,
+    gap
+  )
+
+  if (mode === "perimeter") {
+    return slots.sort((a, b) => a.perimeterScore - b.perimeterScore)
   }
 
-  const sideCounts = splitAcrossSides(count)
-
-  return [
-    ...createSideSlots(board, sideCounts.top, slotWidth, slotHeight, gap, "top"),
-    ...createSideSlots(board, sideCounts.right, slotWidth, slotHeight, gap, "right"),
-    ...createSideSlots(board, sideCounts.bottom, slotWidth, slotHeight, gap, "bottom"),
-    ...createSideSlots(board, sideCounts.left, slotWidth, slotHeight, gap, "left"),
-  ]
+  return slots
+    .sort((a, b) => getSideScore(a, mode) - getSideScore(b, mode))
+    .map(({ x, y }) => ({ x, y }))
 }
 
-function createSideSlots(
+interface ArrangeSlot {
+  x: number
+  y: number
+  top: number
+  right: number
+  bottom: number
+  left: number
+  perimeterScore: number
+}
+
+function createBalancedPerimeterSlots(
   board: WorldRect,
   count: number,
   slotWidth: number,
   slotHeight: number,
-  gap: number,
-  side: Exclude<ArrangeLoosePiecesMode, "perimeter">
-): Array<{ x: number; y: number }> {
-  const slots: Array<{ x: number; y: number }> = []
-  const horizontal = side === "top" || side === "bottom"
+  gap: number
+): ArrangeSlot[] {
+  const slots: ArrangeSlot[] = []
   const columns = Math.max(1, Math.ceil(board.width / slotWidth))
   const rows = Math.max(1, Math.ceil(board.height / slotHeight))
-  const primaryCount = horizontal ? columns : rows
+  let ring = 1
 
-  for (let index = 0; slots.length < count; index++) {
-    const lane = Math.floor(index / primaryCount)
-    const primary = index % primaryCount
+  while (slots.length < count * 4) {
+    for (let gridY = -ring; gridY < rows + ring; gridY++) {
+      for (let gridX = -ring; gridX < columns + ring; gridX++) {
+        const isPerimeter =
+          gridX === -ring ||
+          gridY === -ring ||
+          gridX === columns + ring - 1 ||
+          gridY === rows + ring - 1
 
-    if (side === "top") {
-      slots.push({
-        x: board.x + primary * slotWidth,
-        y: board.y - gap - slotHeight * (lane + 1),
-      })
-    } else if (side === "bottom") {
-      slots.push({
-        x: board.x + primary * slotWidth,
-        y: board.y + board.height + gap + slotHeight * lane,
-      })
-    } else if (side === "left") {
-      slots.push({
-        x: board.x - gap - slotWidth * (lane + 1),
-        y: board.y + primary * slotHeight,
-      })
-    } else {
-      slots.push({
-        x: board.x + board.width + gap + slotWidth * lane,
-        y: board.y + primary * slotHeight,
-      })
+        if (!isPerimeter) {
+          continue
+        }
+
+        const x = board.x + gridX * slotWidth
+        const y = board.y + gridY * slotHeight
+        const top = Math.max(0, board.y - y)
+        const right = Math.max(0, x + slotWidth - (board.x + board.width))
+        const bottom = Math.max(0, y + slotHeight - (board.y + board.height))
+        const left = Math.max(0, board.x - x)
+        const outside = top + right + bottom + left
+
+        if (outside <= gap) {
+          continue
+        }
+
+        slots.push({
+          x,
+          y,
+          top,
+          right,
+          bottom,
+          left,
+          perimeterScore: ring + getCornerPenalty(top, right, bottom, left),
+        })
+      }
     }
+
+    ring += 1
   }
 
   return slots
 }
 
-function splitAcrossSides(
-  count: number
-): Record<Exclude<ArrangeLoosePiecesMode, "perimeter">, number> {
-  const base = Math.floor(count / 4)
-  const extra = count % 4
+function getSideScore(
+  slot: ArrangeSlot,
+  side: Exclude<ArrangeLoosePiecesMode, "perimeter">
+): number {
+  const primary = slot[side]
+  const opposite =
+    side === "top"
+      ? slot.bottom
+      : side === "right"
+        ? slot.left
+        : side === "bottom"
+          ? slot.top
+          : slot.right
+  const adjacent =
+    side === "top" || side === "bottom"
+      ? Math.min(slot.left, slot.right)
+      : Math.min(slot.top, slot.bottom)
+  const sideMiss = primary === 0 ? 10_000 : 0
 
-  return {
-    top: base + (extra > 0 ? 1 : 0),
-    right: base + (extra > 1 ? 1 : 0),
-    bottom: base + (extra > 2 ? 1 : 0),
-    left: base,
-  }
+  return sideMiss + primary * 0.35 + opposite * 2 + adjacent * 0.7
+}
+
+function getCornerPenalty(
+  top: number,
+  right: number,
+  bottom: number,
+  left: number
+): number {
+  const outsideSides = [top, right, bottom, left].filter((value) => value > 0)
+
+  return outsideSides.length > 1 ? 0.35 : 0
 }
 
 function rectsOverlap(a: WorldRect, b: WorldRect): boolean {
