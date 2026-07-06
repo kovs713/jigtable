@@ -177,7 +177,7 @@ export function JigsawProfileApp() {
 
   return (
     <main className="jigsaw-room jigsaw-room--profile">
-      <section className="jigsaw-room__profile-shell">
+      <section className="jigsaw-room__profile-shell corner-brackets">
         <div className="jigsaw-room__profile-hero">
           <p className="jigsaw-room__profile-kicker">Player ledger</p>
           <h1>{authSession?.user.displayName ?? "Guest profile"}</h1>

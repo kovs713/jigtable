@@ -29,7 +29,7 @@ export class ErrorBoundary extends Component<
 
     return (
       <main className="flex min-h-svh items-center justify-center bg-background p-6 text-foreground">
-        <section className="max-w-md border border-border bg-card p-6 text-card-foreground shadow-sm">
+        <section className="glass-elevated corner-brackets max-w-md border border-border p-6 text-card-foreground shadow-sm">
           <h1 className="text-lg font-semibold">Something went wrong</h1>
           <p className="mt-3 text-sm text-muted-foreground">
             Reload the page. If it keeps failing, check client env and API

@@ -1,8 +1,8 @@
 .jigsaw-room {
   --jigsaw-room-bg: var(--background);
-  --jigsaw-panel: color-mix(in oklch, var(--card), transparent 8%);
+  --jigsaw-panel: var(--card);
   --jigsaw-panel-strong: color-mix(in oklch, var(--card), var(--foreground) 3%);
-  --jigsaw-panel-border: color-mix(in oklch, var(--border), transparent 8%);
+  --jigsaw-panel-border: var(--panel-border);
   --jigsaw-panel-muted: color-mix(
     in oklch,
     var(--muted-foreground),
@@ -17,14 +17,15 @@
   --jigsaw-pixi-board-stroke: var(--border);
   --jigsaw-pixi-board-grid: color-mix(in oklch, var(--border), transparent 35%);
 
-  --jigsaw-pixi-preview-stroke: var(--foreground);
+  --jigsaw-pixi-preview-overlay: #ffffff;
+  --jigsaw-pixi-preview-overlay-alpha: 0.12;
   --jigsaw-pixi-piece-stroke: color-mix(
     in oklch,
     var(--foreground),
     transparent 18%
   );
 
-  --jigsaw-pixi-piece-highlight: var(--primary);
+  --jigsaw-pixi-piece-highlight: #f4d35e;
   --jigsaw-pixi-placed-stroke: var(--primary);
 
   position: fixed;

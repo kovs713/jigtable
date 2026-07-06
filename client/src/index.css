@@ -6,6 +6,23 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/*
+  ВАЖНО: разделение ответственности между слоями.
+
+  1) CANVAS  — то, что рисует пазл (фон под картинкой, частицы и т.д).
+     Управляется вашим JS/state, этот файл его не трогает и не должен трогать.
+
+  2) CHROME  — тулбар, сайдбар, диалоги, поповеры, карточки настроек.
+     Всё, что раньше сидело на --card/--popover/--sidebar с opacity:100%,
+     теперь полупрозрачно + backdrop-blur, поэтому визуально "сидит" на
+     canvas, а не наклеено поверх него, независимо от того, какой фон
+     пользователь выбрал под пазл.
+
+  Утилиты ниже (.glass, .glass-elevated, .corner-brackets) применяйте
+  на компоненты тулбара/сайдбара/диалогов вручную — токены цвета сами
+  по себе не включают blur (это не color-свойство).
+*/
+
 @theme inline {
   --font-heading: var(--font-sans);
   --font-sans: "Inter Variable", system-ui, sans-serif;
@@ -55,10 +72,21 @@
 :root {
   --background: oklch(0.985 0 0);
   --foreground: oklch(0.145 0 0);
-  --card: oklch(0.965 0 0);
+
+  /* Chrome-поверхности теперь с альфой — становятся "стеклом" в .glass */
+  --card: oklch(0.965 0 0 / 0.8);
   --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(0.965 0 0);
+  --popover: oklch(0.965 0 0 / 0.88);
   --popover-foreground: oklch(0.145 0 0);
+  --sidebar: oklch(0.965 0 0 / 0.8);
+  --sidebar-foreground: oklch(0.145 0 0);
+  --sidebar-primary: oklch(0.52 0.13 205);
+  --sidebar-primary-foreground: oklch(0.985 0.01 205);
+  --sidebar-accent: oklch(0.9 0.025 205);
+  --sidebar-accent-foreground: oklch(0.145 0 0);
+  --sidebar-border: oklch(0.82 0 0);
+  --sidebar-ring: oklch(0.52 0.13 205);
+
   --primary: oklch(0.52 0.13 205);
   --primary-foreground: oklch(0.985 0.01 205);
   --secondary: oklch(0.9 0 0);
@@ -71,6 +99,16 @@
   --border: oklch(0.82 0 0);
   --input: oklch(0.82 0 0);
   --ring: oklch(0.52 0.13 205);
+
+  /* Хэарлайн-грань и брекеты для стекла — нейтральны по тону */
+  --panel-border: oklch(0 0 0 / 0.12);
+  --panel-blur: 16px;
+  --panel-saturate: 140%;
+  --bracket-color: oklch(0 0 0 / 0.35);
+  --bracket-color-accent: var(--primary);
+  --bracket-length: 14px;
+  --bracket-thickness: 1px;
+
   --image-marker-1: oklch(0.58 0.16 25);
   --image-marker-2: oklch(0.68 0.14 75);
   --image-marker-3: oklch(0.62 0.14 145);
@@ -98,23 +136,25 @@
   --chart-4: oklch(0.34 0 0);
   --chart-5: oklch(0.22 0 0);
   --radius: 0;
-  --sidebar: oklch(0.965 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.52 0.13 205);
-  --sidebar-primary-foreground: oklch(0.985 0.01 205);
-  --sidebar-accent: oklch(0.9 0.025 205);
-  --sidebar-accent-foreground: oklch(0.145 0 0);
-  --sidebar-border: oklch(0.82 0 0);
-  --sidebar-ring: oklch(0.52 0.13 205);
 }
 
 .dark {
   --background: oklch(0.12 0 0);
   --foreground: oklch(0.94 0 0);
-  --card: oklch(0.16 0 0);
+
+  --card: oklch(0.16 0 0 / 0.72);
   --card-foreground: oklch(0.94 0 0);
-  --popover: oklch(0.16 0 0);
+  --popover: oklch(0.16 0 0 / 0.85);
   --popover-foreground: oklch(0.94 0 0);
+  --sidebar: oklch(0.16 0 0 / 0.72);
+  --sidebar-foreground: oklch(0.94 0 0);
+  --sidebar-primary: oklch(0.72 0.12 205);
+  --sidebar-primary-foreground: oklch(0.12 0 0);
+  --sidebar-accent: oklch(0.25 0.035 205);
+  --sidebar-accent-foreground: oklch(0.94 0 0);
+  --sidebar-border: oklch(0.28 0 0);
+  --sidebar-ring: oklch(0.72 0.12 205);
+
   --primary: oklch(0.72 0.12 205);
   --primary-foreground: oklch(0.12 0 0);
   --secondary: oklch(0.24 0 0);
@@ -127,6 +167,15 @@
   --border: oklch(0.28 0 0);
   --input: oklch(0.28 0 0);
   --ring: oklch(0.72 0.12 205);
+
+  --panel-border: oklch(1 0 0 / 0.12);
+  --panel-blur: 16px;
+  --panel-saturate: 140%;
+  --bracket-color: oklch(1 0 0 / 0.35);
+  --bracket-color-accent: var(--primary);
+  --bracket-length: 14px;
+  --bracket-thickness: 1px;
+
   --image-marker-1: oklch(0.72 0.16 25);
   --image-marker-2: oklch(0.78 0.14 75);
   --image-marker-3: oklch(0.72 0.14 145);
@@ -153,14 +202,6 @@
   --chart-3: oklch(0.52 0 0);
   --chart-4: oklch(0.38 0 0);
   --chart-5: oklch(0.24 0 0);
-  --sidebar: oklch(0.16 0 0);
-  --sidebar-foreground: oklch(0.94 0 0);
-  --sidebar-primary: oklch(0.72 0.12 205);
-  --sidebar-primary-foreground: oklch(0.12 0 0);
-  --sidebar-accent: oklch(0.25 0.035 205);
-  --sidebar-accent-foreground: oklch(0.94 0 0);
-  --sidebar-border: oklch(0.28 0 0);
-  --sidebar-ring: oklch(0.72 0.12 205);
 }
 
 @layer base {
@@ -244,7 +285,8 @@
 }
 
 .thin-scrollbar {
-  scrollbar-color: var(--primary) var(--muted);
+  scrollbar-color: color-mix(in oklch, var(--foreground), transparent 65%)
+    color-mix(in oklch, var(--muted), transparent 25%);
   scrollbar-width: thin;
 }
 
@@ -254,9 +296,82 @@
 }
 
 .thin-scrollbar::-webkit-scrollbar-thumb {
-  background: var(--primary);
+  background: color-mix(in oklch, var(--foreground), transparent 65%);
 }
 
 .thin-scrollbar::-webkit-scrollbar-track {
-  background: var(--muted);
+  background: color-mix(in oklch, var(--muted), transparent 25%);
+}
+
+/* ==========================================================================
+   CHROME: стеклянные панели поверх произвольного canvas.
+   Применяйте на тулбар / сайдбар / диалоги / поповеры / карточки настроек.
+   Радиус намеренно 0 — панели остаются угловатыми, "мастерская" эстетика.
+   ========================================================================== */
+
+.glass {
+  background: var(--card);
+  backdrop-filter: blur(var(--panel-blur)) saturate(var(--panel-saturate));
+  -webkit-backdrop-filter: blur(var(--panel-blur))
+    saturate(var(--panel-saturate));
+  border: 0.5px solid var(--panel-border);
+}
+
+/* Для диалогов/поповеров — меньше blur, больше непрозрачности,
+   чтобы модальный контент не терял читаемость поверх занятого фона. */
+.glass-elevated {
+  background: var(--popover);
+  backdrop-filter: blur(calc(var(--panel-blur) * 1.5))
+    saturate(var(--panel-saturate));
+  -webkit-backdrop-filter: blur(calc(var(--panel-blur) * 1.5))
+    saturate(var(--panel-saturate));
+  border: 0.5px solid var(--panel-border);
+}
+
+.glass-sidebar {
+  background: var(--sidebar);
+  backdrop-filter: blur(var(--panel-blur)) saturate(var(--panel-saturate));
+  -webkit-backdrop-filter: blur(var(--panel-blur))
+    saturate(var(--panel-saturate));
+  border: 0.5px solid var(--sidebar-border);
+}
+
+/* Угловые засечки вместо скруглений — HUD/tech-деталь на панелях.
+   Не требует лишней разметки, работает через background layers. */
+.corner-brackets {
+  position: relative;
+  background-repeat: no-repeat;
+  background-image:
+    linear-gradient(var(--bracket-color), var(--bracket-color)),
+    linear-gradient(var(--bracket-color), var(--bracket-color)),
+    linear-gradient(var(--bracket-color), var(--bracket-color)),
+    linear-gradient(var(--bracket-color), var(--bracket-color)),
+    linear-gradient(var(--bracket-color), var(--bracket-color)),
+    linear-gradient(var(--bracket-color), var(--bracket-color)),
+    linear-gradient(var(--bracket-color), var(--bracket-color)),
+    linear-gradient(var(--bracket-color), var(--bracket-color));
+  background-position:
+    top left,
+    top left,
+    top right,
+    top right,
+    bottom left,
+    bottom left,
+    bottom right,
+    bottom right;
+  background-size:
+    var(--bracket-length) var(--bracket-thickness),
+    var(--bracket-thickness) var(--bracket-length),
+    var(--bracket-length) var(--bracket-thickness),
+    var(--bracket-thickness) var(--bracket-length),
+    var(--bracket-length) var(--bracket-thickness),
+    var(--bracket-thickness) var(--bracket-length),
+    var(--bracket-length) var(--bracket-thickness),
+    var(--bracket-thickness) var(--bracket-length);
+}
+
+/* Модификатор: брекеты цветом акцента — для активного/выделенного
+   элемента (например выбранный инструмент в тулбаре). */
+.corner-brackets--accent {
+  --bracket-color: var(--bracket-color-accent);
 }

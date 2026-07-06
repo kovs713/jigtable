@@ -16,9 +16,11 @@
   margin: auto;
   overflow: hidden;
   border: 0.5px solid var(--jigsaw-panel-border);
-  background: var(--jigsaw-panel);
+  background-color: var(--jigsaw-panel);
   box-shadow: 0 24px 80px color-mix(in oklch, black, transparent 74%);
-  backdrop-filter: blur(18px);
+  backdrop-filter: blur(var(--panel-blur)) saturate(var(--panel-saturate));
+  -webkit-backdrop-filter: blur(var(--panel-blur))
+    saturate(var(--panel-saturate));
 }
 
 /* Hero Section */
@@ -102,7 +104,7 @@
 
 .jigsaw-room__btn--outline {
   color: var(--foreground);
-  background: var(--background);
+  background: transparent;
 }
 
 .jigsaw-room__btn--primary {
@@ -206,7 +208,9 @@
   padding: 16px 18px;
   border-bottom: 0.5px solid var(--jigsaw-panel-border);
   background: color-mix(in oklch, var(--jigsaw-panel), transparent 5%);
-  backdrop-filter: blur(16px);
+  backdrop-filter: blur(var(--panel-blur)) saturate(var(--panel-saturate));
+  -webkit-backdrop-filter: blur(var(--panel-blur))
+    saturate(var(--panel-saturate));
 }
 
 .jigsaw-room__history-heading span {
@@ -280,7 +284,7 @@
   grid-template-columns: repeat(2, minmax(0, 1fr));
   margin: 0;
   border: 0.5px solid var(--jigsaw-panel-border);
-  background: var(--background);
+  background: var(--jigsaw-panel-strong);
 }
 
 .jigsaw-room__history-card-stats div {

@@ -1227,7 +1227,7 @@ export function App() {
       ) : null}
 
       {/* header */}
-      <header className="flex flex-wrap items-center gap-4 border-b bg-card px-6 py-3 text-card-foreground shadow-sm">
+      <header className="glass corner-brackets flex flex-wrap items-center gap-4 border-b px-6 py-3 text-card-foreground shadow-sm">
         <div className="flex items-center gap-3">
           <div className="flex size-8 items-center justify-center bg-primary font-bold text-primary-foreground">
             J
@@ -1248,7 +1248,7 @@ export function App() {
 
         <div className="flex flex-wrap items-center gap-2">
           <input
-            className="h-9 w-64 border border-input bg-background px-3 font-mono text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:ring-1 focus-visible:ring-ring focus-visible:outline-none"
+            className="h-9 w-64 border border-input bg-transparent px-3 font-mono text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:ring-1 focus-visible:ring-ring focus-visible:outline-none"
             placeholder="Paste bot link or code"
             type="text"
             value={loadCode}
@@ -1381,7 +1381,7 @@ export function App() {
 
       <div className="grid min-h-0 grid-cols-1 overflow-hidden lg:grid-cols-[280px_minmax(0,1fr)_320px]">
         {/* left sidebar layers */}
-        <aside className="flex min-h-0 flex-col overflow-hidden border-r bg-card text-card-foreground">
+        <aside className="glass-sidebar corner-brackets flex min-h-0 flex-col overflow-hidden border-r text-card-foreground">
           <PanelHeader title="Layers" meta="Drag to reorder" />
           <div className="thin-scrollbar flex-1 space-y-1 overflow-auto p-2">
             {layerListEntries.map(({ item, itemIndex, layerIndex }) => {
@@ -1419,7 +1419,7 @@ export function App() {
                   {dropPlacement ? (
                     <span
                       className={cn(
-                        "pointer-events-none absolute right-2 left-2 z-10 h-0.5 rounded-full bg-primary",
+                        "pointer-events-none absolute right-2 left-2 z-10 h-0.5 bg-primary",
                         dropPlacement === "above" ? "-top-1" : "-bottom-1"
                       )}
                     />
@@ -1549,7 +1549,7 @@ export function App() {
         <section className="relative flex min-h-0 items-center justify-center overflow-hidden bg-muted/30 bg-[linear-gradient(45deg,var(--border)_25%,transparent_25%,transparent_75%,var(--border)_75,var(--border)),linear-gradient(45deg,var(--border)_25%,transparent_25%,transparent_75%,var(--border)_75,var(--border))] bg-[length:20px_20px] bg-[position:0_0,10px_10px]">
           <div className="thin-scrollbar h-full w-full overflow-auto p-8">
             <div
-              className="canvas-grid relative origin-top-left bg-white bg-[linear-gradient(45deg,#f0f0f0_25%,transparent_25%,transparent_75%,#f0f0f0_75,#f0f0f0),linear-gradient(45deg,#f0f0f0_25%,transparent_25%,transparent_75%,#f0f0f0_75,#f0f0f0)] bg-[length:20px_20px] bg-[position:0_0,10px_10px] shadow-xl"
+              className="canvas-grid relative origin-top-left shadow-xl"
               style={{
                 width: layout.canvas.width * viewportScale,
                 height: layout.canvas.height * viewportScale,
@@ -1596,7 +1596,7 @@ export function App() {
                     }}
                   >
                     {showCanvasMarkers || isLinked ? (
-                      <span className="pointer-events-none absolute top-1 left-1 z-20 grid h-5 min-w-6 place-items-center bg-[var(--image-marker)] px-1 font-mono text-[10px] font-bold text-white shadow-sm">
+                      <span className="pointer-events-none absolute top-1 left-1 z-20 grid h-5 min-w-6 place-items-center bg-[var(--image-marker)] px-1 font-mono text-[10px] font-bold text-[var(--image-marker-foreground)] shadow-sm">
                         {getImageMarkerCode(index)}
                       </span>
                     ) : null}
@@ -1664,7 +1664,7 @@ export function App() {
         </section>
 
         {/* right sidebar properties */}
-        <aside className="flex min-h-0 flex-col overflow-y-auto border-l bg-card text-card-foreground">
+        <aside className="glass-sidebar corner-brackets flex min-h-0 flex-col overflow-y-auto border-l text-card-foreground">
           {/* canvas section */}
           <section className="border-b">
             <PanelHeader title="Canvas" meta="Ctrl drag keeps images" />
@@ -1715,14 +1715,14 @@ export function App() {
                 <span className="text-sm">Canvas markers</span>
                 <Button
                   className={cn(
-                    "relative h-5 w-9 rounded-full transition-colors",
+                    "relative h-5 w-9 transition-colors",
                     showCanvasMarkers ? "bg-primary" : "bg-muted"
                   )}
                   onClick={() => setShowCanvasMarkers((current) => !current)}
                 >
                   <span
                     className={cn(
-                      "absolute h-4 w-4 rounded-full bg-white transition-transform",
+                      "absolute h-4 w-4 bg-background transition-transform",
                       showCanvasMarkers
                         ? "translate-x-2"
                         : "translate-x-[-0.5rem]"
@@ -1815,16 +1815,16 @@ export function App() {
       </div>
 
       {/* status bar */}
-      <footer className="flex items-center justify-between border-t bg-card px-4 py-1.5 text-xs text-muted-foreground">
+      <footer className="glass flex items-center justify-between border-t px-4 py-1.5 text-xs text-muted-foreground">
         <div className="flex items-center gap-2">
           <div
             className={cn(
-              "h-2 w-2 rounded-full",
+              "h-2 w-2",
               status.includes("...")
-                ? "animate-pulse bg-yellow-500"
+                ? "animate-pulse bg-primary"
                 : status.includes("Failed") || status.includes("error")
-                  ? "bg-red-500"
-                  : "bg-green-500"
+                  ? "bg-destructive"
+                  : "bg-primary"
             )}
           />
           <span className="font-mono">{status}</span>
@@ -1997,7 +1997,7 @@ function NumberField({
       </span>
       <div className="relative">
         <input
-          className="h-9 w-full rounded-md border border-input bg-transparent px-3 pr-8 font-mono text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:ring-1 focus-visible:ring-ring focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+          className="h-9 w-full border border-input bg-transparent px-3 pr-8 font-mono text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:ring-1 focus-visible:ring-ring focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50"
           inputMode="numeric"
           min={0}
           type="number"
