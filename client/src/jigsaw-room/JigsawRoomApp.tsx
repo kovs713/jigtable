@@ -189,15 +189,18 @@ export function JigsawRoomApp({ roomId }: JigsawRoomAppProps) {
       }
       return {
         delay,
-        top: isCenterBurst || isFinale
-          ? 30 + Math.random() * 40
-          : Math.random() * 100,
-        left: isCenterBurst || isFinale
-          ? 30 + Math.random() * 40
-          : Math.random() * 100,
-        size: isCenterBurst || isFinale
-          ? 7 + Math.random() * 4
-          : 4 + Math.random() * 4,
+        top:
+          isCenterBurst || isFinale
+            ? 30 + Math.random() * 40
+            : Math.random() * 100,
+        left:
+          isCenterBurst || isFinale
+            ? 30 + Math.random() * 40
+            : Math.random() * 100,
+        size:
+          isCenterBurst || isFinale
+            ? 7 + Math.random() * 4
+            : 4 + Math.random() * 4,
       }
     })
   }, [showSolvedCelebration])
@@ -286,7 +289,7 @@ export function JigsawRoomApp({ roomId }: JigsawRoomAppProps) {
           try {
             initialSnapshot = await fetchJigsawRoomSnapshot(roomId)
           } catch (error) {
-            if (!isLocalDevRoom(roomId)) {
+            if (!isLocalDevRoom()) {
               throw error
             }
 
@@ -1230,12 +1233,14 @@ export function JigsawRoomApp({ roomId }: JigsawRoomAppProps) {
             {fireworkBursts.map((burst, i) => (
               <span
                 key={i}
-                style={{
-                  top: `${burst.top}%`,
-                  left: `${burst.left}%`,
-                  "--size": `${burst.size}px`,
-                  animationDelay: `${burst.delay}ms`,
-                } as React.CSSProperties}
+                style={
+                  {
+                    top: `${burst.top}%`,
+                    left: `${burst.left}%`,
+                    "--size": `${burst.size}px`,
+                    animationDelay: `${burst.delay}ms`,
+                  } as React.CSSProperties
+                }
               />
             ))}
           </div>
@@ -1330,7 +1335,7 @@ function readErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : "Session unavailable"
 }
 
-function isLocalDevRoom(_roomId: string): boolean {
+function isLocalDevRoom(): boolean {
   return import.meta.env.DEV
 }
 
