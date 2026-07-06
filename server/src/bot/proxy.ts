@@ -1,5 +1,3 @@
-import { readOptionalEnv } from "@/infra/env"
-
 type FetchWithBunProxy = typeof fetch
 type FetchInput = Parameters<typeof fetch>[0]
 
