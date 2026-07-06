@@ -13,7 +13,7 @@ import type {
 const ATLAS_SIZE = 2048
 const MAX_TOTAL_ATLAS_PIXELS = 80_000_000
 const HIT_ASSIST_RADIUS = 4
-const HIGHLIGHT_SPRITE_ALPHA = 0.72
+const HIGHLIGHT_SPRITE_ALPHA = 0.9
 
 export interface PieceView {
   id: PieceId
@@ -349,8 +349,18 @@ function createPieceAtlas(
       highlightContext.scale(metrics.scale, metrics.scale)
       highlightContext.lineJoin = "round"
       highlightContext.lineCap = "round"
-      highlightContext.strokeStyle = "rgba(255, 255, 255, 0.55)"
-      highlightContext.lineWidth = 1.2
+      highlightContext.shadowColor = "rgba(255, 255, 255, 0.9)"
+      highlightContext.shadowBlur = 7
+      highlightContext.strokeStyle = "rgba(255, 255, 255, 0.32)"
+      highlightContext.lineWidth = 5.5
+      highlightContext.stroke(hitPath)
+      highlightContext.shadowBlur = 3
+      highlightContext.strokeStyle = "rgba(255, 255, 255, 0.5)"
+      highlightContext.lineWidth = 2.8
+      highlightContext.stroke(hitPath)
+      highlightContext.shadowBlur = 0
+      highlightContext.strokeStyle = "rgba(255, 255, 255, 0.85)"
+      highlightContext.lineWidth = 1.1
       highlightContext.stroke(hitPath)
       highlightContext.restore()
 
