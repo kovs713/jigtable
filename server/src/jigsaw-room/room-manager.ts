@@ -29,10 +29,6 @@ import type { JigsawSafeAssetRef } from "@/infra/db/schemas"
 import type { JigsawHistoryStore } from "./history-store"
 import type { JigsawSessionStore } from "./session-store"
 
-const DEV_ASSET_ID = "test_jigsaw"
-const DEV_IMAGE_URL = "/test_jigsaw.png"
-const DEV_IMAGE_SIZE = { width: 3168, height: 1782 }
-const DEV_ROOM_ID = "dev-room"
 const MIN_PIECE_COUNT = 4
 const MAX_PIECE_COUNT = 2_000
 

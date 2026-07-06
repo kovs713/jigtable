@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm"
 
-import type { JigsawSession, JigsawPlayer } from "@jigtable/jigsaw-core"
+import type { JigsawPlayer, JigsawSession } from "@jigtable/jigsaw-core"
 
 import { db } from "@/infra/db"
 import { jigsawSessionsSchema } from "@/infra/db/schemas"
