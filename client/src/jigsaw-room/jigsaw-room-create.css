@@ -141,6 +141,99 @@
   color: var(--destructive);
 }
 
+/* History selector */
+.jigsaw-room__history-selector {
+  position: relative;
+}
+
+.jigsaw-room__history-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  height: 38px;
+  border: 0.5px solid var(--jigsaw-panel-border);
+  border-radius: 0;
+  color: var(--foreground);
+  background: transparent;
+  padding-inline: 12px;
+  font: inherit;
+  font-size: 0.78rem;
+  cursor: pointer;
+  transition:
+    border-color 0.2s,
+    box-shadow 0.2s;
+}
+
+.jigsaw-room__history-trigger:hover {
+  border-color: var(--primary);
+}
+
+.jigsaw-room__history-trigger:focus-visible {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px color-mix(in oklch, var(--primary), transparent 75%);
+}
+
+.jigsaw-room__history-trigger svg {
+  opacity: 0.5;
+  transition: transform 0.15s;
+}
+
+.jigsaw-room__history-dropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  z-index: 10;
+  max-height: 240px;
+  overflow-y: auto;
+  border: 0.5px solid var(--jigsaw-panel-border);
+  background: var(--popover);
+  box-shadow: 0 12px 40px color-mix(in oklch, black, transparent 78%);
+}
+
+.jigsaw-room__history-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 10px 12px;
+  border: 0;
+  border-bottom: 0.5px solid var(--jigsaw-panel-border);
+  color: var(--foreground);
+  background: transparent;
+  font: inherit;
+  font-size: 0.78rem;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 0.12s;
+}
+
+.jigsaw-room__history-option:last-child {
+  border-bottom: 0;
+}
+
+.jigsaw-room__history-option:hover {
+  background: color-mix(in oklch, var(--primary), transparent 90%);
+}
+
+.jigsaw-room__history-option-label {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.jigsaw-room__history-option-meta {
+  flex-shrink: 0;
+  margin-left: 12px;
+  color: var(--muted-foreground);
+  font-family: var(--font-mono);
+  font-size: 0.64rem;
+}
+
 /* Slider */
 .jigsaw-room__slider-group {
   position: relative;

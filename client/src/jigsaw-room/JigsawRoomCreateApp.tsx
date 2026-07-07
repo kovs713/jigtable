@@ -7,6 +7,7 @@ import { Slider } from "@/components/ui/slider"
 import type { CreateJigsawRoomResponse } from "@jigtable/jigsaw-core/multiplayer/protocol"
 import {
   fetchAuthMe,
+  fetchJigsawHistory,
   getTelegramBotUsername,
   getTelegramLoginWidgetBlocker,
   hasTelegramWebAppInitData,
@@ -16,6 +17,7 @@ import {
   readLocalAuthSession,
   saveLocalAuthSession,
   type AuthSession,
+  type JigsawHistoryItem,
 } from "./multiplayer/auth"
 import { API_BASE_URL } from "@/config"
 import { createJigsawRoom, createJigsawRoomFromBatch } from "./room-api"
@@ -40,6 +42,26 @@ type BatchLayout = {
 const DEFAULT_IMAGE_URL = "/test_jigsaw.png"
 const PRESETS = [48, 100, 300, 600, 1_000, 1_500, 2_000]
 const DEV_LOGIN_ENABLED = import.meta.env.DEV
+
+function getPresetRanges(presets: number[]) {
+  return presets.map((value, index) => {
+    const prev = index > 0 ? presets[index - 1] : value
+    const next = index < presets.length - 1 ? presets[index + 1] : value
+    const min = index === 0 ? value : Math.floor((prev + value) / 2) + 1
+    const max = index === presets.length - 1 ? value : Math.ceil((value + next) / 2)
+    return { value, min, max }
+  })
+}
+
+function findActivePreset(pieceCount: number, presets: number[]) {
+  const ranges = getPresetRanges(presets)
+  for (let i = ranges.length - 1; i >= 0; i--) {
+    if (pieceCount >= ranges[i].min) {
+      return ranges[i].value
+    }
+  }
+  return presets[0]
+}
 
 export function JigsawRoomCreateApp() {
   const widgetRef = useRef<HTMLDivElement | null>(null)
@@ -69,6 +91,42 @@ export function JigsawRoomCreateApp() {
   const [copied, setCopied] = useState(false)
   const [imgValid, setImgValid] = useState(true)
   const [batchPreview, setBatchPreview] = useState<BatchLayout | null>(null)
+  const [history, setHistory] = useState<JigsawHistoryItem[]>([])
+  const [historyOpen, setHistoryOpen] = useState(false)
+  const historyRef = useRef<HTMLDivElement | null>(null)
+
+  useEffect(() => {
+    if (!authSession) return
+    let disposed = false
+
+    void fetchJigsawHistory(authSession.token)
+      .then((items) => {
+        if (!disposed) setHistory(items)
+      })
+      .catch(() => {})
+
+    return () => { disposed = true }
+  }, [authSession])
+
+  useEffect(() => {
+    if (!historyOpen) return
+    function handleClickOutside(event: PointerEvent) {
+      if (historyRef.current && !historyRef.current.contains(event.target as Node)) {
+        setHistoryOpen(false)
+      }
+    }
+    document.addEventListener("pointerdown", handleClickOutside)
+    return () => document.removeEventListener("pointerdown", handleClickOutside)
+  }, [historyOpen])
+
+  function selectHistoryItem(item: JigsawHistoryItem) {
+    setPieceCount(item.pieceCount)
+    if (item.source.kind === "batch_render" && item.source.label) {
+      setImageUrl(item.source.label)
+    }
+    setHistoryOpen(false)
+    setStatus(`Loaded: ${item.source.label}`)
+  }
 
   useEffect(() => {
     if (!initialBatchId || !initialBatchToken || !authSession) return
@@ -390,6 +448,43 @@ export function JigsawRoomCreateApp() {
             </div>
           ) : (
             <>
+              {history.length > 0 && (
+                <div className="jigsaw-room__input-group" ref={historyRef}>
+                  <span>Saved builds</span>
+                  <div className="jigsaw-room__history-selector">
+                    <button
+                      type="button"
+                      className="jigsaw-room__history-trigger"
+                      onClick={() => setHistoryOpen(!historyOpen)}
+                    >
+                      {history.length} saved build{history.length !== 1 ? "s" : ""}
+                      <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5">
+                        <path d="M3 5l3 3 3-3" />
+                      </svg>
+                    </button>
+                    {historyOpen && (
+                      <div className="jigsaw-room__history-dropdown corner-brackets">
+                        {history.slice(0, 10).map((item) => (
+                          <button
+                            key={item.roomId}
+                            type="button"
+                            className="jigsaw-room__history-option"
+                            onClick={() => selectHistoryItem(item)}
+                          >
+                            <span className="jigsaw-room__history-option-label">
+                              {item.source.label}
+                            </span>
+                            <span className="jigsaw-room__history-option-meta">
+                              {item.pieceCount}p · {item.source.kind}
+                            </span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
               <label className="jigsaw-room__input-group">
                 <span>Image URL</span>
                 <Input
@@ -434,18 +529,21 @@ export function JigsawRoomCreateApp() {
               {pieceCount.toLocaleString()}
             </output>
             <div className="jigsaw-room__presets" role="radiogroup">
-              {PRESETS.map((p) => (
-                <button
-                  key={p}
-                  type="button"
-                  role="radio"
-                  aria-checked={pieceCount === p}
-                  className={pieceCount === p ? "is-active" : ""}
-                  onClick={() => setPieceCount(p)}
-                >
-                  {p >= 1_000 ? `${p / 1_000}k` : p}
-                </button>
-              ))}
+              {PRESETS.map((p) => {
+                const isActive = findActivePreset(pieceCount, PRESETS) === p
+                return (
+                  <button
+                    key={p}
+                    type="button"
+                    role="radio"
+                    aria-checked={isActive}
+                    className={isActive ? "is-active" : ""}
+                    onClick={() => setPieceCount(p)}
+                  >
+                    {p >= 1_000 ? `${p / 1_000}k` : p}
+                  </button>
+                )
+              })}
             </div>
             <Slider
               className="jigsaw-room__slider"
