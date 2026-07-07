@@ -61,7 +61,24 @@ export function arrangeLoosePieces(
     const bounds = getGroupBounds(state, group.pieceIds, margin)
     boundsByGroup.set(group.id, bounds)
   }
-  const arrangedGroups = [...groups]
+
+  const saveZone = {
+    x: board.x,
+    y: board.y,
+    width: board.width,
+    height: board.height,
+  }
+
+  const arrangedGroups = groups.filter((group) => {
+    const bounds = boundsByGroup.get(group.id)
+    if (!bounds) return false
+    return !rectsOverlap(bounds, saveZone)
+  })
+
+  if (arrangedGroups.length === 0) {
+    return []
+  }
+
   shuffle(arrangedGroups, createSeededRandom(state.config.seed + modeSeed(mode)))
   const slots = createArrangeSlots(board, arrangedGroups, boundsByGroup, gap, mode)
   const affectedPieceIds: PieceId[] = []
