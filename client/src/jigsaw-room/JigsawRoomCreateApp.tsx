@@ -1,3 +1,4 @@
+import * as React from "react"
 import { useEffect, useMemo, useRef, useState } from "react"
 
 import { Button } from "@/components/ui/button"
@@ -70,12 +71,13 @@ export function JigsawRoomCreateApp() {
   const [batchPreview, setBatchPreview] = useState<BatchLayout | null>(null)
 
   useEffect(() => {
-    if (!initialBatchId || !initialBatchToken) return
+    if (!initialBatchId || !initialBatchToken || !authSession) return
 
     let disposed = false
 
     void fetch(
-      `${API_BASE_URL}/api/batches/${initialBatchId}/layout?token=${encodeURIComponent(initialBatchToken)}`
+      `${API_BASE_URL}/api/batches/${initialBatchId}/layout?token=${encodeURIComponent(initialBatchToken)}`,
+      { headers: { Authorization: `Bearer ${authSession.token}` } }
     )
       .then((r) => r.json())
       .then((payload: unknown) => {
@@ -86,7 +88,7 @@ export function JigsawRoomCreateApp() {
       .catch(() => {})
 
     return () => { disposed = true }
-  }, [initialBatchId, initialBatchToken])
+  }, [initialBatchId, initialBatchToken, authSession])
 
   useEffect(() => {
     const saved = readLocalAuthSession()
@@ -376,35 +378,15 @@ export function JigsawRoomCreateApp() {
           {hasBatchParams ? (
             <div className="jigsaw-room__input-group">
               <span>Source</span>
-              {batchPreview ? (
-                <div
-                  className="jigsaw-room__image-preview"
-                  style={{
-                    aspectRatio: `${batchPreview.canvas.width} / ${batchPreview.canvas.height}`,
-                  }}
-                >
-                  <div className="relative h-full w-full overflow-hidden bg-background">
-                    {batchPreview.items.map((item) => (
-                      <img
-                        key={item.id}
-                        src={item.src}
-                        alt=""
-                        className="absolute object-fill"
-                        style={{
-                          left: `${(item.x / batchPreview.canvas.width) * 100}%`,
-                          top: `${(item.y / batchPreview.canvas.height) * 100}%`,
-                          width: `${(item.width / batchPreview.canvas.width) * 100}%`,
-                          height: `${(item.height / batchPreview.canvas.height) * 100}%`,
-                        }}
-                      />
-                    ))}
+              <div className="jigsaw-room__image-preview">
+                {batchPreview ? (
+                  <BatchCanvasPreview layout={batchPreview} />
+                ) : (
+                  <div className="jigsaw-room__image-placeholder">
+                    <span>Loading preview…</span>
                   </div>
-                </div>
-              ) : (
-                <p className="font-mono text-xs text-muted-foreground">
-                  Loading preview…
-                </p>
-              )}
+                )}
+              </div>
             </div>
           ) : (
             <>
@@ -563,6 +545,61 @@ function getInitialSourceSize(): { width: number; height: number } | null {
   }
 
   return { width: Math.round(width), height: Math.round(height) }
+}
+
+function BatchCanvasPreview({ layout }: { layout: BatchLayout }) {
+  const canvasRef = React.useRef<HTMLCanvasElement>(null)
+  const [src, setSrc] = useState<string | null>(null)
+
+  useEffect(() => {
+    const canvas = canvasRef.current
+    if (!canvas) return
+
+    const ctx = canvas.getContext("2d")
+    if (!ctx) return
+
+    canvas.width = layout.canvas.width
+    canvas.height = layout.canvas.height
+    ctx.clearRect(0, 0, canvas.width, canvas.height)
+
+    const dataUrl = () => canvas.toDataURL()
+    let pending = layout.items.length
+    if (pending === 0) {
+      setSrc(dataUrl())
+      return
+    }
+
+    function onDone() {
+      pending--
+      if (pending <= 0) {
+        setSrc(dataUrl())
+      }
+    }
+
+    for (const item of layout.items) {
+      const img = new Image()
+      img.crossOrigin = "anonymous"
+      img.onload = () => {
+        ctx.drawImage(img, item.x, item.y, item.width, item.height)
+        onDone()
+      }
+      img.onerror = onDone
+      img.src = item.src
+    }
+  }, [layout])
+
+  return (
+    <>
+      <canvas ref={canvasRef} style={{ display: "none" }} />
+      {src ? (
+        <img src={src} alt="Canvas preview" />
+      ) : (
+        <div className="jigsaw-room__image-placeholder">
+          <span>Loading…</span>
+        </div>
+      )}
+    </>
+  )
 }
 
 export default JigsawRoomCreateApp
