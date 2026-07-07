@@ -28,6 +28,24 @@ export async function createJigsawRoom(
   return readJsonResponse<CreateJigsawRoomResponse>(response)
 }
 
+export async function createJigsawRoomFromBatch(
+  batchId: string,
+  batchToken: string,
+  pieceCount: number,
+  authToken: string
+): Promise<CreateJigsawRoomResponse> {
+  const response = await fetch(`${API_BASE_URL}/api/rooms`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${authToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ batchId, batchToken, pieceCount }),
+  })
+
+  return readJsonResponse<CreateJigsawRoomResponse>(response)
+}
+
 export async function fetchJigsawRoomSnapshot(
   roomId: string
 ): Promise<JigsawRoomSnapshot> {

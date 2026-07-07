@@ -16,10 +16,25 @@ import {
   saveLocalAuthSession,
   type AuthSession,
 } from "./multiplayer/auth"
-import { createJigsawRoom } from "./room-api"
+import { API_BASE_URL } from "@/config"
+import { createJigsawRoom, createJigsawRoomFromBatch } from "./room-api"
 
 import "./jigsaw-room.css"
 import "./jigsaw-room-create.css"
+
+type BatchLayoutItem = {
+  id: string
+  src: string
+  x: number
+  y: number
+  width: number
+  height: number
+}
+
+type BatchLayout = {
+  canvas: { width: number; height: number }
+  items: BatchLayoutItem[]
+}
 
 const DEFAULT_IMAGE_URL = "/test_jigsaw.png"
 const PRESETS = [48, 100, 300, 600, 1_000, 1_500, 2_000]
@@ -29,6 +44,9 @@ export function JigsawRoomCreateApp() {
   const widgetRef = useRef<HTMLDivElement | null>(null)
   const initialImageUrl = useMemo(() => getInitialImageUrl(), [])
   const initialSourceSize = useMemo(() => getInitialSourceSize(), [])
+  const initialBatchId = useMemo(() => getInitialBatchId(), [])
+  const initialBatchToken = useMemo(() => getInitialBatchToken(), [])
+  const hasBatchParams = Boolean(initialBatchId && initialBatchToken)
 
   const [authSession, setAuthSession] = useState<AuthSession | null>(() =>
     readLocalAuthSession()
@@ -49,6 +67,26 @@ export function JigsawRoomCreateApp() {
     useState<CreateJigsawRoomResponse | null>(null)
   const [copied, setCopied] = useState(false)
   const [imgValid, setImgValid] = useState(true)
+  const [batchPreview, setBatchPreview] = useState<BatchLayout | null>(null)
+
+  useEffect(() => {
+    if (!initialBatchId || !initialBatchToken) return
+
+    let disposed = false
+
+    void fetch(
+      `${API_BASE_URL}/api/batches/${initialBatchId}/layout?token=${encodeURIComponent(initialBatchToken)}`
+    )
+      .then((r) => r.json())
+      .then((payload: unknown) => {
+        if (disposed) return
+        const p = payload as { layout?: BatchLayout }
+        if (p?.layout) setBatchPreview(p.layout)
+      })
+      .catch(() => {})
+
+    return () => { disposed = true }
+  }, [initialBatchId, initialBatchToken])
 
   useEffect(() => {
     const saved = readLocalAuthSession()
@@ -200,28 +238,62 @@ export function JigsawRoomCreateApp() {
       return
     }
 
-    const trimmedImageUrl = imageUrl.trim()
+    const batchId = getInitialBatchId()
+    const batchToken = getInitialBatchToken()
 
-    if (!trimmedImageUrl) {
-      setStatus("Image URL is required")
-      setIsError(true)
+    if (!batchId || !batchToken) {
+      const trimmedImageUrl = imageUrl.trim()
+
+      if (!trimmedImageUrl) {
+        setStatus("Image URL is required")
+        setIsError(true)
+        return
+      }
+
+      setCreating(true)
+      setStatus("Creating room...")
+      setIsError(false)
+
+      try {
+        const sourceSize =
+          trimmedImageUrl === initialImageUrl ? initialSourceSize : null
+        const payload = await createJigsawRoom(
+          {
+            imageUrl: trimmedImageUrl,
+            pieceCount,
+            sourceWidth: sourceSize?.width,
+            sourceHeight: sourceSize?.height,
+          },
+          authSession.token
+        )
+
+        setCreatedRoom(payload)
+        setStatus("Room ready")
+        window.history.replaceState(
+          null,
+          "",
+          `/jigsaw/new?roomId=${encodeURIComponent(payload.roomId)}`
+        )
+      } catch (error) {
+        setStatus(
+          error instanceof Error ? error.message : "Failed to create room"
+        )
+        setIsError(true)
+      } finally {
+        setCreating(false)
+      }
       return
     }
 
     setCreating(true)
-    setStatus("Creating room...")
+    setStatus("Rendering and creating room...")
     setIsError(false)
 
     try {
-      const sourceSize =
-        trimmedImageUrl === initialImageUrl ? initialSourceSize : null
-      const payload = await createJigsawRoom(
-        {
-          imageUrl: trimmedImageUrl,
-          pieceCount,
-          sourceWidth: sourceSize?.width,
-          sourceHeight: sourceSize?.height,
-        },
+      const payload = await createJigsawRoomFromBatch(
+        batchId,
+        batchToken,
+        pieceCount,
         authSession.token
       )
 
@@ -301,41 +373,78 @@ export function JigsawRoomCreateApp() {
         </div>
 
         <div className="jigsaw-room__create-form">
-          <label className="jigsaw-room__input-group">
-            <span>Image URL</span>
-            <Input
-              aria-invalid={isError}
-              className="jigsaw-room__input"
-              placeholder="https://example.com/image.png"
-              type="url"
-              value={imageUrl}
-              onChange={(event) => {
-                setImageUrl(event.target.value)
-                setImgValid(true)
-              }}
-            />
-          </label>
-
-          <div className="jigsaw-room__image-preview">
-            {imageUrl.trim() ? (
-              imgValid ? (
-                <img
-                  src={imageUrl.trim()}
-                  alt="Preview"
-                  onError={() => setImgValid(false)}
-                  onLoad={() => setImgValid(true)}
-                />
-              ) : (
-                <div className="jigsaw-room__image-placeholder jigsaw-room__image-placeholder--error">
-                  <span>Cannot load image. Please check the URL.</span>
+          {hasBatchParams ? (
+            <div className="jigsaw-room__input-group">
+              <span>Source</span>
+              {batchPreview ? (
+                <div
+                  className="jigsaw-room__image-preview"
+                  style={{
+                    aspectRatio: `${batchPreview.canvas.width} / ${batchPreview.canvas.height}`,
+                  }}
+                >
+                  <div className="relative h-full w-full overflow-hidden bg-background">
+                    {batchPreview.items.map((item) => (
+                      <img
+                        key={item.id}
+                        src={item.src}
+                        alt=""
+                        className="absolute object-fill"
+                        style={{
+                          left: `${(item.x / batchPreview.canvas.width) * 100}%`,
+                          top: `${(item.y / batchPreview.canvas.height) * 100}%`,
+                          width: `${(item.width / batchPreview.canvas.width) * 100}%`,
+                          height: `${(item.height / batchPreview.canvas.height) * 100}%`,
+                        }}
+                      />
+                    ))}
+                  </div>
                 </div>
-              )
-            ) : (
-              <div className="jigsaw-room__image-placeholder">
-                <span>Image preview will appear here</span>
+              ) : (
+                <p className="font-mono text-xs text-muted-foreground">
+                  Loading preview…
+                </p>
+              )}
+            </div>
+          ) : (
+            <>
+              <label className="jigsaw-room__input-group">
+                <span>Image URL</span>
+                <Input
+                  aria-invalid={isError}
+                  className="jigsaw-room__input"
+                  placeholder="https://example.com/image.png"
+                  type="url"
+                  value={imageUrl}
+                  onChange={(event) => {
+                    setImageUrl(event.target.value)
+                    setImgValid(true)
+                  }}
+                />
+              </label>
+
+              <div className="jigsaw-room__image-preview">
+                {imageUrl.trim() ? (
+                  imgValid ? (
+                    <img
+                      src={imageUrl.trim()}
+                      alt="Preview"
+                      onError={() => setImgValid(false)}
+                      onLoad={() => setImgValid(true)}
+                    />
+                  ) : (
+                    <div className="jigsaw-room__image-placeholder jigsaw-room__image-placeholder--error">
+                      <span>Cannot load image. Please check the URL.</span>
+                    </div>
+                  )
+                ) : (
+                  <div className="jigsaw-room__image-placeholder">
+                    <span>Image preview will appear here</span>
+                  </div>
+                )}
               </div>
-            )}
-          </div>
+            </>
+          )}
 
           <label className="jigsaw-room__slider-group">
             <span>Pieces</span>
@@ -368,7 +477,7 @@ export function JigsawRoomCreateApp() {
 
           <Button
             className="jigsaw-room__submit-btn"
-            disabled={creating || !imageUrl.trim() || !authSession}
+            disabled={creating || (!hasBatchParams && !imageUrl.trim()) || !authSession}
             onClick={() => void createRoom()}
           >
             {creating && (
@@ -427,6 +536,16 @@ function readErrorMessage(error: unknown): string {
 function getInitialImageUrl(): string {
   const params = new URLSearchParams(window.location.search)
   return params.get("imageUrl") ?? DEFAULT_IMAGE_URL
+}
+
+function getInitialBatchId(): string | null {
+  const params = new URLSearchParams(window.location.search)
+  return params.get("batchId")?.trim() || null
+}
+
+function getInitialBatchToken(): string | null {
+  const params = new URLSearchParams(window.location.search)
+  return params.get("batchToken")?.trim() || null
 }
 
 function getInitialSourceSize(): { width: number; height: number } | null {
