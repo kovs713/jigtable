@@ -33,7 +33,11 @@ export async function handleCommit(
     batch.status === PhotoBatchStatus.Ready ||
     batch.status === PhotoBatchStatus.Completed
   ) {
-    await replyWithEditorLink(ctx, batch.batchId, batch.editToken)
+    const allPhotos = await db
+      .select()
+      .from(batchPhotosSchema)
+      .where(eq(batchPhotosSchema.batchId, batch.batchId))
+    await replyWithEditorLink(ctx, batch.batchId, batch.editToken, allPhotos.length)
     clearActiveBatch(ctx)
     return
   }
@@ -88,30 +92,29 @@ export async function handleCommit(
     })
     .where(eq(batchesSchema.batchId, batch.batchId))
 
-  await replyWithEditorLink(ctx, batch.batchId, batch.editToken)
+  await replyWithEditorLink(ctx, batch.batchId, batch.editToken, photos.length)
   clearActiveBatch(ctx)
 }
 
 async function replyWithEditorLink(
   ctx: BotContext,
   batchId: string,
-  editToken: string
+  editToken: string,
+  photoCount: number
 ): Promise<void> {
   const layoutUrl = clientLayoutUrl(batchId, editToken)
   const editCode = `${batchId}:${editToken}`
   const canUseUrlButton = isTelegramUrl(layoutUrl)
-  const messageLines = [
-    "готово",
-    canUseUrlButton
-      ? `<a href="${escapeHtml(layoutUrl)}">открыть редактор</a>`
-      : null,
+
+  const lines = [
+    `Готово. Собрал из ${photoCount} картинок.`,
     "",
-    "код:",
-    `<code>${escapeHtml(editCode)}</code>`,
-    "",
-    "url если телега тупит:",
+    "Открывай редактор:",
     `<code>${escapeHtml(layoutUrl)}</code>`,
-  ].filter((line): line is string => line !== null)
+    "",
+    "Код для ручного ввода:",
+    `<code>${escapeHtml(editCode)}</code>`,
+  ]
 
   const replyOptions = canUseUrlButton
     ? {
@@ -122,7 +125,7 @@ async function replyWithEditorLink(
       }
     : { parse_mode: "HTML" as const }
 
-  await ctx.reply(messageLines.join("\n"), replyOptions)
+  await ctx.reply(lines.join("\n"), replyOptions)
 }
 
 function clearActiveBatch(ctx: BotContext): void {

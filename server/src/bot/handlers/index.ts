@@ -2,7 +2,7 @@ import type { Bot } from "grammy"
 import type { BotContext } from "@/bot/types"
 import { registerUploadCallbacks } from "@/bot/upload"
 import { handleCommit } from "./commit"
-import { handleList } from "./list"
+import { handleList, handleListAction } from "./list"
 import { handleNew } from "./new"
 import { handlePhoto } from "./photo"
 import { handleReset } from "./reset"
@@ -34,6 +34,7 @@ export function registerHandlers(bot: Bot<BotContext>) {
 
   // upload callbacks
   registerUploadCallbacks(bot)
+  bot.callbackQuery(/^list:/, handleListAction)
 
   // service
   bot.on("message:photo", handlePhoto)
