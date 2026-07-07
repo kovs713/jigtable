@@ -15,6 +15,7 @@ export interface JigsawResultParticipant {
 export const jigsawRoomResultsSchema = pgTable("jigsaw_room_results", {
   roomId: text("room_id").primaryKey(),
   assetRef: jsonb("asset_ref").$type<JigsawSafeAssetRef>().notNull(),
+  imageUrl: text("image_url"),
   participants: jsonb("participants")
     .$type<JigsawResultParticipant[]>()
     .notNull(),

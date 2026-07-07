@@ -16,6 +16,7 @@ import type { StoredJigsawSession } from "./session-store"
 export interface JigsawHistoryRoomInfo {
   roomId: string
   assetRef: JigsawSafeAssetRef
+  imageUrl: string
   elapsedMs: number
   pieceCount: number
   snapCount: number
@@ -28,10 +29,21 @@ export interface JigsawHistoryItem {
   elapsedMs: number
   pieceCount: number
   snapCount: number
+  imageUrl: string | null
   source: {
     kind: JigsawSafeAssetRef["kind"]
     label: string
   }
+  participants: JigsawResultParticipant[]
+}
+
+export interface JigsawRoomResult {
+  roomId: string
+  imageUrl: string | null
+  elapsedMs: number
+  pieceCount: number
+  snapCount: number
+  completedAt: Date
   participants: JigsawResultParticipant[]
 }
 
@@ -133,6 +145,7 @@ export class JigsawHistoryStore {
       .values({
         roomId: room.roomId,
         assetRef: room.assetRef,
+        imageUrl: room.imageUrl,
         participants,
         elapsedMs: room.elapsedMs,
         pieceCount: room.pieceCount,
@@ -165,9 +178,34 @@ export class JigsawHistoryStore {
       elapsedMs: row.elapsedMs,
       pieceCount: row.pieceCount,
       snapCount: row.snapCount,
+      imageUrl: row.imageUrl,
       source: summarizeAssetRef(row.assetRef),
       participants: row.participants,
     }))
+  }
+
+  async getRoomResult(roomId: string): Promise<JigsawRoomResult | null> {
+    const rows = await db
+      .select()
+      .from(jigsawRoomResultsSchema)
+      .where(eq(jigsawRoomResultsSchema.roomId, roomId))
+      .limit(1)
+
+    const row = rows[0]
+
+    if (!row) {
+      return null
+    }
+
+    return {
+      roomId: row.roomId,
+      imageUrl: row.imageUrl,
+      elapsedMs: row.elapsedMs,
+      pieceCount: row.pieceCount,
+      snapCount: row.snapCount,
+      completedAt: row.completedAt,
+      participants: row.participants,
+    }
   }
 
   private async readResultParticipants(

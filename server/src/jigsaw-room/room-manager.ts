@@ -634,6 +634,7 @@ export class JigsawRoomManager {
       .recordCompletion({
         roomId: room.roomId,
         assetRef: room.assetRef,
+        imageUrl: room.imageUrl,
         elapsedMs: getTimerElapsedMs(room.timer, completedAt),
         pieceCount: stats.totalPieces,
         snapCount: stats.snapCount,
