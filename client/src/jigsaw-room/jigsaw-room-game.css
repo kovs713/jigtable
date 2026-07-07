@@ -591,12 +591,12 @@
     left: 8px;
     width: auto;
     min-width: 0;
-    flex-wrap: nowrap;
+    flex-wrap: wrap;
   }
 
   .jigsaw-room__brand {
     min-width: 0;
-    flex: 0 0 auto;
+    flex: 1 1 auto;
     padding: 0 8px;
     border-right: 0.5px solid var(--jigsaw-panel-border);
     border-bottom: 0;
@@ -621,8 +621,11 @@
   }
 
   .jigsaw-room__actions {
-    flex: 1 1 auto;
+    flex: 1 1 100%;
     min-width: 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 2px;
   }
 
   .jigsaw-room__actions > button,
@@ -632,7 +635,7 @@
     min-height: 36px;
     flex: 1 1 0;
     padding-inline: 3px;
-    font-size: 0.58rem;
+    font-size: 0.62rem;
     letter-spacing: 0.03em;
   }
 

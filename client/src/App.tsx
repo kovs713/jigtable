@@ -1239,7 +1239,7 @@ export function App() {
       ) : null}
 
       {/* header */}
-      <header className="glass corner-brackets flex flex-wrap items-center gap-4 border-b px-6 py-3 text-card-foreground shadow-sm">
+      <header className="glass corner-brackets grid gap-x-4 gap-y-2 border-b px-6 py-3 text-card-foreground shadow-sm md:flex md:flex-wrap md:items-center">
         <div className="flex items-center gap-3">
           <div className="flex size-8 items-center justify-center bg-primary font-bold text-primary-foreground">
             J
@@ -1261,9 +1261,9 @@ export function App() {
           className="mx-2 hidden h-8 md:block"
         />
 
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2 md:ml-auto">
           <Input
-            className="h-9 w-64 font-mono text-sm"
+            className="h-9 w-full font-mono text-sm sm:w-64"
             placeholder="Paste bot link or code"
             type="text"
             value={loadCode}
