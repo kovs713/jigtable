@@ -251,6 +251,40 @@ export function App() {
     itemId: string
     action: LayerAction
   } | null>(null)
+  const layoutRef = React.useRef(layout)
+  layoutRef.current = layout
+  const pastRef = React.useRef<CanvasLayout[]>([])
+  const futureRef = React.useRef<CanvasLayout[]>([])
+  const dragStartLayoutRef = React.useRef<CanvasLayout | null>(null)
+
+  function pushHistory() {
+    pastRef.current.push(structuredClone(layoutRef.current))
+    if (pastRef.current.length > 200) {
+      pastRef.current.shift()
+    }
+    futureRef.current.length = 0
+  }
+
+  function recordLayoutChange(next: CanvasLayout | ((prev: CanvasLayout) => CanvasLayout)) {
+    pushHistory()
+    setLayout(next)
+  }
+
+  function undo() {
+    const prev = pastRef.current.pop()
+    if (!prev) return
+    futureRef.current.push(structuredClone(layoutRef.current))
+    setLayout(prev)
+    setStatus("Undo")
+  }
+
+  function redo() {
+    const next = futureRef.current.pop()
+    if (!next) return
+    pastRef.current.push(structuredClone(layoutRef.current))
+    setLayout(next)
+    setStatus("Redo")
+  }
   const zoomRef = React.useRef(zoom / 100)
   const selectedId = selectedIds[0] ?? ""
   const selectedIdSet = new Set(selectedIds)
@@ -544,7 +578,20 @@ export function App() {
     }
 
     const handlePointerUp = () => {
+      if (dragRef.current && dragStartLayoutRef.current) {
+        const startLayout = dragStartLayoutRef.current
+        const currentLayout = layoutRef.current
+        const changed =
+          startLayout.canvas !== currentLayout.canvas ||
+          startLayout.items !== currentLayout.items
+        if (changed) {
+          pastRef.current.push(startLayout)
+          if (pastRef.current.length > 200) pastRef.current.shift()
+          futureRef.current.length = 0
+        }
+      }
       dragRef.current = null
+      dragStartLayoutRef.current = null
     }
 
     window.addEventListener("pointermove", handlePointerMove)
@@ -560,6 +607,22 @@ export function App() {
 
   React.useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
+      if ((event.ctrlKey || event.metaKey) && event.key === "s") {
+        event.preventDefault()
+        void saveRemoteLayout()
+        return
+      }
+
+      if ((event.ctrlKey || event.metaKey) && event.key === "z") {
+        event.preventDefault()
+        if (event.shiftKey) {
+          redo()
+        } else {
+          undo()
+        }
+        return
+      }
+
       if (event.key === "Escape") {
         if (isEditableTarget(event.target)) {
           ;(event.target as HTMLElement).blur()
@@ -581,7 +644,7 @@ export function App() {
       }
 
       event.preventDefault()
-      setLayout((current) => {
+      recordLayoutChange((current) => {
         const selectedIdSet = new Set(selectedIds)
         const movedItems = moveItemsWithinCanvas(
           current.items.filter((item) => selectedIdSet.has(item.id)),
@@ -791,6 +854,7 @@ export function App() {
       startClientY: event.clientY,
       startItems,
     }
+    dragStartLayoutRef.current = structuredClone(layoutRef.current)
   }
 
   function startItemResize(
@@ -827,6 +891,7 @@ export function App() {
       startItems,
       keepRatio: event.shiftKey,
     }
+    dragStartLayoutRef.current = structuredClone(layoutRef.current)
   }
 
   function startCanvasResize(
@@ -852,10 +917,11 @@ export function App() {
       startItems: layout.items,
       scaleItems,
     }
+    dragStartLayoutRef.current = structuredClone(layoutRef.current)
   }
 
   function updateCanvasSize(field: "width" | "height", value: number) {
-    setLayout((current) => {
+    recordLayoutChange((current) => {
       const canvas = {
         ...current.canvas,
         [field]: clampCanvasSize(value),
@@ -872,7 +938,7 @@ export function App() {
   function applyCanvasSize(canvas: CanvasLayout["canvas"], message: string) {
     const nextCanvas = clampCanvas(canvas)
 
-    setLayout((current) => ({
+    recordLayoutChange((current) => ({
       canvas: nextCanvas,
       items: scaleItemsToCanvas(current.canvas, current.items, nextCanvas),
     }))
@@ -938,7 +1004,7 @@ export function App() {
 
     pendingLayerFocusRef.current = { itemId, action }
 
-    setLayout((current) => {
+    recordLayoutChange((current) => {
       const currentEntries = getLayerEntries(current.items)
       const fromIndex = currentEntries.findIndex(
         (entry) => entry.item.id === itemId
@@ -976,7 +1042,7 @@ export function App() {
   ) {
     focusItem(itemId)
 
-    setLayout((current) => {
+    recordLayoutChange((current) => {
       const currentEntries = getLayerEntries(current.items)
       const sourceIndex = currentEntries.findIndex(
         (entry) => entry.item.id === itemId
@@ -1115,7 +1181,7 @@ export function App() {
       return
     }
 
-    setLayout((current) => ({
+    recordLayoutChange((current) => ({
       ...current,
       items: current.items.map((item) => {
         if (item.id !== selectedItem.id) {
@@ -1513,7 +1579,7 @@ export function App() {
         <section className="relative flex min-h-0 items-center justify-center overflow-hidden bg-muted/30 bg-[linear-gradient(45deg,var(--border)_25%,transparent_25%,transparent_75%,var(--border)_75,var(--border)),linear-gradient(45deg,var(--border)_25%,transparent_25%,transparent_75%,var(--border)_75,var(--border))] bg-[length:20px_20px] bg-[position:0_0,10px_10px]">
           <div className="thin-scrollbar h-full w-full overflow-auto p-8">
             <div
-              className="canvas-grid relative origin-top-left shadow-xl"
+              className="canvas-grid group relative origin-top-left shadow-xl"
               style={{
                 width: layout.canvas.width * viewportScale,
                 height: layout.canvas.height * viewportScale,
@@ -1607,6 +1673,7 @@ export function App() {
                       top: item.y * viewportScale,
                       width: item.width * viewportScale,
                       height: item.height * viewportScale,
+                      zIndex: isSelected ? 1500 : isLinked ? 1100 : 1000,
                       ...getImageMarkerStyle(index),
                     }}
                   >
@@ -1931,7 +1998,7 @@ function ResizeHandles({
       key={handle.edge}
       aria-label={`${labelPrefix}: ${handle.label}`}
       className={cn(
-        "pointer-events-auto absolute z-1000 bg-transparent opacity-0 transition-opacity outline-none focus-visible:opacity-100",
+        "pointer-events-auto absolute z-1000 bg-transparent opacity-0 transition-opacity outline-none group-hover:opacity-100 focus-visible:opacity-100",
         active && "opacity-100",
         handle.className
       )}
