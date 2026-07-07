@@ -56,28 +56,18 @@ export function arrangeLoosePieces(
   const margin = getScatterVisualMargin(state.config)
   const gap = state.config.scatterGap
   const boundsByGroup = new Map<GroupId, WorldRect>()
-  let maxWidth = 0
-  let maxHeight = 0
 
   for (const group of groups) {
     const bounds = getGroupBounds(state, group.pieceIds, margin)
     boundsByGroup.set(group.id, bounds)
-    maxWidth = Math.max(maxWidth, bounds.width)
-    maxHeight = Math.max(maxHeight, bounds.height)
   }
-
-  const slots = createArrangeSlots(
-    board,
-    groups.length,
-    maxWidth + gap,
-    maxHeight + gap,
-    gap,
-    mode
-  )
+  const arrangedGroups = [...groups]
+  shuffle(arrangedGroups, createSeededRandom(state.config.seed + modeSeed(mode)))
+  const slots = createArrangeSlots(board, arrangedGroups, boundsByGroup, gap, mode)
   const affectedPieceIds: PieceId[] = []
 
-  for (let index = 0; index < groups.length; index++) {
-    const group = groups[index]
+  for (let index = 0; index < arrangedGroups.length; index++) {
+    const group = arrangedGroups[index]
     const bounds = group ? boundsByGroup.get(group.id) : null
     const slot = slots[index]
 
@@ -253,27 +243,25 @@ function createScatterSlots(
 
 function createArrangeSlots(
   board: WorldRect,
-  count: number,
-  slotWidth: number,
-  slotHeight: number,
+  groups: GroupState[],
+  boundsByGroup: Map<GroupId, WorldRect>,
   gap: number,
   mode: ArrangeLoosePiecesMode
 ): Array<{ x: number; y: number }> {
-  const slots = createBalancedPerimeterSlots(
+  const baseBounds = getBaseBounds(boundsByGroup)
+  const candidates = createBalancedPerimeterSlots(
     board,
-    count,
-    slotWidth,
-    slotHeight,
+    groups.length,
+    baseBounds.width + gap,
+    baseBounds.height + gap,
     gap
   )
+  const sortedCandidates =
+    mode === "perimeter"
+      ? candidates.sort((a, b) => a.perimeterScore - b.perimeterScore)
+      : candidates.sort((a, b) => getSideScore(a, mode) - getSideScore(b, mode))
 
-  if (mode === "perimeter") {
-    return slots.sort((a, b) => a.perimeterScore - b.perimeterScore)
-  }
-
-  return slots
-    .sort((a, b) => getSideScore(a, mode) - getSideScore(b, mode))
-    .map(({ x, y }) => ({ x, y }))
+  return packGroupsIntoSlots(groups, boundsByGroup, sortedCandidates, gap)
 }
 
 interface ArrangeSlot {
@@ -372,6 +360,77 @@ function getCornerPenalty(
   const outsideSides = [top, right, bottom, left].filter((value) => value > 0)
 
   return outsideSides.length > 1 ? 0.35 : 0
+}
+
+function packGroupsIntoSlots(
+  groups: GroupState[],
+  boundsByGroup: Map<GroupId, WorldRect>,
+  candidates: ArrangeSlot[],
+  gap: number
+): Array<{ x: number; y: number }> {
+  const slots: Array<{ x: number; y: number }> = []
+  const occupied: WorldRect[] = []
+
+  for (const group of groups) {
+    const bounds = boundsByGroup.get(group.id)
+
+    if (!bounds) {
+      slots.push({ x: 0, y: 0 })
+      continue
+    }
+
+    const slot = candidates.find((candidate) => {
+      const rect = {
+        x: candidate.x,
+        y: candidate.y,
+        width: bounds.width + gap,
+        height: bounds.height + gap,
+      }
+
+      return occupied.every((taken) => !rectsOverlap(rect, taken))
+    })
+
+    if (!slot) {
+      slots.push({ x: bounds.x, y: bounds.y })
+      continue
+    }
+
+    slots.push({ x: slot.x, y: slot.y })
+    occupied.push({
+      x: slot.x,
+      y: slot.y,
+      width: bounds.width + gap,
+      height: bounds.height + gap,
+    })
+  }
+
+  return slots
+}
+
+function getBaseBounds(boundsByGroup: Map<GroupId, WorldRect>): {
+  width: number
+  height: number
+} {
+  const widths = [...boundsByGroup.values()]
+    .map((bounds) => bounds.width)
+    .sort((a, b) => a - b)
+  const heights = [...boundsByGroup.values()]
+    .map((bounds) => bounds.height)
+    .sort((a, b) => a - b)
+  const middle = Math.floor(widths.length / 2)
+
+  return {
+    width: widths[middle] ?? 1,
+    height: heights[middle] ?? 1,
+  }
+}
+
+function modeSeed(mode: ArrangeLoosePiecesMode): number {
+  if (mode === "top") return 101
+  if (mode === "right") return 211
+  if (mode === "bottom") return 307
+  if (mode === "left") return 401
+  return 503
 }
 
 function rectsOverlap(a: WorldRect, b: WorldRect): boolean {
