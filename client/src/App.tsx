@@ -2,13 +2,6 @@ import * as React from "react"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
 import { Separator } from "@/components/ui/separator"
 import { Slider } from "@/components/ui/slider"
 import { Toggle } from "@/components/ui/toggle"
@@ -57,8 +50,6 @@ type RemoteBatch = {
   token: string
   outputUrl: string | null
 }
-
-type RenderFormat = "png" | "jpg" | "jpeg"
 
 type AspectRatioPreset = {
   label: string
@@ -251,7 +242,6 @@ export function App() {
   const [authLoading, setAuthLoading] = React.useState(false)
   const [telegramWidgetVisible, setTelegramWidgetVisible] =
     React.useState(false)
-  const [renderFormat, setRenderFormat] = React.useState<RenderFormat>("png")
   const dragRef = React.useRef<DragState | null>(null)
   const didLoadRemoteRef = React.useRef(false)
   const canvasItemRefs = React.useRef(new Map<string, HTMLElement>())
@@ -1167,9 +1157,20 @@ export function App() {
     }
   }
 
-  async function renderRemoteLayout() {
+  function jigsawCreateFromBatch(): string {
+    if (!remoteBatch) return "/jigsaw"
+    const params = new URLSearchParams({
+      batchId: remoteBatch.batchId,
+      batchToken: remoteBatch.token,
+      sourceWidth: String(layout.canvas.width),
+      sourceHeight: String(layout.canvas.height),
+    })
+    return `/jigsaw/new?${params}`
+  }
+
+  async function downloadImage(): Promise<void> {
     if (!remoteBatch) {
-      setStatus("Open the link from the bot")
+      setStatus("No batch loaded")
       return
     }
 
@@ -1178,7 +1179,7 @@ export function App() {
       return
     }
 
-    setStatus(`Building ${renderFormat} image...`)
+    setStatus("Rendering image...")
 
     try {
       const response = await fetch(
@@ -1189,17 +1190,17 @@ export function App() {
             Authorization: `Bearer ${authSession.token}`,
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({ format: renderFormat, layout }),
+          body: JSON.stringify({ format: "png", layout }),
         }
       )
       const payload = await readJsonResponse<{ outputUrl: string }>(response)
 
       setRemoteBatch({ ...remoteBatch, outputUrl: payload.outputUrl })
-      setStatus("Image ready")
       window.open(payload.outputUrl, "_blank")
+      setStatus("Image ready")
     } catch (error) {
       setStatus(
-        error instanceof Error ? error.message : "Failed to build image"
+        error instanceof Error ? error.message : "Failed to render image"
       )
     }
   }
@@ -1323,46 +1324,20 @@ export function App() {
             Save Edits
           </Button>
 
-          <Select
-            value={renderFormat}
-            onValueChange={(value) => setRenderFormat(value as RenderFormat)}
-          >
-            <SelectTrigger className="h-9 w-20 font-mono text-xs uppercase">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem className="font-mono text-xs uppercase" value="png">
-                PNG
-              </SelectItem>
-              <SelectItem className="font-mono text-xs uppercase" value="jpg">
-                JPG
-              </SelectItem>
-              <SelectItem className="font-mono text-xs uppercase" value="jpeg">
-                JPEG
-              </SelectItem>
-            </SelectContent>
-          </Select>
-
-          <Button
-            disabled={!remoteBatch || !authSession}
-            size="sm"
-            onClick={renderRemoteLayout}
-          >
-            Build Image
-          </Button>
-
-          {remoteBatch?.outputUrl ? (
-            <Button asChild size="sm" variant="outline">
-              <a href={remoteBatch.outputUrl} rel="noreferrer" target="_blank">
-                Download Result
-              </a>
+          {remoteBatch ? (
+            <Button asChild size="sm">
+              <a href={jigsawCreateFromBatch()}>Create Jigsaw Room</a>
             </Button>
           ) : null}
-          {remoteBatch?.outputUrl ? (
-            <Button asChild size="sm">
-              <a href={jigsawCreateUrl(remoteBatch.outputUrl, layout.canvas)}>
-                Create Jigsaw Room
-              </a>
+
+          {remoteBatch ? (
+            <Button
+              disabled={!authSession}
+              size="sm"
+              variant="outline"
+              onClick={downloadImage}
+            >
+              Download
             </Button>
           ) : null}
         </div>
@@ -2611,19 +2586,6 @@ function parseRemoteBatchInput(value: string): RemoteBatch | null {
   }
 
   return { batchId, token, outputUrl: null }
-}
-
-function jigsawCreateUrl(
-  imageUrl: string,
-  canvas: CanvasLayout["canvas"]
-): string {
-  const params = new URLSearchParams({
-    imageUrl,
-    sourceWidth: String(canvas.width),
-    sourceHeight: String(canvas.height),
-  })
-
-  return `/jigsaw/new?${params}`
 }
 
 async function fetchBatchLayout(
