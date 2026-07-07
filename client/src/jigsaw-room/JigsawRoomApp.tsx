@@ -218,11 +218,15 @@ export function JigsawRoomApp({ roomId }: JigsawRoomAppProps) {
       }
     })
   }, [showSolvedCelebration])
+  const completionPercent =
+    stats.totalPieces > 0
+      ? Math.round((stats.placedPieces / stats.totalPieces) * 100)
+      : 0
   const completionLabel = !ready
     ? "Loading"
     : solved
       ? "Solved"
-      : `${remainingPieces} left`
+      : `${remainingPieces} left · ${completionPercent}%`
   const completionClassName = solved
     ? "jigsaw-room__completion jigsaw-room__completion--solved"
     : "jigsaw-room__completion"

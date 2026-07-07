@@ -157,6 +157,10 @@
   background: var(--primary);
 }
 
+.jigsaw-room__actions > button[aria-pressed="true"]:hover:not(:disabled) {
+  background: color-mix(in oklch, var(--primary), transparent 15%);
+}
+
 .jigsaw-room__actions > button:active:not(:disabled),
 .jigsaw-room__arrange summary:active,
 .jigsaw-room__settings summary:active {
