@@ -43,6 +43,36 @@ export async function fetchJigsawRoomSnapshot(
   return payload.state as unknown as JigsawRoomSnapshot
 }
 
+export interface JigsawRoomResult {
+  roomId: string
+  imageUrl: string | null
+  elapsedMs: number
+  pieceCount: number
+  snapCount: number
+  completedAt: string
+  participants: Array<{
+    userId?: string
+    telegramId?: string
+    name: string
+    color: string
+  }>
+}
+
+export async function fetchJigsawRoomResult(
+  roomId: string
+): Promise<JigsawRoomResult> {
+  const response = await fetch(
+    `${API_BASE_URL}/api/rooms/${encodeURIComponent(roomId)}/result`
+  )
+  const payload = await readJsonResponse<unknown>(response)
+
+  if (!isRecord(payload) || !isRecord(payload.result)) {
+    throw new Error("Invalid room result")
+  }
+
+  return payload.result as unknown as JigsawRoomResult
+}
+
 export async function readJsonResponse<T>(response: Response): Promise<T> {
   const payload = await response.json().catch(() => null)
 
