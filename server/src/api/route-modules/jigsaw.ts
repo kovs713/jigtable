@@ -1,9 +1,13 @@
 import { LIMITS } from "@/config"
 import { clientJigsawRoomUrl } from "@/features/urls"
+import { renderLayout, normalizeRenderFormat } from "@/features/render-layout"
 import { createJigsawSafeAssetRef } from "@/jigsaw-room/history-store"
 import type { CreateJigsawRoomInput } from "@/jigsaw-room/room-manager"
 import { toSessionResponse } from "@/jigsaw-room/session-store"
 import type { CreateJigsawRoomResponse } from "@jigtable/jigsaw-core"
+import { db } from "@/infra/db"
+import { batchesSchema, batchPhotosSchema, PhotoBatchStatus } from "@/infra/db/schemas"
+import { and, asc, eq } from "drizzle-orm"
 import { number, optional, string } from "@jigtable/shared"
 
 import { errorResponse, ApiError } from "../errors"
@@ -18,6 +22,7 @@ import { assertRateLimit } from "../http/rate-limit"
 import { readJigsawProfileInput } from "../schemas/jigsaw"
 import type { Router } from "../types"
 import { parseApiSchema, readJsonLimited } from "../utils"
+import { normalizeLayout } from "../schemas/layout"
 
 export function registerJigsawRoutes(router: Router): void {
   router.post("/api/sessions", {
@@ -114,33 +119,103 @@ export function registerJigsawRoutes(router: Router): void {
       )
 
       const body = await readJsonLimited(context.request)
-      const roomImageUrl = (
-        parseApiSchema(optional(string()), body?.imageUrl, "imageUrl") ??
-        "/test_jigsaw.png"
-      ).trim()
+      const batchId = parseApiSchema(
+        optional(string()),
+        body?.batchId,
+        "batchId"
+      )?.trim()
+      const batchToken = parseApiSchema(
+        optional(string()),
+        body?.batchToken,
+        "batchToken"
+      )?.trim()
+
+      let roomImageUrl: string
+      let sourceWidth: number | undefined
+      let sourceHeight: number | undefined
+      let assetId = parseApiSchema(
+        optional(string()),
+        body?.assetId,
+        "assetId"
+      )?.trim() ?? "room-image"
+
+      if (batchId && batchToken) {
+        const [batch, photos] = await Promise.all([
+          db
+            .select()
+            .from(batchesSchema)
+            .where(
+              and(
+                eq(batchesSchema.batchId, batchId),
+                eq(batchesSchema.editToken, batchToken)
+              )
+            )
+            .then((rows) => rows[0]),
+          db
+            .select()
+            .from(batchPhotosSchema)
+            .where(eq(batchPhotosSchema.batchId, batchId))
+            .orderBy(asc(batchPhotosSchema.sortOrder)),
+        ])
+
+        if (!batch) {
+          throw new ApiError("Batch not found", 404)
+        }
+
+        const layout = batch.layout
+        if (!layout) {
+          throw new ApiError("Batch layout is not ready", 400)
+        }
+
+        const rendered = await renderLayout(
+          batchId,
+          layout,
+          photos.map((p) => ({ fileId: p.fileId, objectKey: p.objectKey })),
+          "png"
+        )
+
+        await db
+          .update(batchesSchema)
+          .set({
+            outputKey: rendered.objectKey,
+            outputFormat: rendered.format,
+            status: PhotoBatchStatus.Completed,
+            updatedAt: new Date(),
+          })
+          .where(eq(batchesSchema.batchId, batchId))
+
+        roomImageUrl = `${process.env.PUBLIC_API_URL ?? ""}/api/batches/${batchId}/rendered?token=${batchToken}`
+        sourceWidth = layout.canvas.width
+        sourceHeight = layout.canvas.height
+        assetId = `batch-${batchId}`
+      } else {
+        roomImageUrl = (
+          parseApiSchema(optional(string()), body?.imageUrl, "imageUrl") ??
+          "/test_jigsaw.png"
+        ).trim()
+        sourceWidth = parseApiSchema(
+          optional(number({ min: 1 })),
+          body?.sourceWidth,
+          "sourceWidth"
+        )
+        sourceHeight = parseApiSchema(
+          optional(number({ min: 1 })),
+          body?.sourceHeight,
+          "sourceHeight"
+        )
+      }
+
       const pieceCount =
         parseApiSchema(
           optional(number({ min: 4, max: 2_000 })),
           body?.pieceCount,
           "pieceCount"
         ) ?? 150
-      const sourceWidth = parseApiSchema(
-        optional(number({ min: 1 })),
-        body?.sourceWidth,
-        "sourceWidth"
-      )
-      const sourceHeight = parseApiSchema(
-        optional(number({ min: 1 })),
-        body?.sourceHeight,
-        "sourceHeight"
-      )
+
       const sourceSize =
         sourceWidth && sourceHeight
           ? { width: sourceWidth, height: sourceHeight }
           : await readImageSize(context, roomImageUrl)
-      const assetId =
-        parseApiSchema(optional(string()), body?.assetId, "assetId")?.trim() ??
-        "room-image"
       const input = {
         imageUrl: roomImageUrl,
         assetId,
@@ -168,6 +243,19 @@ export function registerJigsawRoutes(router: Router): void {
       }
 
       return Response.json({ state })
+    },
+  })
+
+  router.get("/api/rooms/:roomId/result", {
+    handler: async (context) => {
+      const roomId = context.params.roomId ?? ""
+      const result = await context.services.history.getRoomResult(roomId)
+
+      if (!result) {
+        return errorResponse("Result not found", 404)
+      }
+
+      return Response.json({ result })
     },
   })
 }
