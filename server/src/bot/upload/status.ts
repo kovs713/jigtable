@@ -35,25 +35,22 @@ export function renderUploadStatus(session: UploadSession): string {
   const deleted = getDeletedImages(session)
 
   if (active.length === 0 && deleted.length === 0) {
-    return [
-      "Смотреть пока нечего.",
-      "Кинь сначала картинки.",
-    ].join("\n")
+    return ["Смотреть пока нечего.", "Кинь сначала картинки."].join("\n")
   }
 
-  if (active.length < 2) {
-    const lines: string[] = [`В наборе ${active.length} картинок.`]
-    if (deleted.length > 0) {
-      lines.push(`Удалено: ${deleted.length}.`)
-    }
-    if (session.duplicateCount > 0) {
-      lines.push(`Повторов выкинул: ${session.duplicateCount}.`)
-    }
-    lines.push("")
-    lines.push("Нужно хотя бы 2 картинки.")
-    lines.push("Из одной пазл так себе, конечно.")
-    return lines.join("\n")
-  }
+  // if (active.length < 2) {
+  //   const lines: string[] = [`В наборе ${active.length} картинок.`]
+  //   if (deleted.length > 0) {
+  //     lines.push(`Удалено: ${deleted.length}.`)
+  //   }
+  //   if (session.duplicateCount > 0) {
+  //     lines.push(`Повторов выкинул: ${session.duplicateCount}.`)
+  //   }
+  //   lines.push("")
+  //   lines.push("Нужно хотя бы 2 картинки.")
+  //   lines.push("Из одной пазл так себе, конечно.")
+  //   return lines.join("\n")
+  // }
 
   const lines: string[] = [`В наборе ${active.length} картинок.`]
 
@@ -79,12 +76,24 @@ export function renderUploadKeyboard(
 
   return [
     [
-      { text: "глянуть", callback_data: hasImages ? "upload:view" : "viewer:noop" },
-      { text: "собрать", callback_data: canBuild ? "upload:build" : "viewer:noop" },
+      {
+        text: "глянуть",
+        callback_data: hasImages ? "upload:view" : "viewer:noop",
+      },
+      {
+        text: "собрать",
+        callback_data: canBuild ? "upload:build" : "viewer:noop",
+      },
     ],
     [
-      { text: "убрать последнюю", callback_data: hasImages ? "upload:delete_last" : "viewer:noop" },
-      { text: "снести всё", callback_data: hasImages ? "upload:clear" : "viewer:noop" },
+      {
+        text: "убрать последнюю",
+        callback_data: hasImages ? "upload:delete_last" : "viewer:noop",
+      },
+      {
+        text: "снести всё",
+        callback_data: hasImages ? "upload:clear" : "viewer:noop",
+      },
     ],
   ]
 }
@@ -113,13 +122,22 @@ export function renderViewerKeyboard(
 
   return [
     [
-      { text: isFirst ? "·" : "назад", callback_data: isFirst ? "viewer:noop" : "viewer:prev" },
+      {
+        text: isFirst ? "·" : "назад",
+        callback_data: isFirst ? "viewer:noop" : "viewer:prev",
+      },
       { text: "удалить", callback_data: "viewer:delete" },
-      { text: isLast ? "·" : "дальше", callback_data: isLast ? "viewer:noop" : "viewer:next" },
+      {
+        text: isLast ? "·" : "дальше",
+        callback_data: isLast ? "viewer:noop" : "viewer:next",
+      },
     ],
     [
       { text: "закрыть", callback_data: "viewer:back" },
-      { text: "собрать", callback_data: active.length >= 2 ? "viewer:build" : "viewer:noop" },
+      {
+        text: "собрать",
+        callback_data: active.length >= 2 ? "viewer:build" : "viewer:noop",
+      },
     ],
   ]
 }
@@ -144,7 +162,8 @@ export function scheduleUploadStatusRefresh(ctx: BotContext): void {
       session.lastStatusRefreshAt &&
       now - session.lastStatusRefreshAt < STATUS_REFRESH_THROTTLE_MS
     ) {
-      const delay = STATUS_REFRESH_THROTTLE_MS - (now - session.lastStatusRefreshAt)
+      const delay =
+        STATUS_REFRESH_THROTTLE_MS - (now - session.lastStatusRefreshAt)
       session.statusRefreshTimer = setTimeout(() => {
         session.statusRefreshTimer = undefined
         void refreshBottomStatus(ctx, chatId)

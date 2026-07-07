@@ -1,5 +1,9 @@
 import type { Bot } from "grammy"
-import type { CallbackQueryContext, BotContext, UploadSession } from "@/bot/types"
+import type {
+  CallbackQueryContext,
+  BotContext,
+  UploadSession,
+} from "@/bot/types"
 import {
   getActiveImages,
   getCurrentViewerIndex,
@@ -74,10 +78,10 @@ async function handleUploadBuild(ctx: CallbackQueryContext): Promise<void> {
   }
 
   const active = getActiveImages(session)
-  if (active.length < 2) {
-    await ctx.answerCallbackQuery({ text: "Нужно хотя бы 2 картинки." })
-    return
-  }
+  // if (active.length < 2) {
+  //   await ctx.answerCallbackQuery({ text: "Нужно хотя бы 2 картинки." })
+  //   return
+  // }
 
   await ctx.answerCallbackQuery()
   await ctx.editMessageText(`Собираю из ${active.length} картинок.`)
@@ -218,11 +222,9 @@ async function handleViewerDelete(ctx: CallbackQueryContext): Promise<void> {
     const viewerId = getViewerMessageId(chatId)
     if (viewerId) {
       try {
-        await ctx.api.editMessageCaption(
-          chatId,
-          viewerId,
-          { caption: "Всё удалил. Набор пустой." }
-        )
+        await ctx.api.editMessageCaption(chatId, viewerId, {
+          caption: "Всё удалил. Набор пустой.",
+        })
       } catch {
         // ignore
       }
@@ -249,11 +251,11 @@ async function handleViewerBuild(ctx: CallbackQueryContext): Promise<void> {
     return
   }
 
-  const active = getActiveImages(session)
-  if (active.length < 2) {
-    await ctx.answerCallbackQuery({ text: "Нужно хотя бы 2 картинки." })
-    return
-  }
+  // const active = getActiveImages(session)
+  // if (active.length < 2) {
+  //   await ctx.answerCallbackQuery({ text: "Нужно хотя бы 2 картинки." })
+  //   return
+  // }
 
   await ctx.answerCallbackQuery()
   const chatId = cid(ctx)

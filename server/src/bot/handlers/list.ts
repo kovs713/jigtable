@@ -82,7 +82,12 @@ export async function handleListAction(
     const action = parseBatchAction(data)
     await editToView(
       ctx,
-      await renderDeleteConfirm(userId, action.batchId, action.page, action.index)
+      await renderDeleteConfirm(
+        userId,
+        action.batchId,
+        action.page,
+        action.index
+      )
     )
     await ctx.answerCallbackQuery()
     return
@@ -109,7 +114,10 @@ export async function handleListAction(
   await ctx.answerCallbackQuery()
 }
 
-async function editToView(ctx: CallbackQueryContext, view: ListView): Promise<void> {
+async function editToView(
+  ctx: CallbackQueryContext,
+  view: ListView
+): Promise<void> {
   const chatId = ctx.chat!.id
   const messageId = ctx.callbackQuery.message?.message_id
   if (!messageId) return
@@ -209,7 +217,10 @@ async function renderBatchCard(
     keyboard.push([{ text: "открыть редактор", url }])
   }
   keyboard.push([
-    { text: "удалить", callback_data: `list:delete:${page}:${index}:${batch.batchId}` },
+    {
+      text: "удалить",
+      callback_data: `list:delete:${page}:${index}:${batch.batchId}`,
+    },
     { text: "назад", callback_data: `list:back:${page}` },
   ])
 
@@ -240,8 +251,14 @@ async function renderDeleteConfirm(
     ].join("\n"),
     keyboard: [
       [
-        { text: "да, снести", callback_data: `list:delete_confirm:${page}:${index}:${batchId}` },
-        { text: "не надо", callback_data: `list:delete_cancel:${page}:${index}:${batchId}` },
+        {
+          text: "да, снести",
+          callback_data: `list:delete_confirm:${page}:${index}:${batchId}`,
+        },
+        {
+          text: "не надо",
+          callback_data: `list:delete_cancel:${page}:${index}:${batchId}`,
+        },
       ],
     ],
     media: media ?? undefined,
@@ -258,7 +275,10 @@ function renderListKeyboard(input: {
   const openRow: InlineKeyboardButton[] = []
   for (const [index, batch] of input.batches.entries()) {
     const number = input.offset + index + 1
-    openRow.push({ text: `открыть ${number}`, callback_data: `list:open:${input.page}:${number - 1}:${batch.batchId}` })
+    openRow.push({
+      text: `открыть ${number}`,
+      callback_data: `list:open:${input.page}:${number - 1}:${batch.batchId}`,
+    })
   }
 
   const rows: InlineKeyboardButton[][] = [openRow]
@@ -319,7 +339,9 @@ async function getBatchById(userId: string, batchId: string) {
   return batch
 }
 
-async function loadPreview(objectKey: string): Promise<InputFile | string | null> {
+async function loadPreview(
+  objectKey: string
+): Promise<InputFile | string | null> {
   const cachedFileId = previewFileIds.get(objectKey)
   if (cachedFileId) return cachedFileId
 
@@ -399,7 +421,8 @@ function formatRelativeDate(value: Date | null): string {
   const hour = 60 * minute
   const day = 24 * hour
 
-  if (diffMs < hour) return `${Math.max(1, Math.round(diffMs / minute))} мин назад`
+  if (diffMs < hour)
+    return `${Math.max(1, Math.round(diffMs / minute))} мин назад`
   if (diffMs < day) return `${Math.round(diffMs / hour)} ч назад`
   if (diffMs < 2 * day) return "вчера"
 

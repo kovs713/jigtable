@@ -14,9 +14,7 @@ import { shuffleImages, type ShuffleResult } from "@/shuffle"
 
 const PREVIEW_MAX_SIDE = 1200
 
-export async function handleCommit(
-  ctx: BotContext
-): Promise<void> {
+export async function handleCommit(ctx: BotContext): Promise<void> {
   if (!ctx.session.isStarted || !ctx.session.activeBatchId) {
     await ctx.reply("Нет активного батча. Начни через /new")
     return
@@ -40,7 +38,12 @@ export async function handleCommit(
       .select()
       .from(batchPhotosSchema)
       .where(eq(batchPhotosSchema.batchId, batch.batchId))
-    await replyWithEditorLink(ctx, batch.batchId, batch.editToken, allPhotos.length)
+    await replyWithEditorLink(
+      ctx,
+      batch.batchId,
+      batch.editToken,
+      allPhotos.length
+    )
     clearActiveBatch(ctx)
     return
   }
@@ -71,10 +74,10 @@ export async function handleCommit(
     return
   }
 
-  if (photos.length < 2) {
-    await ctx.reply("Нужно хотя бы 2 картинки. Из одной пазл так себе, конечно.")
-    return
-  }
+  // if (photos.length < 2) {
+  //   await ctx.reply("Нужно хотя бы 2 картинки. Из одной пазл так себе, конечно.")
+  //   return
+  // }
 
   const layout = shuffleImages({
     count: photos.length,
