@@ -1,11 +1,12 @@
 import { normalizeRenderFormat, renderLayout } from "@/features/render-layout"
 import { db } from "@/infra/db"
-import { batchesSchema, PhotoBatchStatus } from "@/infra/db/schemas"
+import { batchesSchema, batchPhotosSchema, PhotoBatchStatus } from "@/infra/db/schemas"
 import { s3Client } from "@/infra/storage"
-import { eq } from "drizzle-orm"
+import { and, desc, eq, or } from "drizzle-orm"
 
 import { CORS_HEADERS } from "../constants"
 import { errorResponse } from "../errors"
+import { requireAuthenticatedUser } from "../http/auth"
 import { requireAuthorizedBatch, requireBatch } from "../http/batches"
 import { renderedUrl, toApiBatchLayout } from "../presenters/batches"
 import { normalizeLayout } from "../schemas/layout"
@@ -13,6 +14,45 @@ import type { Router } from "../types"
 import { readJsonLimited } from "../utils"
 
 export function registerBatchRoutes(router: Router): void {
+  router.get("/api/me/batches", {
+    handler: async (context) => {
+      const user = await requireAuthenticatedUser(
+        context.request,
+        context.services.auth
+      )
+      const batches = await db
+        .select()
+        .from(batchesSchema)
+        .where(
+          and(
+            or(
+              eq(batchesSchema.userId, user.telegramId),
+              eq(batchesSchema.userId, user.id)
+            ),
+            or(
+              eq(batchesSchema.status, PhotoBatchStatus.Ready),
+              eq(batchesSchema.status, PhotoBatchStatus.Completed)
+            )
+          )
+        )
+        .orderBy(desc(batchesSchema.createdAt))
+        .limit(20)
+
+      const items = await Promise.all(
+        batches.map(async (batch) => ({
+          batchId: batch.batchId,
+          batchToken: batch.editToken,
+          status: batch.status,
+          createdAt: batch.createdAt?.toISOString() ?? null,
+          imageCount: await getPhotoCount(batch.batchId),
+          canvas: batch.layout?.canvas ?? null,
+        }))
+      )
+
+      return Response.json({ batches: items })
+    },
+  })
+
   router.get("/api/batches/:batchId/layout", {
     handler: async (context) => {
       const url = new URL(context.request.url)
@@ -160,4 +200,13 @@ export function registerBatchRoutes(router: Router): void {
       })
     },
   })
+}
+
+async function getPhotoCount(batchId: string): Promise<number> {
+  const photos = await db
+    .select({ fileId: batchPhotosSchema.fileId })
+    .from(batchPhotosSchema)
+    .where(eq(batchPhotosSchema.batchId, batchId))
+
+  return photos.length
 }

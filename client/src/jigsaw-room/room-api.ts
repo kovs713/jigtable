@@ -12,6 +12,15 @@ export interface CreateJigsawRoomInput {
   sourceHeight?: number
 }
 
+export interface UserBatchItem {
+  batchId: string
+  batchToken: string
+  status: string
+  createdAt: string | null
+  imageCount: number
+  canvas: { width: number; height: number } | null
+}
+
 export async function createJigsawRoom(
   input: CreateJigsawRoomInput,
   authToken: string
@@ -44,6 +53,21 @@ export async function createJigsawRoomFromBatch(
   })
 
   return readJsonResponse<CreateJigsawRoomResponse>(response)
+}
+
+export async function fetchUserBatches(
+  authToken: string
+): Promise<UserBatchItem[]> {
+  const response = await fetch(`${API_BASE_URL}/api/me/batches`, {
+    headers: { Authorization: `Bearer ${authToken}` },
+  })
+  const payload = await readJsonResponse<unknown>(response)
+
+  if (!isRecord(payload) || !Array.isArray(payload.batches)) {
+    throw new Error("Invalid batches response")
+  }
+
+  return payload.batches as UserBatchItem[]
 }
 
 export async function fetchJigsawRoomSnapshot(

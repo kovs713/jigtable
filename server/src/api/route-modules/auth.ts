@@ -67,7 +67,11 @@ export function registerAuthRoutes(router: Router): void {
         throw new ApiError("Not found", 404)
       }
 
-      const session = await context.services.auth.loginDev()
+      const body = await readJsonLimited(context.request)
+      const telegramId = body?.telegramId
+        ? parseApiSchema(string(), body.telegramId, "telegramId")
+        : undefined
+      const session = await context.services.auth.loginDev(telegramId)
 
       return Response.json(session)
     },

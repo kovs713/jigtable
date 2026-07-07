@@ -76,7 +76,6 @@
 .jigsaw-room__create-form span,
 .jigsaw-room__create-form legend,
 .jigsaw-room__share-box span {
-  color: var(--jigsaw-panel-muted);
   font-size: 0.64rem;
   letter-spacing: 0.16em;
   text-transform: uppercase;
@@ -180,6 +179,14 @@
   transition: transform 0.15s;
 }
 
+.jigsaw-room__build-select-trigger {
+  width: 100%;
+  height: 38px;
+  border: 0.5px solid var(--jigsaw-panel-border);
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+}
+
 .jigsaw-room__history-dropdown {
   position: absolute;
   top: calc(100% + 4px);
@@ -191,6 +198,11 @@
   border: 0.5px solid var(--jigsaw-panel-border);
   background: var(--popover);
   box-shadow: 0 12px 40px color-mix(in oklch, black, transparent 78%);
+}
+
+.jigsaw-room__build-select-content {
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
 }
 
 .jigsaw-room__history-option {
@@ -265,18 +277,26 @@
 }
 
 .jigsaw-room__presets button {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
   flex: 1;
-  min-height: 30px;
+  min-width: 0;
+  min-height: 44px;
+  padding: 4px 2px;
+  padding-block: 6px;
   border: 0.5px solid var(--jigsaw-panel-border);
   border-radius: 0;
   color: var(--muted-foreground);
   background: transparent;
   font-family: var(--font-mono);
-  font-size: 0.64rem;
   font-weight: 700;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.02em;
   text-transform: uppercase;
   cursor: pointer;
+  overflow: hidden;
   transition:
     background-color 0.15s,
     color 0.15s,
@@ -294,15 +314,143 @@
 }
 
 .jigsaw-room__presets button.is-active {
-  color: var(--primary-foreground);
+  color: var(--foreground);
   background: var(--primary);
   border-color: var(--primary);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
 }
 
 .jigsaw-room__presets button:focus-visible {
   outline: none;
   box-shadow: inset 0 0 0 2px
     color-mix(in oklch, var(--primary), transparent 60%);
+}
+
+.jigsaw-room__preset-icon {
+  font-size: 0.9rem !important;
+  line-height: 1;
+  text-shadow: 0 0 0.5px currentColor;
+}
+
+.jigsaw-room__tier-icon {
+  font-size: 1rem !important;
+  line-height: 1;
+}
+
+.jigsaw-room__preset-label {
+  width: 100%;
+  font-size: 0.52rem;
+  font-weight: 800;
+  font-style: normal;
+  line-height: 1.15;
+  letter-spacing: 0.01em;
+  text-transform: none;
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Value readout: icon + label + count */
+.jigsaw-room__slider-value {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  transition:
+    color 0.25s,
+    text-shadow 0.25s;
+}
+
+.jigsaw-room__tier-count {
+  font-size: 0.62rem;
+  font-weight: 400;
+  color: var(--muted-foreground);
+}
+
+/* --- Эскалация "эпичности" по тирам --- */
+
+/* tier 3: сложный — лёгкий тёплый акцент */
+.jigsaw-room__presets button[data-tier="3"].is-active {
+  border-color: #e58a2a;
+}
+
+/* tier 4: хардкор — оранжевое свечение */
+.jigsaw-room__presets button[data-tier="4"].is-active {
+  border-color: #ff7a1a;
+  box-shadow: 0 0 8px color-mix(in oklch, #ff7a1a, transparent 45%);
+}
+.jigsaw-room__slider-value[data-tier="4"] {
+  color: #ff7a1a;
+}
+
+/* tier 5: безумие — фиолетово-розовое свечение */
+.jigsaw-room__presets button[data-tier="5"].is-active {
+  --tier5-color: #ec4899;
+  border-color: var(--tier5-color);
+  color: var(--tier5-color);
+  box-shadow: 0 0 14px color-mix(in oklch, var(--tier5-color), transparent 30%);
+}
+.jigsaw-room__slider-value[data-tier="5"] {
+  color: var(--tier5-color);
+  text-shadow: 0 0 12px color-mix(in oklch, var(--tier5-color), transparent 40%);
+}
+
+.jigsaw-room__slider-value[data-tier="4"],
+.jigsaw-room__slider-value[data-tier="5"] {
+  color: var(--foreground);
+}
+
+/* tier 6: ЛЕГЕНДА — градиент + пульсирующий огонь */
+.jigsaw-room__presets button[data-tier="6"].is-active {
+  border-color: #ff3d00;
+  background: linear-gradient(135deg, #ff3d00, #ffb300);
+  color: #000;
+  text-shadow: 0 1px 2px rgba(255, 255, 255, 0.5);
+  animation: jigsaw-legend-pulse 1.4s ease-in-out infinite;
+}
+
+.jigsaw-room__slider-value[data-tier="6"] {
+  background: linear-gradient(135deg, #ff3d00, #ffb300);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: jigsaw-legend-pulse 1.4s ease-in-out infinite;
+}
+
+.jigsaw-room__slider-value[data-tier="6"] .jigsaw-room__tier-icon {
+  display: inline-block;
+  animation: jigsaw-legend-flicker 0.6s ease-in-out infinite alternate;
+}
+
+@keyframes jigsaw-legend-pulse {
+  0%,
+  100% {
+    box-shadow:
+      0 0 10px color-mix(in oklch, #ff3d00, transparent 30%),
+      0 0 22px color-mix(in oklch, #ffb300, transparent 55%);
+  }
+  50% {
+    box-shadow:
+      0 0 18px color-mix(in oklch, #ff3d00, transparent 5%),
+      0 0 36px color-mix(in oklch, #ffb300, transparent 25%);
+  }
+}
+
+@keyframes jigsaw-legend-flicker {
+  from {
+    transform: scale(1) rotate(-2deg);
+  }
+  to {
+    transform: scale(1.12) rotate(2deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .jigsaw-room__presets button[data-tier="6"].is-active,
+  .jigsaw-room__slider-value[data-tier="6"],
+  .jigsaw-room__slider-value[data-tier="6"] .jigsaw-room__tier-icon {
+    animation: none;
+  }
 }
 
 .jigsaw-room__slider-group input[type="range"] {
@@ -369,7 +517,8 @@
   outline: none;
 }
 
-.jigsaw-room__slider-group input[type="range"]:focus-visible::-webkit-slider-thumb {
+.jigsaw-room__slider-group
+  input[type="range"]:focus-visible::-webkit-slider-thumb {
   box-shadow: 0 0 0 2px color-mix(in oklch, var(--primary), transparent 60%);
 }
 

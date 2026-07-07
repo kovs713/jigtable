@@ -159,7 +159,9 @@ export async function loginTelegramWidget(
 }
 
 export async function loginDev(): Promise<AuthSession> {
-  return requestAuth("/api/auth/dev-login", {})
+  return requestAuth("/api/auth/dev-login", {
+    telegramId: import.meta.env.VITE_DEV_TELEGRAM_ID,
+  })
 }
 
 export async function fetchAuthMe(token: string): Promise<AuthSession> {

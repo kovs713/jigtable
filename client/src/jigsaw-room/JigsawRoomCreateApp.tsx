@@ -2,7 +2,13 @@ import * as React from "react"
 import { useEffect, useMemo, useRef, useState } from "react"
 
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { Slider } from "@/components/ui/slider"
 import type { CreateJigsawRoomResponse } from "@jigtable/jigsaw-core/multiplayer/protocol"
 import {
@@ -20,7 +26,11 @@ import {
   type JigsawHistoryItem,
 } from "./multiplayer/auth"
 import { API_BASE_URL } from "@/config"
-import { createJigsawRoom, createJigsawRoomFromBatch } from "./room-api"
+import {
+  createJigsawRoomFromBatch,
+  fetchUserBatches,
+  type UserBatchItem,
+} from "./room-api"
 
 import "./jigsaw-room.css"
 import "./jigsaw-room-create.css"
@@ -39,34 +49,47 @@ type BatchLayout = {
   items: BatchLayoutItem[]
 }
 
-const DEFAULT_IMAGE_URL = "/test_jigsaw.png"
-const PRESETS = [48, 100, 300, 600, 1_000, 1_500, 2_000]
+type DifficultyTier = {
+  pieces: number
+  label: string
+  icon: string
+}
+
+const DIFFICULTY_TIERS: DifficultyTier[] = [
+  { pieces: 48, label: "изи", icon: "○" },
+  { pieces: 100, label: "окэй", icon: "◔" },
+  { pieces: 300, label: "крепыш", icon: "◑" },
+  { pieces: 600, label: "жеско", icon: "◕" },
+  { pieces: 1_000, label: "хард", icon: "⬤" },
+  { pieces: 1_500, label: "инсейн", icon: "✦" },
+  { pieces: 2_000, label: "ЛЕГЕНДА 💪", icon: "🔥" },
+]
+
+// const PRESETS = [48, 100, 300, 600, 1_000, 1_500, 2_000]
+const PRESETS = DIFFICULTY_TIERS.map((t) => t.pieces)
 const DEV_LOGIN_ENABLED = import.meta.env.DEV
+
+function findActiveTierIndex(pieceCount: number, presets: number[]) {
+  const ranges = getPresetRanges(presets)
+  for (let i = ranges.length - 1; i >= 0; i--) {
+    if (pieceCount >= ranges[i].min) return i
+  }
+  return 0
+}
 
 function getPresetRanges(presets: number[]) {
   return presets.map((value, index) => {
     const prev = index > 0 ? presets[index - 1] : value
     const next = index < presets.length - 1 ? presets[index + 1] : value
     const min = index === 0 ? value : Math.floor((prev + value) / 2) + 1
-    const max = index === presets.length - 1 ? value : Math.ceil((value + next) / 2)
+    const max =
+      index === presets.length - 1 ? value : Math.ceil((value + next) / 2)
     return { value, min, max }
   })
 }
 
-function findActivePreset(pieceCount: number, presets: number[]) {
-  const ranges = getPresetRanges(presets)
-  for (let i = ranges.length - 1; i >= 0; i--) {
-    if (pieceCount >= ranges[i].min) {
-      return ranges[i].value
-    }
-  }
-  return presets[0]
-}
-
 export function JigsawRoomCreateApp() {
   const widgetRef = useRef<HTMLDivElement | null>(null)
-  const initialImageUrl = useMemo(() => getInitialImageUrl(), [])
-  const initialSourceSize = useMemo(() => getInitialSourceSize(), [])
   const initialBatchId = useMemo(() => getInitialBatchId(), [])
   const initialBatchToken = useMemo(() => getInitialBatchToken(), [])
   const hasBatchParams = Boolean(initialBatchId && initialBatchToken)
@@ -81,7 +104,6 @@ export function JigsawRoomCreateApp() {
   )
   const [authLoading, setAuthLoading] = useState(false)
   const [widgetVisible, setWidgetVisible] = useState(false)
-  const [imageUrl, setImageUrl] = useState(initialImageUrl)
   const [pieceCount, setPieceCount] = useState(150)
   const [status, setStatus] = useState("Choose jigsaw size")
   const [isError, setIsError] = useState(false)
@@ -89,11 +111,22 @@ export function JigsawRoomCreateApp() {
   const [createdRoom, setCreatedRoom] =
     useState<CreateJigsawRoomResponse | null>(null)
   const [copied, setCopied] = useState(false)
-  const [imgValid, setImgValid] = useState(true)
   const [batchPreview, setBatchPreview] = useState<BatchLayout | null>(null)
+  const [batches, setBatches] = useState<UserBatchItem[]>([])
+  const [selectedBatch, setSelectedBatch] = useState<{
+    batchId: string
+    batchToken: string
+  } | null>(() =>
+    initialBatchId && initialBatchToken
+      ? { batchId: initialBatchId, batchToken: initialBatchToken }
+      : null
+  )
   const [history, setHistory] = useState<JigsawHistoryItem[]>([])
   const [historyOpen, setHistoryOpen] = useState(false)
   const historyRef = useRef<HTMLDivElement | null>(null)
+
+  const activeTierIndex = findActiveTierIndex(pieceCount, PRESETS)
+  const activeTier = DIFFICULTY_TIERS[activeTierIndex]
 
   useEffect(() => {
     if (!authSession) return
@@ -105,13 +138,42 @@ export function JigsawRoomCreateApp() {
       })
       .catch(() => {})
 
-    return () => { disposed = true }
+    return () => {
+      disposed = true
+    }
   }, [authSession])
+
+  useEffect(() => {
+    if (!authSession) return
+    let disposed = false
+
+    void fetchUserBatches(authSession.token)
+      .then((items) => {
+        if (disposed) return
+        setBatches(items)
+        if (!selectedBatch && items[0]) {
+          setSelectedBatch({
+            batchId: items[0].batchId,
+            batchToken: items[0].batchToken,
+          })
+        }
+      })
+      .catch((error) => {
+        if (!disposed) setStatus(readErrorMessage(error))
+      })
+
+    return () => {
+      disposed = true
+    }
+  }, [authSession, selectedBatch])
 
   useEffect(() => {
     if (!historyOpen) return
     function handleClickOutside(event: PointerEvent) {
-      if (historyRef.current && !historyRef.current.contains(event.target as Node)) {
+      if (
+        historyRef.current &&
+        !historyRef.current.contains(event.target as Node)
+      ) {
         setHistoryOpen(false)
       }
     }
@@ -121,20 +183,26 @@ export function JigsawRoomCreateApp() {
 
   function selectHistoryItem(item: JigsawHistoryItem) {
     setPieceCount(item.pieceCount)
-    if (item.source.kind === "batch_render" && item.source.label) {
-      setImageUrl(item.source.label)
-    }
     setHistoryOpen(false)
     setStatus(`Loaded: ${item.source.label}`)
   }
 
+  function selectBuild(batch: UserBatchItem): void {
+    setSelectedBatch({
+      batchId: batch.batchId,
+      batchToken: batch.batchToken,
+    })
+    setBatchPreview(null)
+    setStatus("Choose jigsaw size")
+  }
+
   useEffect(() => {
-    if (!initialBatchId || !initialBatchToken || !authSession) return
+    if (!selectedBatch || !authSession) return
 
     let disposed = false
 
     void fetch(
-      `${API_BASE_URL}/api/batches/${initialBatchId}/layout?token=${encodeURIComponent(initialBatchToken)}`,
+      `${API_BASE_URL}/api/batches/${selectedBatch.batchId}/layout?token=${encodeURIComponent(selectedBatch.batchToken)}`,
       { headers: { Authorization: `Bearer ${authSession.token}` } }
     )
       .then((r) => r.json())
@@ -145,8 +213,10 @@ export function JigsawRoomCreateApp() {
       })
       .catch(() => {})
 
-    return () => { disposed = true }
-  }, [initialBatchId, initialBatchToken, authSession])
+    return () => {
+      disposed = true
+    }
+  }, [selectedBatch, authSession])
 
   useEffect(() => {
     const saved = readLocalAuthSession()
@@ -298,50 +368,12 @@ export function JigsawRoomCreateApp() {
       return
     }
 
-    const batchId = getInitialBatchId()
-    const batchToken = getInitialBatchToken()
+    const batchId = selectedBatch?.batchId
+    const batchToken = selectedBatch?.batchToken
 
     if (!batchId || !batchToken) {
-      const trimmedImageUrl = imageUrl.trim()
-
-      if (!trimmedImageUrl) {
-        setStatus("Image URL is required")
-        setIsError(true)
-        return
-      }
-
-      setCreating(true)
-      setStatus("Creating room...")
-      setIsError(false)
-
-      try {
-        const sourceSize =
-          trimmedImageUrl === initialImageUrl ? initialSourceSize : null
-        const payload = await createJigsawRoom(
-          {
-            imageUrl: trimmedImageUrl,
-            pieceCount,
-            sourceWidth: sourceSize?.width,
-            sourceHeight: sourceSize?.height,
-          },
-          authSession.token
-        )
-
-        setCreatedRoom(payload)
-        setStatus("Room ready")
-        window.history.replaceState(
-          null,
-          "",
-          `/jigsaw/new?roomId=${encodeURIComponent(payload.roomId)}`
-        )
-      } catch (error) {
-        setStatus(
-          error instanceof Error ? error.message : "Failed to create room"
-        )
-        setIsError(true)
-      } finally {
-        setCreating(false)
-      }
+      setStatus("Choose a build first")
+      setIsError(true)
       return
     }
 
@@ -388,6 +420,11 @@ export function JigsawRoomCreateApp() {
     }
   }
 
+  const selectedBatchInfo = selectedBatch
+    ? batches.find((batch) => batch.batchId === selectedBatch.batchId)
+    : null
+  const selectedBatchView = selectedBatchInfo ?? null
+
   return (
     <main className="jigsaw-room jigsaw-room--create">
       <section className="jigsaw-room__create-panel corner-brackets">
@@ -433,9 +470,44 @@ export function JigsawRoomCreateApp() {
         </div>
 
         <div className="jigsaw-room__create-form">
-          {hasBatchParams ? (
+          {selectedBatch ? (
             <div className="jigsaw-room__input-group">
-              <span>Source</span>
+              <span>Build</span>
+              <Select
+                value={selectedBatch.batchId}
+                onValueChange={(value) => {
+                  const batch = batches.find((item) => item.batchId === value)
+                  if (batch) selectBuild(batch)
+                }}
+              >
+                <SelectTrigger className="jigsaw-room__build-select-trigger">
+                  <SelectValue>
+                    {formatBatchTitle(selectedBatchView)} ·{" "}
+                    {formatBatchMeta(selectedBatchView)}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent className="jigsaw-room__build-select-content">
+                  {batches.map((batch, index) => (
+                    <SelectItem key={batch.batchId} value={batch.batchId}>
+                      {String(index + 1).padStart(2, "0")} · {batch.imageCount}{" "}
+                      images · {formatBatchMeta(batch)}
+                    </SelectItem>
+                  ))}
+                  {!batches.length ? (
+                    <SelectItem value={selectedBatch.batchId} disabled>
+                      No other builds found
+                    </SelectItem>
+                  ) : null}
+                  {hasBatchParams &&
+                  !batches.some(
+                    (batch) => batch.batchId === selectedBatch.batchId
+                  ) ? (
+                    <SelectItem value={selectedBatch.batchId}>
+                      Current build · Opened from bot link
+                    </SelectItem>
+                  ) : null}
+                </SelectContent>
+              </Select>
               <div className="jigsaw-room__image-preview">
                 {batchPreview ? (
                   <BatchCanvasPreview layout={batchPreview} />
@@ -447,7 +519,7 @@ export function JigsawRoomCreateApp() {
               </div>
             </div>
           ) : (
-            <>
+            <div className="jigsaw-room__input-group">
               {history.length > 0 && (
                 <div className="jigsaw-room__input-group" ref={historyRef}>
                   <span>Saved builds</span>
@@ -457,8 +529,16 @@ export function JigsawRoomCreateApp() {
                       className="jigsaw-room__history-trigger"
                       onClick={() => setHistoryOpen(!historyOpen)}
                     >
-                      {history.length} saved build{history.length !== 1 ? "s" : ""}
-                      <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5">
+                      {history.length} saved build
+                      {history.length !== 1 ? "s" : ""}
+                      <svg
+                        width="12"
+                        height="12"
+                        viewBox="0 0 12 12"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="1.5"
+                      >
                         <path d="M3 5l3 3 3-3" />
                       </svg>
                     </button>
@@ -484,63 +564,48 @@ export function JigsawRoomCreateApp() {
                   </div>
                 </div>
               )}
-
-              <label className="jigsaw-room__input-group">
-                <span>Image URL</span>
-                <Input
-                  aria-invalid={isError}
-                  className="jigsaw-room__input"
-                  placeholder="https://example.com/image.png"
-                  type="url"
-                  value={imageUrl}
-                  onChange={(event) => {
-                    setImageUrl(event.target.value)
-                    setImgValid(true)
-                  }}
-                />
-              </label>
-
               <div className="jigsaw-room__image-preview">
-                {imageUrl.trim() ? (
-                  imgValid ? (
-                    <img
-                      src={imageUrl.trim()}
-                      alt="Preview"
-                      onError={() => setImgValid(false)}
-                      onLoad={() => setImgValid(true)}
-                    />
-                  ) : (
-                    <div className="jigsaw-room__image-placeholder jigsaw-room__image-placeholder--error">
-                      <span>Cannot load image. Please check the URL.</span>
-                    </div>
-                  )
-                ) : (
-                  <div className="jigsaw-room__image-placeholder">
-                    <span>Image preview will appear here</span>
-                  </div>
-                )}
+                <div className="jigsaw-room__image-placeholder">
+                  <span>No saved builds yet. Create one in the bot first.</span>
+                </div>
               </div>
-            </>
+            </div>
           )}
 
           <label className="jigsaw-room__slider-group">
             <span>Pieces</span>
-            <output className="jigsaw-room__slider-value">
-              {pieceCount.toLocaleString()}
+            <output
+              className="jigsaw-room__slider-value"
+              data-tier={activeTierIndex}
+            >
+              <span className="jigsaw-room__tier-icon">{activeTier.icon}</span>
+              <span className="jigsaw-room__tier-label">
+                {activeTier.label}
+              </span>
+              <span className="jigsaw-room__tier-count">
+                {pieceCount.toLocaleString()} pcs
+              </span>
             </output>
             <div className="jigsaw-room__presets" role="radiogroup">
-              {PRESETS.map((p) => {
-                const isActive = findActivePreset(pieceCount, PRESETS) === p
+              {DIFFICULTY_TIERS.map((tier, index) => {
+                const isActive = activeTierIndex === index
                 return (
                   <button
-                    key={p}
+                    key={tier.pieces}
                     type="button"
                     role="radio"
                     aria-checked={isActive}
+                    data-tier={index}
                     className={isActive ? "is-active" : ""}
-                    onClick={() => setPieceCount(p)}
+                    title={`${tier.pieces.toLocaleString()} деталей`}
+                    onClick={() => setPieceCount(tier.pieces)}
                   >
-                    {p >= 1_000 ? `${p / 1_000}k` : p}
+                    <span className="jigsaw-room__preset-icon">
+                      {tier.icon}
+                    </span>
+                    <span className="jigsaw-room__preset-label">
+                      {tier.label}
+                    </span>
                   </button>
                 )
               })}
@@ -557,7 +622,9 @@ export function JigsawRoomCreateApp() {
 
           <Button
             className="jigsaw-room__submit-btn"
-            disabled={creating || (!hasBatchParams && !imageUrl.trim()) || !authSession}
+            disabled={
+              creating || !selectedBatch || !authSession
+            }
             onClick={() => void createRoom()}
           >
             {creating && (
@@ -613,11 +680,6 @@ function readErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : "Telegram login failed"
 }
 
-function getInitialImageUrl(): string {
-  const params = new URLSearchParams(window.location.search)
-  return params.get("imageUrl") ?? DEFAULT_IMAGE_URL
-}
-
 function getInitialBatchId(): string | null {
   const params = new URLSearchParams(window.location.search)
   return params.get("batchId")?.trim() || null
@@ -628,21 +690,31 @@ function getInitialBatchToken(): string | null {
   return params.get("batchToken")?.trim() || null
 }
 
-function getInitialSourceSize(): { width: number; height: number } | null {
-  const params = new URLSearchParams(window.location.search)
-  const width = Number(params.get("sourceWidth"))
-  const height = Number(params.get("sourceHeight"))
+function formatBatchDate(value: string | null): string {
+  if (!value) return "no date"
 
-  if (
-    !Number.isFinite(width) ||
-    !Number.isFinite(height) ||
-    width <= 0 ||
-    height <= 0
-  ) {
-    return null
-  }
+  return new Intl.DateTimeFormat("ru-RU", {
+    day: "2-digit",
+    month: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(new Date(value))
+}
 
-  return { width: Math.round(width), height: Math.round(height) }
+function formatBatchTitle(batch: UserBatchItem | null): string {
+  if (!batch) return "Current build"
+
+  return `${batch.imageCount} images`
+}
+
+function formatBatchMeta(batch: UserBatchItem | null): string {
+  if (!batch) return "Opened from bot link"
+
+  const canvas = batch.canvas
+    ? `${Math.round(batch.canvas.width)}x${Math.round(batch.canvas.height)}`
+    : "canvas pending"
+
+  return `${canvas} · ${formatBatchDate(batch.createdAt)}`
 }
 
 function BatchCanvasPreview({ layout }: { layout: BatchLayout }) {

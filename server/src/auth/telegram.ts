@@ -122,30 +122,17 @@ export class TelegramAuthService {
       .where(eq(authSessionsSchema.tokenHash, SHA256.hash(token, "hex")))
   }
 
-  async loginDev(): Promise<AuthSessionResult> {
-    const devTelegramId = `dev_${Date.now()}`
+  async loginDev(telegramId?: string): Promise<AuthSessionResult> {
+    const devTelegramId = telegramId?.trim() || `dev_${Date.now()}`
     const now = new Date()
     const expiresAt = new Date(
       now.getTime() + AUTH_SESSION_DAYS * 24 * 60 * 60 * 1000
     )
 
-    const insertedUser = await db
-      .insert(usersSchema)
-      .values({
-        telegramId: devTelegramId,
-        displayName: "Dev User",
-        color: "#3b82f6",
-        createdAt: now,
-        updatedAt: now,
-        lastLoginAt: now,
-      })
-      .returning()
-
-    const user = insertedUser[0]
-
-    if (!user) {
-      throw new Error("Dev user insert failed")
-    }
+    const user = await upsertTelegramUser(
+      { telegramId: devTelegramId, firstName: "Dev" },
+      { name: "Dev User", color: "#3b82f6" }
+    )
 
     const token = randomBytes(32).toString("base64url")
 
@@ -159,7 +146,7 @@ export class TelegramAuthService {
 
     return {
       token,
-      user: toAuthenticatedUser(user),
+      user,
       expiresAt: expiresAt.toISOString(),
     }
   }
