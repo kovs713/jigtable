@@ -2,6 +2,13 @@ import { eq } from "drizzle-orm"
 import type { CommandContext } from "grammy"
 
 import type { BotContext } from "@/bot/types"
+import {
+  deleteMessageSafe,
+  getStatusMessageId,
+  clearStatusMessageId,
+  getViewerMessageId,
+  clearViewerMessageId,
+} from "@/bot/upload"
 import { db } from "@/infra/db"
 import {
   batchesSchema,
@@ -11,11 +18,22 @@ import {
 import { s3Client } from "@/infra/storage"
 
 export async function handleReset(ctx: CommandContext<BotContext>) {
-  await ctx.reply("command reset и че бля")
-
   if (!ctx.from) {
     await ctx.reply("ну и иди нахуй")
     return
+  }
+
+  const upload = ctx.session.upload
+  if (upload?.statusRefreshTimer) {
+    clearTimeout(upload.statusRefreshTimer)
+  }
+
+  const chatId = ctx.chat?.id
+  if (chatId) {
+    await deleteMessageSafe(ctx, chatId, getStatusMessageId(chatId))
+    clearStatusMessageId(chatId)
+    await deleteMessageSafe(ctx, chatId, getViewerMessageId(chatId))
+    clearViewerMessageId(chatId)
   }
 
   if (ctx.session.activeBatchId) {
@@ -37,4 +55,7 @@ export async function handleReset(ctx: CommandContext<BotContext>) {
   ctx.session.isStarted = false
   ctx.session.activeBatchId = undefined
   ctx.session.photos = []
+  ctx.session.upload = undefined
+
+  await ctx.reply("Снёс. Можно кидать заново.")
 }

@@ -2,31 +2,35 @@ import { InputFile, type CommandContext } from "grammy"
 
 import { COOL_IMAGE_S3_FILE_NAME } from "@/bot/constants"
 import type { BotContext } from "@/bot/types"
+import { getActiveImages } from "@/bot/upload"
 
 let coolImageFileId: string | null = null
 
 export async function handleStatus(
   ctx: CommandContext<BotContext>
 ): Promise<void> {
-  // Session not started
   if (!ctx.session.isStarted) {
-    await ctx.reply(
-      "ничего не начато ебаклак, нажми /new чтобы начать свой шлак кидать"
-    )
+    await ctx.reply("Ничего не начато. Нажми /new чтобы начать.")
+    return
+  }
+
+  const upload = ctx.session.upload
+  if (upload) {
+    const active = getActiveImages(upload)
+    if (active.length === 0) {
+      await ctx.reply("Набор пустой. Кинь картинки через /new.")
+      return
+    }
+    await ctx.reply(`В наборе ${active.length} картинок.`)
     return
   }
 
   const photos = ctx.session.photos
-
-  // Else if started and images pushed tell how much
   if (photos.length) {
-    await ctx.reply(
-      `batch ${ctx.session.activeBatchId}: сейчас в меня засовано ${photos.length} шлака`
-    )
+    await ctx.reply(`В наборе ${photos.length} картинок.`)
     return
   }
 
-  // If not pushed
   await replyWithCoolPhoto(ctx)
 }
 
@@ -37,7 +41,7 @@ async function replyWithCoolPhoto(
     const isSent = await tryReplyWithCoolPhoto(ctx, coolImageFileId)
     if (!isSent) {
       coolImageFileId = null
-      await ctx.reply("ничего не засовано")
+      await ctx.reply("Набор пустой.")
     }
 
     return
@@ -48,7 +52,7 @@ async function replyWithCoolPhoto(
     console.warn(
       `ERROR: Failed to fetch cool asset with status ${response.status}`
     )
-    await ctx.reply("ничего не засовано")
+    await ctx.reply("Набор пустой.")
     return
   }
 
@@ -58,7 +62,7 @@ async function replyWithCoolPhoto(
   )
 
   if (!message) {
-    await ctx.reply("ничего не засовано")
+    await ctx.reply("Набор пустой.")
     return
   }
 
@@ -71,7 +75,7 @@ async function tryReplyWithCoolPhoto(
 ) {
   try {
     return await ctx.replyWithPhoto(photo, {
-      caption: "ничего не засовано",
+      caption: "Набор пустой.",
     })
   } catch (error) {
     console.warn("Failed to send cool status photo", error)

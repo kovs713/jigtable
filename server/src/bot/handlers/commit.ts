@@ -1,7 +1,7 @@
 import { asc, eq } from "drizzle-orm"
-import type { CommandContext } from "grammy"
 
 import type { BotContext } from "@/bot/types"
+import { getActiveImages } from "@/bot/upload"
 import { clientLayoutUrl } from "@/features/urls"
 import { db } from "@/infra/db"
 import {
@@ -12,12 +12,10 @@ import {
 import { shuffleImages } from "@/shuffle"
 
 export async function handleCommit(
-  ctx: CommandContext<BotContext>
+  ctx: BotContext
 ): Promise<void> {
   if (!ctx.session.isStarted || !ctx.session.activeBatchId) {
-    await ctx.reply(
-      "бля, далбаеб, ты не то что не скинул нихуя еще, ты даже не начал процесс, ебанат, /new есть, пресс баттнс уебище"
-    )
+    await ctx.reply("Нет активного батча. Начни через /new")
     return
   }
 
@@ -46,14 +44,28 @@ export async function handleCommit(
     return
   }
 
-  const photos = await db
+  const uploadSession = ctx.session.upload
+  const activeIds = uploadSession
+    ? new Set(getActiveImages(uploadSession).map((img) => img.id))
+    : null
+
+  const allPhotos = await db
     .select()
     .from(batchPhotosSchema)
     .where(eq(batchPhotosSchema.batchId, batch.batchId))
     .orderBy(asc(batchPhotosSchema.sortOrder))
 
+  const photos = activeIds
+    ? allPhotos.filter((p) => activeIds.has(p.fileId))
+    : allPhotos
+
   if (photos.length === 0) {
-    await ctx.reply("сначала отправь картинки")
+    await ctx.reply("Нечего собирать. Кинь хотя бы 2 картинки.")
+    return
+  }
+
+  if (photos.length < 2) {
+    await ctx.reply("Нужно хотя бы 2 картинки. Из одной пазл так себе, конечно.")
     return
   }
 
@@ -81,7 +93,7 @@ export async function handleCommit(
 }
 
 async function replyWithEditorLink(
-  ctx: CommandContext<BotContext>,
+  ctx: BotContext,
   batchId: string,
   editToken: string
 ): Promise<void> {
@@ -113,10 +125,15 @@ async function replyWithEditorLink(
   await ctx.reply(messageLines.join("\n"), replyOptions)
 }
 
-function clearActiveBatch(ctx: CommandContext<BotContext>): void {
+function clearActiveBatch(ctx: BotContext): void {
+  const upload = ctx.session.upload
+  if (upload?.statusRefreshTimer) {
+    clearTimeout(upload.statusRefreshTimer)
+  }
   ctx.session.isStarted = false
   ctx.session.activeBatchId = undefined
   ctx.session.photos = []
+  ctx.session.upload = undefined
 }
 
 function isTelegramUrl(value: string): boolean {

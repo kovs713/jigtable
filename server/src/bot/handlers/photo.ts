@@ -4,25 +4,41 @@ import { batchPhotoObjectKey } from "@/features/object-keys"
 import { uploadPhotoToObjectKey } from "@/features/upload-photo"
 import { db } from "@/infra/db"
 import { batchPhotosSchema } from "@/infra/db/schemas"
+import { scheduleUploadStatusRefresh } from "@/bot/upload"
 
 export async function handlePhoto(ctx: PhotoContext) {
   const photos = ctx.message.photo
 
   if (!ctx.session.isStarted || !ctx.session.activeBatchId) {
-    await ctx.reply("бля всему учить нада, далбаеб сначала /new нажми")
+    await ctx.reply("сначала /new нажми")
     return
   }
 
   const bestPhoto = photos.at(-1)
   if (!bestPhoto) return
 
-  if (ctx.session.photos.length >= LIMITS.photosPerBatch) {
-    await ctx.reply(`лимит ${LIMITS.photosPerBatch} картинок на batch`)
+  if (!ctx.session.upload) {
+    ctx.session.upload = {
+      images: [],
+      duplicateCount: 0,
+      seenFileUniqueIds: [],
+    }
+  }
+
+  const session = ctx.session.upload
+
+  if (session.images.length >= LIMITS.photosPerBatch) {
+    return
+  }
+
+  const fileUniqueId = ctx.message.photo.at(-1)?.file_unique_id
+  if (fileUniqueId && session.seenFileUniqueIds.includes(fileUniqueId)) {
+    session.duplicateCount++
+    scheduleUploadStatusRefresh(ctx)
     return
   }
 
   if (bestPhoto.file_size && bestPhoto.file_size > LIMITS.uploadPhotoBytes) {
-    await ctx.reply("картинка слишком большая")
     return
   }
 
@@ -36,7 +52,7 @@ export async function handlePhoto(ctx: PhotoContext) {
     const objectKey = batchPhotoObjectKey(ctx.session.activeBatchId, photoId)
     const fileUrl = `https://api.telegram.org/file/bot${process.env.BOT_TOKEN}/${file.file_path}`
     const uploaded = await uploadPhotoToObjectKey(fileUrl, objectKey)
-    const sortOrder = ctx.session.photos.length
+    const sortOrder = session.images.length
 
     await db.insert(batchPhotosSchema).values({
       fileId: photoId,
@@ -48,6 +64,23 @@ export async function handlePhoto(ctx: PhotoContext) {
       height: bestPhoto.height,
     })
 
+    session.images.push({
+      id: photoId,
+      fileId: bestPhoto.file_id,
+      fileUniqueId: fileUniqueId ?? "",
+      width: bestPhoto.width,
+      height: bestPhoto.height,
+      fileSize: bestPhoto.file_size,
+      sourceMessageId: ctx.message.message_id,
+      mediaGroupId: ctx.message.media_group_id,
+      status: "active",
+      createdAt: Date.now(),
+    })
+
+    if (fileUniqueId) {
+      session.seenFileUniqueIds.push(fileUniqueId)
+    }
+
     ctx.session.photos.push(photoId)
   } catch (error) {
     console.error("Photo upload failed", {
@@ -56,12 +89,10 @@ export async function handlePhoto(ctx: PhotoContext) {
       telegramFileId: bestPhoto.file_id,
       error: getErrorMessage(error),
     })
-
-    await ctx.reply("не смог загрузить картинку, попробуй еще раз")
     return
   }
 
-  await ctx.reply(`принял ${ctx.session.photos.length}`)
+  scheduleUploadStatusRefresh(ctx)
 }
 
 function getErrorMessage(error: unknown): string {
