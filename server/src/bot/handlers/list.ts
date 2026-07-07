@@ -12,8 +12,17 @@ import {
 } from "@/infra/db/schemas"
 import { s3Client } from "@/infra/storage"
 
-const PAGE_SIZE = 5
+const PAGE_SIZE = 3
 const previewFileIds = new Map<string, string>()
+
+type Batch = typeof batchesSchema.$inferSelect
+
+interface ListView {
+  caption: string
+  keyboard: InlineKeyboardButton[][]
+  media?: InputFile | string
+  outputKey?: string
+}
 
 export async function handleList(
   ctx: CommandContext<BotContext>
@@ -23,8 +32,17 @@ export async function handleList(
     return
   }
 
-  const result = await renderListPage(String(ctx.from.id), 0)
-  await ctx.reply(result.text, result.options)
+  const view = await renderListPage(String(ctx.from.id), 0)
+  if (!view.media) {
+    await ctx.reply(view.caption)
+    return
+  }
+
+  const message = await ctx.replyWithPhoto(view.media, {
+    caption: view.caption,
+    reply_markup: { inline_keyboard: view.keyboard },
+  })
+  cachePreviewFileId(view.outputKey, message.photo.at(-1)?.file_id)
 }
 
 export async function handleListAction(
@@ -39,47 +57,51 @@ export async function handleListAction(
   const userId = String(ctx.from.id)
 
   if (data.startsWith("list:page:")) {
-    const page = parseNumber(data)
-    const result = await renderListPage(userId, page)
-    await ctx.editMessageText(result.text, result.options)
+    await editToView(ctx, await renderListPage(userId, parseNumber(data)))
     await ctx.answerCallbackQuery()
     return
   }
 
-  if (data.startsWith("list:preview:")) {
-    await sendPreview(ctx, userId, parseNumber(data))
+  if (data.startsWith("list:open:")) {
+    const action = parseBatchAction(data)
+    await editToView(
+      ctx,
+      await renderBatchCard(userId, action.batchId, action.page, action.index)
+    )
     await ctx.answerCallbackQuery()
     return
   }
 
-  if (data === "list:preview_close") {
-    const messageId = ctx.callbackQuery.message?.message_id
-    if (messageId) {
-      await ctx.api.deleteMessage(ctx.chat.id, messageId).catch(() => {})
-    }
+  if (data.startsWith("list:back:")) {
+    await editToView(ctx, await renderListPage(userId, parseNumber(data)))
     await ctx.answerCallbackQuery()
     return
   }
 
   if (data.startsWith("list:delete:")) {
-    await showDeleteConfirm(ctx, userId, parseNumber(data))
+    const action = parseBatchAction(data)
+    await editToView(
+      ctx,
+      await renderDeleteConfirm(userId, action.batchId, action.page, action.index)
+    )
     await ctx.answerCallbackQuery()
     return
   }
 
   if (data.startsWith("list:delete_confirm:")) {
-    const offset = parseNumber(data)
-    await deleteBatchAtOffset(userId, offset)
-    const result = await renderListPage(userId, Math.floor(offset / PAGE_SIZE))
-    await ctx.editMessageText(result.text, result.options)
+    const action = parseBatchAction(data)
+    await deleteBatch(userId, action.batchId)
+    await editToView(ctx, await renderListPage(userId, action.page))
     await ctx.answerCallbackQuery({ text: "Удалил" })
     return
   }
 
   if (data.startsWith("list:delete_cancel:")) {
-    const offset = parseNumber(data)
-    const result = await renderListPage(userId, Math.floor(offset / PAGE_SIZE))
-    await ctx.editMessageText(result.text, result.options)
+    const action = parseBatchAction(data)
+    await editToView(
+      ctx,
+      await renderBatchCard(userId, action.batchId, action.page, action.index)
+    )
     await ctx.answerCallbackQuery()
     return
   }
@@ -87,7 +109,36 @@ export async function handleListAction(
   await ctx.answerCallbackQuery()
 }
 
-async function renderListPage(userId: string, page: number) {
+async function editToView(ctx: CallbackQueryContext, view: ListView): Promise<void> {
+  const chatId = ctx.chat!.id
+  const messageId = ctx.callbackQuery.message?.message_id
+  if (!messageId) return
+
+  if (!view.media) {
+    await ctx.api.editMessageCaption(chatId, messageId, {
+      caption: view.caption,
+      reply_markup: undefined,
+    })
+    return
+  }
+
+  const edited = await ctx.api.editMessageMedia(
+    chatId,
+    messageId,
+    {
+      type: "photo",
+      media: view.media,
+      caption: view.caption,
+    },
+    { reply_markup: { inline_keyboard: view.keyboard } }
+  )
+
+  if (typeof edited !== "boolean" && edited.photo) {
+    cachePreviewFileId(view.outputKey, edited.photo.at(-1)?.file_id)
+  }
+}
+
+async function renderListPage(userId: string, page: number): Promise<ListView> {
   const safePage = Math.max(0, page)
   const offset = safePage * PAGE_SIZE
   const batches = await db
@@ -100,129 +151,143 @@ async function renderListPage(userId: string, page: number) {
 
   if (!batches.length) {
     return {
-      text:
+      caption:
         safePage === 0
           ? "Пока нет готовых сборок.\n\nСначала закинь картинки через /new."
           : "Дальше пусто. Всё, приехали.",
-      options: undefined,
+      keyboard: [],
     }
   }
 
   const visible = batches.slice(0, PAGE_SIZE)
-  const hasNext = batches.length > PAGE_SIZE
-  const lines = [
-    "Твои сборки.",
-    `Страница ${safePage + 1}. Тестовое можно снести тут же.`,
-    "",
-  ]
-  const rows: InlineKeyboardButton[][] = []
-
-  for (const [index, batch] of visible.entries()) {
-    const batchOffset = offset + index
-    const url = clientLayoutUrl(batch.batchId, batch.editToken)
-    const label = `${batchOffset + 1}. ${formatDate(batch.createdAt)} · ${formatStatus(batch.status)}`
-    lines.push(label)
-
-    if (!isTelegramUrl(url)) {
-      lines.push(url)
-    }
-
-    const row: InlineKeyboardButton[] = []
-    if (isTelegramUrl(url)) {
-      row.push({ text: `открыть ${batchOffset + 1}`, url })
-    }
-    if (batch.outputKey) {
-      row.push({ text: "превью", callback_data: `list:preview:${batchOffset}` })
-    }
-    row.push({ text: "удалить", callback_data: `list:delete:${batchOffset}` })
-    rows.push(row)
-  }
-
-  const nav: InlineKeyboardButton[] = []
-  if (safePage > 0) {
-    nav.push({ text: "назад", callback_data: `list:page:${safePage - 1}` })
-  }
-  if (hasNext) {
-    nav.push({ text: "дальше", callback_data: `list:page:${safePage + 1}` })
-  }
-  if (nav.length > 0) rows.push(nav)
+  const summaries = await Promise.all(
+    visible.map((batch, index) => renderListLine(batch, offset + index))
+  )
+  const coverBatch = visible.find((batch) => batch.outputKey) ?? visible[0]
+  const cover = coverBatch?.outputKey
+    ? await loadPreview(coverBatch.outputKey)
+    : undefined
 
   return {
-    text: lines.join("\n"),
-    options: { reply_markup: { inline_keyboard: rows } },
+    caption: ["Твои сборки.", "", ...summaries].join("\n"),
+    keyboard: renderListKeyboard({
+      offset,
+      batches: visible,
+      page: safePage,
+      hasNext: batches.length > PAGE_SIZE,
+    }),
+    media: cover ?? undefined,
+    outputKey: coverBatch?.outputKey ?? undefined,
   }
 }
 
-async function sendPreview(
-  ctx: CallbackQueryContext,
+async function renderBatchCard(
   userId: string,
-  offset: number
-): Promise<void> {
-  const batch = await getBatchAtOffset(userId, offset)
-  if (!batch?.outputKey) {
-    await ctx.answerCallbackQuery({ text: "Превью пока нет" })
-    return
-  }
+  batchId: string,
+  page: number,
+  index: number
+): Promise<ListView> {
+  const batch = await getBatchById(userId, batchId)
+  if (!batch) return notFoundView(page)
 
-  const cachedFileId = previewFileIds.get(batch.outputKey)
-  const photo = cachedFileId ?? (await loadPreview(batch.outputKey))
-  if (!photo) {
-    await ctx.answerCallbackQuery({ text: "Не смог открыть превью" })
-    return
-  }
-
+  const photoCount = await getPhotoCount(batch.batchId)
   const url = clientLayoutUrl(batch.batchId, batch.editToken)
-  const message = await ctx.api.sendPhoto(ctx.chat!.id, photo, {
-    caption: `Превью сборки ${offset + 1}\n${formatDate(batch.createdAt)}`,
-    reply_markup: {
-      inline_keyboard: [
-        isTelegramUrl(url)
-          ? [{ text: "открыть редактор", url }]
-          : [{ text: "закрыть", callback_data: "list:preview_close" }],
-        [{ text: "закрыть", callback_data: "list:preview_close" }],
-      ],
-    },
-  })
+  const media = batch.outputKey ? await loadPreview(batch.outputKey) : undefined
+  const caption = [
+    "Превью",
+    `Сборка #${index + 1}`,
+    `${photoCount} картинок`,
+    formatDimensions(batch),
+  ]
 
-  const fileId = message.photo.at(-1)?.file_id
-  if (fileId) {
-    previewFileIds.set(batch.outputKey, fileId)
+  if (!isTelegramUrl(url)) {
+    caption.push("", "Ссылка:", url)
+  }
+
+  const keyboard: InlineKeyboardButton[][] = []
+  if (isTelegramUrl(url)) {
+    keyboard.push([{ text: "открыть редактор", url }])
+  }
+  keyboard.push([
+    { text: "удалить", callback_data: `list:delete:${page}:${index}:${batch.batchId}` },
+    { text: "назад", callback_data: `list:back:${page}` },
+  ])
+
+  return {
+    caption: caption.join("\n"),
+    keyboard,
+    media: media ?? undefined,
+    outputKey: batch.outputKey ?? undefined,
   }
 }
 
-async function showDeleteConfirm(
-  ctx: CallbackQueryContext,
+async function renderDeleteConfirm(
   userId: string,
-  offset: number
-): Promise<void> {
-  const batch = await getBatchAtOffset(userId, offset)
-  if (!batch) {
-    await ctx.answerCallbackQuery({ text: "Уже нет" })
-    return
-  }
+  batchId: string,
+  page: number,
+  index: number
+): Promise<ListView> {
+  const batch = await getBatchById(userId, batchId)
+  if (!batch) return notFoundView(page)
 
-  await ctx.editMessageText(
-    [
-      `Снести сборку ${offset + 1}?`,
-      formatDate(batch.createdAt),
+  const media = batch.outputKey ? await loadPreview(batch.outputKey) : undefined
+  return {
+    caption: [
+      `Снести сборку #${index + 1}?`,
+      `${await getPhotoCount(batch.batchId)} картинок · ${formatDate(batch.createdAt)}`,
       "",
       "Удалю картинки из хранилища и уберу из списка.",
     ].join("\n"),
-    {
-      reply_markup: {
-        inline_keyboard: [
-          [
-            { text: "да, снести", callback_data: `list:delete_confirm:${offset}` },
-            { text: "не надо", callback_data: `list:delete_cancel:${offset}` },
-          ],
-        ],
-      },
-    }
-  )
+    keyboard: [
+      [
+        { text: "да, снести", callback_data: `list:delete_confirm:${page}:${index}:${batchId}` },
+        { text: "не надо", callback_data: `list:delete_cancel:${page}:${index}:${batchId}` },
+      ],
+    ],
+    media: media ?? undefined,
+    outputKey: batch.outputKey ?? undefined,
+  }
 }
 
-async function deleteBatchAtOffset(userId: string, offset: number): Promise<void> {
-  const batch = await getBatchAtOffset(userId, offset)
+function renderListKeyboard(input: {
+  offset: number
+  batches: Batch[]
+  page: number
+  hasNext: boolean
+}): InlineKeyboardButton[][] {
+  const openRow: InlineKeyboardButton[] = []
+  for (const [index, batch] of input.batches.entries()) {
+    const number = input.offset + index + 1
+    openRow.push({ text: `открыть ${number}`, callback_data: `list:open:${input.page}:${number - 1}:${batch.batchId}` })
+  }
+
+  const rows: InlineKeyboardButton[][] = [openRow]
+  const nav: InlineKeyboardButton[] = []
+  if (input.page > 0) {
+    nav.push({ text: "назад", callback_data: `list:page:${input.page - 1}` })
+  }
+  if (input.hasNext) {
+    nav.push({ text: "дальше", callback_data: `list:page:${input.page + 1}` })
+  }
+  if (nav.length > 0) rows.push(nav)
+  return rows
+}
+
+async function renderListLine(batch: Batch, offset: number): Promise<string> {
+  const photoCount = await getPhotoCount(batch.batchId)
+  return `${offset + 1}. ${photoCount} картинок · ${formatDimensions(batch)} · ${formatRelativeDate(batch.createdAt)}`
+}
+
+async function getPhotoCount(batchId: string): Promise<number> {
+  const photos = await db
+    .select({ fileId: batchPhotosSchema.fileId })
+    .from(batchPhotosSchema)
+    .where(eq(batchPhotosSchema.batchId, batchId))
+  return photos.length
+}
+
+async function deleteBatch(userId: string, batchId: string): Promise<void> {
+  const batch = await getBatchById(userId, batchId)
   if (!batch) return
 
   const photos = await db
@@ -245,24 +310,39 @@ async function deleteBatchAtOffset(userId: string, offset: number): Promise<void
     .where(eq(batchesSchema.batchId, batch.batchId))
 }
 
-async function getBatchAtOffset(userId: string, offset: number) {
+async function getBatchById(userId: string, batchId: string) {
   const [batch] = await db
     .select()
     .from(batchesSchema)
-    .where(activeUserBatches(userId))
-    .orderBy(desc(batchesSchema.createdAt))
+    .where(and(activeUserBatches(userId), eq(batchesSchema.batchId, batchId)))
     .limit(1)
-    .offset(Math.max(0, offset))
   return batch
 }
 
-async function loadPreview(objectKey: string): Promise<InputFile | null> {
+async function loadPreview(objectKey: string): Promise<InputFile | string | null> {
+  const cachedFileId = previewFileIds.get(objectKey)
+  if (cachedFileId) return cachedFileId
+
   try {
     const buffer = await s3Client.file(objectKey).arrayBuffer()
     return new InputFile(Buffer.from(buffer), "preview.jpg")
   } catch (error) {
     console.warn("Failed to load batch preview", { objectKey, error })
     return null
+  }
+}
+
+function cachePreviewFileId(
+  outputKey: string | undefined,
+  fileId: string | undefined
+): void {
+  if (outputKey && fileId) previewFileIds.set(outputKey, fileId)
+}
+
+function notFoundView(page: number): ListView {
+  return {
+    caption: "Сборка уже исчезла.",
+    keyboard: [[{ text: "назад", callback_data: `list:back:${page}` }]],
   }
 }
 
@@ -281,9 +361,25 @@ function parseNumber(data: string): number {
   return Number.isSafeInteger(value) && value >= 0 ? value : 0
 }
 
-function formatStatus(status: string | null): string {
-  if (status === PhotoBatchStatus.Completed) return "собрано"
-  return "редактор"
+function parseBatchAction(data: string): {
+  page: number
+  index: number
+  batchId: string
+} {
+  const [, , pageValue, indexValue, batchId] = data.split(":")
+  const page = Number(pageValue)
+  const index = Number(indexValue)
+  return {
+    page: Number.isSafeInteger(page) && page >= 0 ? page : 0,
+    index: Number.isSafeInteger(index) && index >= 0 ? index : 0,
+    batchId: batchId ?? "",
+  }
+}
+
+function formatDimensions(batch: Batch): string {
+  const canvas = batch.layout?.canvas
+  if (!canvas) return "размер пока не готов"
+  return `${Math.round(canvas.width)}×${Math.round(canvas.height)}`
 }
 
 function formatDate(value: Date | null): string {
@@ -294,6 +390,20 @@ function formatDate(value: Date | null): string {
     hour: "2-digit",
     minute: "2-digit",
   }).format(value)
+}
+
+function formatRelativeDate(value: Date | null): string {
+  if (!value) return "без даты"
+  const diffMs = Date.now() - value.getTime()
+  const minute = 60 * 1000
+  const hour = 60 * minute
+  const day = 24 * hour
+
+  if (diffMs < hour) return `${Math.max(1, Math.round(diffMs / minute))} мин назад`
+  if (diffMs < day) return `${Math.round(diffMs / hour)} ч назад`
+  if (diffMs < 2 * day) return "вчера"
+
+  return formatDate(value)
 }
 
 function isTelegramUrl(value: string): boolean {

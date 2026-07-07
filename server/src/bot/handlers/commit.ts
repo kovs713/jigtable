@@ -2,6 +2,7 @@ import { asc, eq } from "drizzle-orm"
 
 import type { BotContext } from "@/bot/types"
 import { getActiveImages } from "@/bot/upload"
+import { renderLayout } from "@/features/render-layout"
 import { clientLayoutUrl } from "@/features/urls"
 import { db } from "@/infra/db"
 import {
@@ -9,7 +10,9 @@ import {
   batchPhotosSchema,
   PhotoBatchStatus,
 } from "@/infra/db/schemas"
-import { shuffleImages } from "@/shuffle"
+import { shuffleImages, type ShuffleResult } from "@/shuffle"
+
+const PREVIEW_MAX_SIDE = 1200
 
 export async function handleCommit(
   ctx: BotContext
@@ -82,11 +85,22 @@ export async function handleCommit(
       height: photo.height,
     })),
   })
+  const preview = await renderLayout(
+    batch.batchId,
+    scaleLayout(layout, PREVIEW_MAX_SIDE),
+    photos.map((photo) => ({
+      fileId: photo.fileId,
+      objectKey: photo.objectKey,
+    })),
+    "jpg"
+  )
 
   await db
     .update(batchesSchema)
     .set({
       layout,
+      outputKey: preview.objectKey,
+      outputFormat: preview.format,
       status: PhotoBatchStatus.Ready,
       updatedAt: new Date(),
     })
@@ -94,6 +108,27 @@ export async function handleCommit(
 
   await replyWithEditorLink(ctx, batch.batchId, batch.editToken, photos.length)
   clearActiveBatch(ctx)
+}
+
+function scaleLayout(layout: ShuffleResult, maxSide: number): ShuffleResult {
+  const longestSide = Math.max(layout.canvas.width, layout.canvas.height)
+  if (longestSide <= maxSide) return layout
+
+  const scale = maxSide / longestSide
+  return {
+    canvas: {
+      width: Math.round(layout.canvas.width * scale),
+      height: Math.round(layout.canvas.height * scale),
+    },
+    items: layout.items.map((item) => ({
+      ...item,
+      x: Math.round(item.x * scale),
+      y: Math.round(item.y * scale),
+      width: Math.max(1, Math.round(item.width * scale)),
+      height: Math.max(1, Math.round(item.height * scale)),
+      scale: item.scale * scale,
+    })),
+  }
 }
 
 async function replyWithEditorLink(
