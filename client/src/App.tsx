@@ -1587,9 +1587,7 @@ export function App() {
                     <span
                       className={cn(
                         "pointer-events-none absolute inset-0 z-10 border-2 border-[var(--image-marker)] opacity-0 transition-opacity",
-                        isSelected || isLinked
-                          ? "opacity-100"
-                          : "group-hover:opacity-100"
+                        (isSelected || isLinked) && "opacity-100"
                       )}
                     />
                   </article>
@@ -1933,7 +1931,7 @@ function ResizeHandles({
       key={handle.edge}
       aria-label={`${labelPrefix}: ${handle.label}`}
       className={cn(
-        "pointer-events-auto absolute z-1000 bg-transparent opacity-0 transition-opacity outline-none group-hover:opacity-100 hover:opacity-100 focus-visible:opacity-100",
+        "pointer-events-auto absolute z-1000 bg-transparent opacity-0 transition-opacity outline-none focus-visible:opacity-100",
         active && "opacity-100",
         handle.className
       )}
