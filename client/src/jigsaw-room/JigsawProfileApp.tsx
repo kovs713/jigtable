@@ -242,8 +242,9 @@ export function JigsawProfileApp() {
           {history.length ? (
             <div className="jigsaw-room__history-list">
               {history.map((item) => (
-                <article
+                <a
                   key={item.roomId}
+                  href={`/jigsaw/view/${encodeURIComponent(item.roomId)}`}
                   className="jigsaw-room__history-card"
                 >
                   <div className="jigsaw-room__history-card-header">
@@ -276,7 +277,7 @@ export function JigsawProfileApp() {
                       </span>
                     ))}
                   </div>
-                </article>
+                </a>
               ))}
             </div>
           ) : (

@@ -1,6 +1,6 @@
 import { LIMITS } from "@/config"
 import { clientJigsawRoomUrl } from "@/features/urls"
-import { renderLayout, normalizeRenderFormat } from "@/features/render-layout"
+import { renderLayout } from "@/features/render-layout"
 import { createJigsawSafeAssetRef } from "@/jigsaw-room/history-store"
 import type { CreateJigsawRoomInput } from "@/jigsaw-room/room-manager"
 import { toSessionResponse } from "@/jigsaw-room/session-store"
@@ -22,7 +22,6 @@ import { assertRateLimit } from "../http/rate-limit"
 import { readJigsawProfileInput } from "../schemas/jigsaw"
 import type { Router } from "../types"
 import { parseApiSchema, readJsonLimited } from "../utils"
-import { normalizeLayout } from "../schemas/layout"
 
 export function registerJigsawRoutes(router: Router): void {
   router.post("/api/sessions", {
