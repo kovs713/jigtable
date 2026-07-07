@@ -34,9 +34,12 @@ async function replyWithCoolPhoto(
   ctx: CommandContext<BotContext>
 ): Promise<void> {
   if (coolImageFileId) {
-    await ctx.replyWithPhoto(coolImageFileId, {
-      caption: "ничего не засовано",
-    })
+    const isSent = await tryReplyWithCoolPhoto(ctx, coolImageFileId)
+    if (!isSent) {
+      coolImageFileId = null
+      await ctx.reply("ничего не засовано")
+    }
+
     return
   }
 
@@ -49,12 +52,29 @@ async function replyWithCoolPhoto(
     return
   }
 
-  const message = await ctx.replyWithPhoto(
-    new InputFile(response.body, "cool_image.png"),
-    {
-      caption: "ничего не засовано",
-    }
+  const message = await tryReplyWithCoolPhoto(
+    ctx,
+    new InputFile(response.body, "cool_image.png")
   )
 
+  if (!message) {
+    await ctx.reply("ничего не засовано")
+    return
+  }
+
   coolImageFileId = message.photo.at(-1)?.file_id ?? null
+}
+
+async function tryReplyWithCoolPhoto(
+  ctx: CommandContext<BotContext>,
+  photo: string | InputFile
+) {
+  try {
+    return await ctx.replyWithPhoto(photo, {
+      caption: "ничего не засовано",
+    })
+  } catch (error) {
+    console.warn("Failed to send cool status photo", error)
+    return null
+  }
 }
