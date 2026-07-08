@@ -70,18 +70,43 @@
 }
 
 .jigsaw-room__profile-hero h1 {
-  /* Убрали max-width: 8ch, теперь никнейм может быть хоть 30 символов */
   max-width: 100%;
   margin: 0;
-  font-size: clamp(
-    2.5rem,
-    6vw,
-    6.5rem
-  ); /* Чуть уменьшен clamp для адаптивности */
+  font-size: clamp(2.5rem, 6vw, 6.5rem);
   line-height: 0.82;
   letter-spacing: -0.08em;
   text-transform: uppercase;
-  overflow-wrap: anywhere; /* Подстраховка для сверхдлинных ников без пробелов */
+  overflow-wrap: anywhere;
+}
+
+.jigsaw-room__profile-headline {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  min-width: 0;
+}
+
+.jigsaw-room__profile-avatar {
+  width: clamp(52px, 6vw, 80px);
+  height: clamp(52px, 6vw, 80px);
+  aspect-ratio: 1 / 1;
+  object-fit: cover;
+  flex-shrink: 0;
+  border-radius: 2px;
+  border: 0.5px solid var(--jigsaw-panel-border);
+  background-color: var(--jigsaw-panel-strong);
+}
+
+.jigsaw-room__profile-avatar--fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: color-mix(in oklch, var(--foreground), transparent 85%);
+  color: var(--foreground);
+  font-size: clamp(1.2rem, 3vw, 2rem);
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
 }
 
 .jigsaw-room__profile-status {
@@ -390,6 +415,11 @@
   .jigsaw-room__profile-hero-side {
     justify-items: start;
     width: 100%;
+  }
+
+  .jigsaw-room__profile-headline {
+    align-items: flex-start;
+    gap: 16px;
   }
 
   .jigsaw-room__profile-actions {
