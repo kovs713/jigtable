@@ -25,13 +25,13 @@
 
 /* Hero Section */
 .jigsaw-room__profile-hero {
+  grid-row: 1 / 3;
   display: grid;
   align-content: end;
   gap: 16px;
   min-height: 360px;
   padding: 28px;
   border-right: 0.5px solid var(--jigsaw-panel-border);
-  border-bottom: 0.5px solid var(--jigsaw-panel-border);
   background:
     linear-gradient(
       155deg,
@@ -143,6 +143,7 @@
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   grid-column: 2;
+  grid-row: 1;
   margin: 0;
   border-bottom: 0.5px solid var(--jigsaw-panel-border);
   background: var(--jigsaw-panel-strong);
@@ -184,6 +185,7 @@
 /* History Panel */
 .jigsaw-room__history-panel {
   grid-column: 2;
+  grid-row: 2;
   min-height: 0;
   overflow: auto;
   scrollbar-width: thin;
@@ -358,8 +360,10 @@
   }
 
   .jigsaw-room__profile-hero {
+    grid-row: auto;
     min-height: 240px;
     border-right: 0;
+    border-bottom: 0.5px solid var(--jigsaw-panel-border);
   }
 
   .jigsaw-room__profile-hero h1 {
