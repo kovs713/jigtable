@@ -41,24 +41,38 @@ export interface PingController {
   destroy: () => void
 }
 
-function isWindowWithWebkitAudioContext(
-  w: Window | undefined
-): w is Window & { webkitAudioContext: typeof AudioContext } {
-  return w?.webkitAudioContext !== undefined
+type AudioContextConstructor = new () => AudioContext
+
+type AudioWindow = Window & {
+  AudioContext?: AudioContextConstructor
+  webkitAudioContext?: AudioContextConstructor
 }
+
 let audioContext: AudioContext | null = null
 let audioBuffer: AudioBuffer | null = null
 let pingGain: GainNode | null = null
 let isAudioReady = false
 let lastPingSoundAt = 0
 
-function ensurePingGain(): GainNode | null {
-  if (!audioContext) return null
+function getAudioContext(): AudioContext | null {
+  if (typeof window === "undefined") return null
+  if (audioContext) return audioContext
 
+  const audioWindow = window as AudioWindow
+  const AudioContextCtor =
+    audioWindow.AudioContext ?? audioWindow.webkitAudioContext
+
+  if (!AudioContextCtor) return null
+
+  audioContext = new AudioContextCtor()
+  return audioContext
+}
+
+function ensurePingGain(ctx: AudioContext): GainNode {
   if (!pingGain) {
-    pingGain = audioContext.createGain()
+    pingGain = ctx.createGain()
     pingGain.gain.value = PING_SOUND_VOLUME
-    pingGain.connect(audioContext.destination)
+    pingGain.connect(ctx.destination)
   }
 
   return pingGain
@@ -66,25 +80,20 @@ function ensurePingGain(): GainNode | null {
 
 async function loadPingSound(): Promise<void> {
   if (isAudioReady) return
-  if (typeof window === "undefined") return
 
   try {
-    if (!audioContext) {
-      const win = window as Window
-      audioContext = new (
-        win.AudioContext ||
-        (isWindowWithWebkitAudioContext(win)
-          ? win.webkitAudioContext
-          : win.AudioContext)
-      )()
+    const ctx = getAudioContext()
+    if (!ctx) return
+
+    if (ctx.state === "suspended") {
+      await ctx.resume()
     }
 
-    await audioContext.resume?.()
-    ensurePingGain()
+    ensurePingGain(ctx)
 
     const response = await fetch("/Ui_ping.mp3")
     const arrayBuffer = await response.arrayBuffer()
-    audioBuffer = await audioContext.decodeAudioData(arrayBuffer)
+    audioBuffer = await ctx.decodeAudioData(arrayBuffer)
     isAudioReady = true
   } catch (error) {
     console.error("Failed to load ping sound:", error)
@@ -92,31 +101,23 @@ async function loadPingSound(): Promise<void> {
 }
 
 async function playPingSound(): Promise<void> {
-  if (typeof window === "undefined" || !isAudioReady || !audioBuffer) return
+  if (!isAudioReady || !audioBuffer) return
 
   const now = performance.now()
   if (now - lastPingSoundAt < PING_SOUND_COOLDOWN_MS) return
   lastPingSoundAt = now
 
   try {
-    if (!audioContext) {
-      const win = window as Window
-      audioContext = new (
-        win.AudioContext ||
-        (isWindowWithWebkitAudioContext(win)
-          ? win.webkitAudioContext
-          : win.AudioContext)
-      )()
+    const ctx = getAudioContext()
+    if (!ctx) return
+
+    if (ctx.state === "suspended") {
+      await ctx.resume()
     }
 
-    if (audioContext.state === "suspended") {
-      await audioContext.resume()
-    }
+    const gain = ensurePingGain(ctx)
 
-    const gain = ensurePingGain()
-    if (!gain) return
-
-    const source = audioContext.createBufferSource()
+    const source = ctx.createBufferSource()
     source.buffer = audioBuffer
     source.connect(gain)
     source.start(0)
