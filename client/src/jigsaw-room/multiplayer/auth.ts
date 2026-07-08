@@ -1,4 +1,5 @@
 import { API_BASE_URL, TELEGRAM_BOT_USERNAME } from "@/config"
+import type { JigsawConfig } from "@jigtable/jigsaw-core"
 
 const AUTH_SESSION_STORAGE_KEY = "jigsaw-room-auth-v2"
 const LEGACY_AUTH_SESSION_STORAGE_KEY = "jigsaw-room-auth"
@@ -28,6 +29,7 @@ export interface JigsawHistoryItem {
   pieceCount: number
   snapCount: number
   imageUrl: string | null
+  jigsawConfig: JigsawConfig | null
   source: {
     kind: "dev" | "batch_render" | "external"
     label: string

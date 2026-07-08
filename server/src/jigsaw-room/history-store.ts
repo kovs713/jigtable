@@ -1,7 +1,7 @@
 import { CryptoHasher } from "bun"
 import { and, desc, eq, inArray } from "drizzle-orm"
 
-import type { JigsawPlayer } from "@jigtable/jigsaw-core"
+import type { JigsawConfig, JigsawPlayer } from "@jigtable/jigsaw-core"
 
 import { db } from "@/infra/db"
 import {
@@ -17,6 +17,7 @@ export interface JigsawHistoryRoomInfo {
   roomId: string
   assetRef: JigsawSafeAssetRef
   imageUrl: string
+  jigsawConfig: JigsawConfig
   elapsedMs: number
   pieceCount: number
   snapCount: number
@@ -30,6 +31,7 @@ export interface JigsawHistoryItem {
   pieceCount: number
   snapCount: number
   imageUrl: string | null
+  jigsawConfig: JigsawConfig | null
   source: {
     kind: JigsawSafeAssetRef["kind"]
     label: string
@@ -40,6 +42,7 @@ export interface JigsawHistoryItem {
 export interface JigsawRoomResult {
   roomId: string
   imageUrl: string | null
+  jigsawConfig: JigsawConfig | null
   elapsedMs: number
   pieceCount: number
   snapCount: number
@@ -145,6 +148,7 @@ export class JigsawHistoryStore {
       .values({
         roomId: room.roomId,
         assetRef: room.assetRef,
+        jigsawConfig: room.jigsawConfig,
         imageUrl: room.imageUrl,
         participants,
         elapsedMs: room.elapsedMs,
@@ -179,6 +183,7 @@ export class JigsawHistoryStore {
       pieceCount: row.pieceCount,
       snapCount: row.snapCount,
       imageUrl: row.imageUrl,
+      jigsawConfig: row.jigsawConfig,
       source: summarizeAssetRef(row.assetRef),
       participants: row.participants,
     }))
@@ -200,6 +205,7 @@ export class JigsawHistoryStore {
     return {
       roomId: row.roomId,
       imageUrl: row.imageUrl,
+      jigsawConfig: row.jigsawConfig,
       elapsedMs: row.elapsedMs,
       pieceCount: row.pieceCount,
       snapCount: row.snapCount,

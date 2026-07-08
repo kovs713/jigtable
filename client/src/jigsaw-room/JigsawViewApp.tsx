@@ -78,6 +78,7 @@ export function JigsawViewApp({ roomId }: { roomId: string }) {
             <HistoryPreview
               imageUrl={result.imageUrl}
               pieceCount={result.pieceCount}
+              jigsawConfig={result.jigsawConfig}
               maxWidth={800}
               className="jigsaw-room__view-image"
             />

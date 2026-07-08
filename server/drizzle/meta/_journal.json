@@ -15,6 +15,13 @@
       "when": 1783440678341,
       "tag": "0001_fluffy_patch",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1783508740682,
+      "tag": "0002_silly_prodigy",
+      "breakpoints": true
     }
   ]
 }

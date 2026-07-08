@@ -4,6 +4,7 @@ import type {
 } from "@jigtable/jigsaw-core/multiplayer/protocol"
 
 import { API_BASE_URL } from "@/config"
+import type { JigsawConfig } from "@jigtable/jigsaw-core"
 
 export interface CreateJigsawRoomInput {
   imageUrl: string
@@ -88,6 +89,7 @@ export async function fetchJigsawRoomSnapshot(
 export interface JigsawRoomResult {
   roomId: string
   imageUrl: string | null
+  jigsawConfig: JigsawConfig | null
   elapsedMs: number
   pieceCount: number
   snapCount: number

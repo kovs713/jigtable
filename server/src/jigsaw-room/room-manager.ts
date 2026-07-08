@@ -640,6 +640,7 @@ export class JigsawRoomManager {
       .recordCompletion({
         roomId: room.roomId,
         assetRef: room.assetRef,
+        jigsawConfig: room.state.config,
         imageUrl: room.imageUrl,
         elapsedMs: getTimerElapsedMs(room.timer, completedAt),
         pieceCount: stats.totalPieces,
