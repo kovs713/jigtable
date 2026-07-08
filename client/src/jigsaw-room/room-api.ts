@@ -3,7 +3,7 @@ import type {
   CreateJigsawRoomResponse,
   JigsawRoomSnapshot,
 } from "@jigtable/jigsaw-core/multiplayer/protocol"
-import { isRecord } from "@jigtable/shared"
+import { isRecord } from "@jigtable/shared/utils"
 
 import { API_BASE_URL } from "@/config"
 

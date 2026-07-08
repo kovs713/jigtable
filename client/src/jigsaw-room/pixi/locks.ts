@@ -2,12 +2,13 @@ import { Container, Graphics } from "pixi.js"
 
 import type {
   JigsawState,
+  PieceDefinition,
   PieceEdgePoint,
   PieceEdgeShape,
   PieceId,
-  PieceDefinition,
 } from "@jigtable/jigsaw-core/jigsaw/types"
 import type { JigsawLock } from "@jigtable/jigsaw-core/multiplayer/protocol"
+
 import type { PieceViewSet } from "./pieces"
 
 type EdgeSide = "top" | "right" | "bottom" | "left"

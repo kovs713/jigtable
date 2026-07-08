@@ -1,14 +1,11 @@
 import { useEffect, useState } from "react"
 
-import {
-  fetchJigsawRoomResult,
-  type JigsawRoomResult,
-} from "./room-api"
 import { HistoryPreview } from "./HistoryPreview"
+import { fetchJigsawRoomResult, type JigsawRoomResult } from "./room-api"
 import { formatDate, formatDuration } from "./time"
 
-import "./jigsaw-room.css"
 import "./jigsaw-room-view.css"
+import "./jigsaw-room.css"
 
 export function JigsawViewApp({ roomId }: { roomId: string }) {
   const [result, setResult] = useState<JigsawRoomResult | null>(null)

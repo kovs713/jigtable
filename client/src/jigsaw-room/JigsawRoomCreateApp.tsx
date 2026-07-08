@@ -1,6 +1,8 @@
 import * as React from "react"
 import { useEffect, useMemo, useRef, useState } from "react"
 
+import type { CreateJigsawRoomResponse } from "@jigtable/jigsaw-core/multiplayer/protocol"
+
 import { Button } from "@/components/ui/button"
 import {
   Select,
@@ -10,7 +12,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Slider } from "@/components/ui/slider"
-import type { CreateJigsawRoomResponse } from "@jigtable/jigsaw-core/multiplayer/protocol"
+import { API_BASE_URL } from "@/config"
 import {
   fetchAuthMe,
   fetchJigsawHistory,
@@ -25,15 +27,14 @@ import {
   type AuthSession,
   type JigsawHistoryItem,
 } from "./multiplayer/auth"
-import { API_BASE_URL } from "@/config"
 import {
   createJigsawRoomFromBatch,
   fetchUserBatches,
   type UserBatchItem,
 } from "./room-api"
 
-import "./jigsaw-room.css"
 import "./jigsaw-room-create.css"
+import "./jigsaw-room.css"
 
 type BatchLayoutItem = {
   id: string
@@ -622,9 +623,7 @@ export function JigsawRoomCreateApp() {
 
           <Button
             className="jigsaw-room__submit-btn"
-            disabled={
-              creating || !selectedBatch || !authSession
-            }
+            disabled={creating || !selectedBatch || !authSession}
             onClick={() => void createRoom()}
           >
             {creating && (

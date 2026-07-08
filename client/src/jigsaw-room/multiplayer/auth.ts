@@ -1,4 +1,4 @@
-import type { JigsawConfig } from "@jigtable/jigsaw-core"
+import type { JigsawConfig } from "@jigtable/jigsaw-core/jigsaw/types"
 import { isRecord } from "@jigtable/shared"
 
 import { API_BASE_URL, TELEGRAM_BOT_USERNAME } from "@/config"
