@@ -50,7 +50,7 @@ export function createRemoteCursorViews(
   app.ticker.add(updateScales)
 
   function applyCursor(cursor: JigsawPlayerCursor): void {
-    const view = getOrCreateCursorView(cursor)
+    const view = getOrCreateCursorView(cursor, app)
 
     updateCursorView(view, cursor)
     view.container.position.set(cursor.x, cursor.y)
@@ -91,14 +91,17 @@ export function createRemoteCursorViews(
     view.container.destroy({ children: true })
   }
 
-  function getOrCreateCursorView(cursor: JigsawPlayerCursor): RemoteCursorView {
+  function getOrCreateCursorView(
+    cursor: JigsawPlayerCursor,
+    app: Application
+  ): RemoteCursorView {
     const existing = views.get(cursor.playerId)
 
     if (existing) {
       return existing
     }
 
-    const view = createCursorView(cursor)
+    const view = createCursorView(cursor, app)
     views.set(cursor.playerId, view)
     cursorLayer.addChild(view.container)
 
@@ -162,7 +165,10 @@ export function setupCursorBroadcast({
   }
 }
 
-function createCursorView(cursor: JigsawPlayerCursor): RemoteCursorView {
+function createCursorView(
+  cursor: JigsawPlayerCursor,
+  app: Application
+): RemoteCursorView {
   const color =
     colorToNumber(cursor.color) ?? colorFromPlayerId(cursor.playerId)
   const container = new Container({ label: `cursor-${cursor.playerId}` })
