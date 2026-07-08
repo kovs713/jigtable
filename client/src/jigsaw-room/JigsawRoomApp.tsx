@@ -331,7 +331,7 @@ export function JigsawRoomApp({ roomId }: JigsawRoomAppProps) {
   const [authSession, setAuthSession] = useState<AuthSession | null>(() =>
     readLocalAuthSession()
   )
-  const [authStatus, setAuthStatus] = useState("Telegram login optional")
+  const [authStatus, setAuthStatus] = useState("tg login optional")
   const [telegramWidgetVisible, setTelegramWidgetVisible] = useState(false)
   const [historyCount, setHistoryCount] = useState<number | null>(null)
   const [profileForm, setProfileForm] = useState(() => ({
@@ -490,11 +490,11 @@ export function JigsawRoomApp({ roomId }: JigsawRoomAppProps) {
       }
 
       setTelegramWidgetVisible(true)
-      setAuthStatus("Confirm in Telegram widget")
+      setAuthStatus("confirm in tg widget")
       return
     }
 
-    setAuthStatus("Telegram WebApp login...")
+    setAuthStatus("tg webapp login...")
 
     try {
       const session = await loginTelegramWebApp(sessionRef.current.token)
@@ -502,7 +502,7 @@ export function JigsawRoomApp({ roomId }: JigsawRoomAppProps) {
 
       setAuthSession(session)
       setHistoryCount(history.length)
-      setAuthStatus("Telegram linked")
+      setAuthStatus("tg linked")
     } catch (error) {
       setAuthStatus(readErrorMessage(error))
     }
@@ -511,7 +511,7 @@ export function JigsawRoomApp({ roomId }: JigsawRoomAppProps) {
   async function loginWithTelegramWidget(
     payload: Record<string, unknown>
   ): Promise<void> {
-    setAuthStatus("Telegram widget login...")
+    setAuthStatus("tg widget login...")
 
     try {
       const session = await loginTelegramWidget(
@@ -523,7 +523,7 @@ export function JigsawRoomApp({ roomId }: JigsawRoomAppProps) {
       setAuthSession(session)
       setHistoryCount(history.length)
       setTelegramWidgetVisible(false)
-      setAuthStatus("Telegram linked")
+      setAuthStatus("tg linked")
     } catch (error) {
       setAuthStatus(readErrorMessage(error))
     }
@@ -1346,7 +1346,7 @@ export function JigsawRoomApp({ roomId }: JigsawRoomAppProps) {
         saveLocalAuthSession(session)
         setAuthSession(session)
         setHistoryCount(history.length)
-        setAuthStatus("Telegram session restored")
+        setAuthStatus("tg session restored")
       } catch (error) {
         if (!disposed) {
           setAuthStatus(readErrorMessage(error))
@@ -1586,7 +1586,7 @@ export function JigsawRoomApp({ roomId }: JigsawRoomAppProps) {
                 disabled={sessionStatus === "restoring"}
                 onClick={() => void loginWithTelegram()}
               >
-                {authSession ? "Telegram linked" : "Telegram login"}
+                {authSession ? "tg linked" : "tg login"}
               </button>
               <p>
                 {getSessionStatusText(sessionStatus, sessionMessage)}.{" "}
@@ -1699,26 +1699,26 @@ function getSessionStatusText(
   }
 
   if (status === "restoring") {
-    return "Restoring session"
+    return "restoring session"
   }
 
   if (status === "saving") {
-    return "Saving profile"
+    return "saving profile"
   }
 
   if (status === "saved") {
-    return "Session saved"
+    return "session saved"
   }
 
   if (status === "offline") {
-    return "Local session"
+    return "local session"
   }
 
   if (status === "error") {
-    return "Session error"
+    return "session error"
   }
 
-  return "Local profile"
+  return "local profile"
 }
 
 function readErrorMessage(error: unknown): string {

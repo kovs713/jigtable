@@ -99,14 +99,12 @@ export function JigsawRoomCreateApp() {
     readLocalAuthSession()
   )
   const [authStatus, setAuthStatus] = useState(() =>
-    readLocalAuthSession()
-      ? "Checking Telegram session..."
-      : "Telegram login required"
+    readLocalAuthSession() ? "checking tg session..." : "tg login required"
   )
   const [authLoading, setAuthLoading] = useState(false)
   const [widgetVisible, setWidgetVisible] = useState(false)
   const [pieceCount, setPieceCount] = useState(150)
-  const [status, setStatus] = useState("Choose jigsaw size")
+  const [status, setStatus] = useState("choose jigsaw size")
   const [isError, setIsError] = useState(false)
   const [creating, setCreating] = useState(false)
   const [createdRoom, setCreatedRoom] =
@@ -236,7 +234,7 @@ export function JigsawRoomCreateApp() {
 
         saveLocalAuthSession(session)
         setAuthSession(session)
-        setAuthStatus("Telegram session restored")
+        setAuthStatus("tg session restored")
       })
       .catch((error) => {
         if (!disposed) {
@@ -272,18 +270,18 @@ export function JigsawRoomCreateApp() {
       }
 
       setWidgetVisible(true)
-      setAuthStatus("Confirm in Telegram widget")
+      setAuthStatus("confirm in tg widget")
       return
     }
 
     setAuthLoading(true)
-    setAuthStatus("Telegram WebApp login...")
+    setAuthStatus("tg webapp login...")
 
     try {
       const session = await loginTelegramWebApp()
 
       setAuthSession(session)
-      setAuthStatus("Telegram linked")
+      setAuthStatus("tg linked")
     } catch (error) {
       setAuthStatus(readErrorMessage(error))
     } finally {
@@ -295,14 +293,14 @@ export function JigsawRoomCreateApp() {
     payload: Record<string, unknown>
   ): Promise<void> {
     setAuthLoading(true)
-    setAuthStatus("Telegram widget login...")
+    setAuthStatus("tg widget login...")
 
     try {
       const session = await loginTelegramWidget(payload)
 
       setAuthSession(session)
       setWidgetVisible(false)
-      setAuthStatus("Telegram linked")
+      setAuthStatus("tg linked")
     } catch (error) {
       setAuthStatus(readErrorMessage(error))
     } finally {
@@ -312,14 +310,14 @@ export function JigsawRoomCreateApp() {
 
   async function loginWithDev(): Promise<void> {
     setAuthLoading(true)
-    setAuthStatus("Dev login...")
+    setAuthStatus("dev login...")
 
     try {
       const session = await loginDev()
 
       saveLocalAuthSession(session)
       setAuthSession(session)
-      setAuthStatus("Dev session active")
+      setAuthStatus("dev session active")
     } catch (error) {
       setAuthStatus(readErrorMessage(error))
     } finally {
@@ -364,7 +362,7 @@ export function JigsawRoomCreateApp() {
 
   async function createRoom(): Promise<void> {
     if (!authSession) {
-      setStatus("Telegram login required")
+      setStatus("tg login required")
       setIsError(true)
       return
     }
@@ -373,13 +371,13 @@ export function JigsawRoomCreateApp() {
     const batchToken = selectedBatch?.batchToken
 
     if (!batchId || !batchToken) {
-      setStatus("Choose a build first")
+      setStatus("choose a build first")
       setIsError(true)
       return
     }
 
     setCreating(true)
-    setStatus("Rendering and creating room...")
+    setStatus("rendering and creating room...")
     setIsError(false)
 
     try {
@@ -391,7 +389,7 @@ export function JigsawRoomCreateApp() {
       )
 
       setCreatedRoom(payload)
-      setStatus("Room ready")
+      setStatus("room ready")
       window.history.replaceState(
         null,
         "",
@@ -413,10 +411,10 @@ export function JigsawRoomCreateApp() {
     try {
       await navigator.clipboard.writeText(createdRoom.joinUrl)
       setCopied(true)
-      setStatus("Link copied to clipboard")
+      setStatus("link copied to clipboard")
       setTimeout(() => setCopied(false), 2000)
     } catch {
-      setStatus("Failed to copy link")
+      setStatus("failed to copy link")
       setIsError(true)
     }
   }
@@ -431,10 +429,10 @@ export function JigsawRoomCreateApp() {
       <section className="jigsaw-room__create-panel corner-brackets">
         <div className="jigsaw-room__create-copy">
           <p className="jigsaw-room__create-kicker">Multiplayer jigsaw</p>
-          <h1>Create room</h1>
+          <h1>create room</h1>
           <p>
-            Pick a jigsaw size, create a temporary room, then share the invite
-            link. Friends join as guests.
+            pick a jigsaw size, create a temporary room, then share the invite
+            link. friends join as guests.
           </p>
           <div className="jigsaw-room__share-actions">
             <Button
@@ -447,8 +445,8 @@ export function JigsawRoomCreateApp() {
               {authLoading
                 ? "Loading..."
                 : authSession
-                  ? "TG linked"
-                  : "Telegram login"}
+                  ? "tg linked"
+                  : "tg login"}
             </Button>
             {DEV_LOGIN_ENABLED ? (
               <Button
@@ -458,7 +456,7 @@ export function JigsawRoomCreateApp() {
                 disabled={authLoading}
                 onClick={() => void loginWithDev()}
               >
-                Dev login
+                dev login
               </Button>
             ) : null}
             <span className="jigsaw-room__create-status" role="status">
@@ -496,7 +494,7 @@ export function JigsawRoomCreateApp() {
                   ))}
                   {!batches.length ? (
                     <SelectItem value={selectedBatch.batchId} disabled>
-                      No other builds found
+                      no other builds found
                     </SelectItem>
                   ) : null}
                   {hasBatchParams &&
@@ -567,7 +565,7 @@ export function JigsawRoomCreateApp() {
               )}
               <div className="jigsaw-room__image-preview">
                 <div className="jigsaw-room__image-placeholder">
-                  <span>No saved builds yet. Create one in the bot first.</span>
+                  <span>no saved builds yet. create one in the bot first.</span>
                 </div>
               </div>
             </div>
@@ -630,10 +628,10 @@ export function JigsawRoomCreateApp() {
               <span className="jigsaw-room__spinner" aria-hidden="true" />
             )}
             {creating
-              ? "Creating..."
+              ? "creating..."
               : authSession
-                ? "Create room"
-                : "Login required"}
+                ? "create room"
+                : "login required"}
           </Button>
 
           <p
@@ -649,7 +647,7 @@ export function JigsawRoomCreateApp() {
           <div
             className="jigsaw-room__share-box"
             role="region"
-            aria-label="Room sharing"
+            aria-label="room sharing"
           >
             <div className="jigsaw-room__share-header">
               <span>Share link</span>
@@ -662,10 +660,10 @@ export function JigsawRoomCreateApp() {
                 variant="outline"
                 onClick={() => void copyLink()}
               >
-                {copied ? "✓ Copied!" : "Copy link"}
+                {copied ? "✓ copied!" : "copy link"}
               </Button>
               <Button asChild size="sm">
-                <a href={`/rooms/${createdRoom.roomId}`}>Open room</a>
+                <a href={`/rooms/${createdRoom.roomId}`}>open room</a>
               </Button>
             </div>
           </div>
@@ -676,7 +674,7 @@ export function JigsawRoomCreateApp() {
 }
 
 function readErrorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : "Telegram login failed"
+  return error instanceof Error ? error.message : "tg login failed"
 }
 
 function getInitialBatchId(): string | null {

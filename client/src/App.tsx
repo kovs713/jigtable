@@ -256,9 +256,7 @@ export function App() {
     readLocalAuthSession()
   )
   const [authStatus, setAuthStatus] = useState(() =>
-    readLocalAuthSession()
-      ? "Checking Telegram session..."
-      : "Telegram login required"
+    readLocalAuthSession() ? "checking tg session..." : "tg login required"
   )
   const [authLoading, setAuthLoading] = useState(false)
   const [telegramWidgetVisible, setTelegramWidgetVisible] = useState(false)
@@ -379,7 +377,7 @@ export function App() {
     }
 
     if (!authSession) {
-      setStatus("Telegram login required")
+      setStatus("tg login required")
       return
     }
 
@@ -403,7 +401,7 @@ export function App() {
   const applyRemoteBatch = useCallback(
     async (batch: RemoteBatch) => {
       if (!authSession) {
-        setStatus("Telegram login required")
+        setStatus("tg login required")
         return
       }
 
@@ -513,7 +511,7 @@ export function App() {
 
         saveLocalAuthSession(session)
         setAuthSession(session)
-        setAuthStatus("Telegram session restored")
+        setAuthStatus("tg session restored")
       })
       .catch((error) => {
         if (!disposed) {
@@ -613,7 +611,7 @@ export function App() {
     }
 
     if (!authSession) {
-      queueMicrotask(() => setStatus("Telegram login required"))
+      queueMicrotask(() => setStatus("tg login required"))
       return
     }
 
@@ -1113,7 +1111,7 @@ export function App() {
   }
 
   function restoreOriginalCanvas() {
-    applyCanvasSize(originalCanvas, "Original canvas ratio")
+    applyCanvasSize(originalCanvas, "original canvas ratio")
   }
 
   function moveItemLayer(
@@ -1249,18 +1247,18 @@ export function App() {
       }
 
       setTelegramWidgetVisible(true)
-      setAuthStatus("Confirm in Telegram widget")
+      setAuthStatus("confirm in tg widget")
       return
     }
 
     setAuthLoading(true)
-    setAuthStatus("Telegram WebApp login...")
+    setAuthStatus("tg webapp login...")
 
     try {
       const session = await loginTelegramWebApp()
 
       setAuthSession(session)
-      setAuthStatus("Telegram linked")
+      setAuthStatus("tg linked")
     } catch (error) {
       setAuthStatus(readErrorMessage(error))
     } finally {
@@ -1272,14 +1270,14 @@ export function App() {
     payload: Record<string, unknown>
   ): Promise<void> {
     setAuthLoading(true)
-    setAuthStatus("Telegram widget login...")
+    setAuthStatus("tg widget login...")
 
     try {
       const session = await loginTelegramWidget(payload)
 
       setAuthSession(session)
       setTelegramWidgetVisible(false)
-      setAuthStatus("Telegram linked")
+      setAuthStatus("tg linked")
     } catch (error) {
       setAuthStatus(readErrorMessage(error))
     } finally {
@@ -1348,7 +1346,7 @@ export function App() {
     }
 
     if (!authSession) {
-      setStatus("Telegram login required")
+      setStatus("tg login required")
       return
     }
 
@@ -1407,7 +1405,7 @@ export function App() {
           </div>
           <div>
             <h1 className="text-sm font-semibold tracking-tight">
-              Jigsaw Editor
+              jigsaw editor
             </h1>
             <p className="font-mono text-xs text-muted-foreground">
               {layout.items.length
@@ -1422,126 +1420,133 @@ export function App() {
           className="mx-2 hidden h-8 md:block"
         />
 
-        <div className="flex flex-wrap items-center gap-2 md:ml-auto">
-          {batches.length ? (
-            <Select
-              value={selectedBatch?.batchId ?? ""}
-              disabled={!authSession}
-              onValueChange={(value) => {
-                const batch = batches.find((item) => item.batchId === value)
+        <div className="flex w-full items-center justify-between gap-4 md:ml-auto md:flex-1">
+          <div>
+            <Button asChild size="sm" disabled={!authSession}>
+              <a href="/profile">/profile</a>
+            </Button>
+          </div>
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            {batches.length ? (
+              <Select
+                value={selectedBatch?.batchId ?? ""}
+                disabled={!authSession}
+                onValueChange={(value) => {
+                  const batch = batches.find((item) => item.batchId === value)
 
-                if (batch) {
-                  selectBuild(batch)
+                  if (batch) {
+                    selectBuild(batch)
+                  }
+                }}
+              >
+                <SelectTrigger className="h-9 w-full font-mono text-sm sm:w-56">
+                  <SelectValue placeholder="select build">
+                    {selectedBatch
+                      ? formatBatchTitle(
+                          batches.find(
+                            (item) => item.batchId === selectedBatch.batchId
+                          ) ?? null
+                        )
+                      : "Select build"}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  {batches.map((batch, index) => (
+                    <SelectItem key={batch.batchId} value={batch.batchId}>
+                      {String(index + 1).padStart(2, "0")} · {batch.imageCount}{" "}
+                      images · {formatBatchMeta(batch)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            ) : null}
+
+            <Input
+              className="h-9 font-mono text-sm sm:w-52"
+              placeholder="paste bot link or code"
+              type="text"
+              value={loadCode}
+              onChange={(event) => setLoadCode(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  void loadLayoutFromCode()
                 }
               }}
-            >
-              <SelectTrigger className="h-9 w-full font-mono text-sm sm:w-56">
-                <SelectValue placeholder="Select build">
-                  {selectedBatch
-                    ? formatBatchTitle(
-                        batches.find(
-                          (item) => item.batchId === selectedBatch.batchId
-                        ) ?? null
-                      )
-                    : "Select build"}
-                </SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                {batches.map((batch, index) => (
-                  <SelectItem key={batch.batchId} value={batch.batchId}>
-                    {String(index + 1).padStart(2, "0")} · {batch.imageCount}{" "}
-                    images · {formatBatchMeta(batch)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          ) : null}
-
-          <Input
-            className="h-9 w-full font-mono text-sm sm:w-64"
-            placeholder="Paste bot link or code"
-            type="text"
-            value={loadCode}
-            onChange={(event) => setLoadCode(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === "Enter") {
-                void loadLayoutFromCode()
-              }
-            }}
-          />
-          <Button
-            className="h-9"
-            disabled={!authSession}
-            size="sm"
-            variant="secondary"
-            onClick={() => void loadLayoutFromCode()}
-          >
-            Load Layout
-          </Button>
-
-          <Button
-            className="h-9"
-            disabled={authLoading}
-            size="sm"
-            variant={authSession ? "outline" : "default"}
-            onClick={() => void loginWithTelegram()}
-          >
-            {authLoading
-              ? "Loading..."
-              : authSession
-                ? "TG linked"
-                : "Telegram login"}
-          </Button>
-          <span
-            className={cn(
-              "max-w-48 truncate text-xs text-muted-foreground",
-              !authSession?.user.displayName && "font-mono"
-            )}
-          >
-            {authSession?.user.displayName ?? authStatus}
-          </span>
-          {telegramWidgetVisible ? (
-            <div ref={telegramWidgetRef} className="min-h-8" />
-          ) : null}
-
-          <Separator
-            orientation="vertical"
-            className="mx-2 hidden h-8 md:block"
-          />
-
-          <Button
-            className="h-9"
-            disabled={!remoteBatch || !authSession}
-            size="sm"
-            variant="outline"
-            onClick={saveRemoteLayout}
-          >
-            Save Edits
-          </Button>
-
-          {remoteBatch ? (
-            <Button asChild size="sm">
-              <a href={jigsawCreateFromBatch()}>Create Jigsaw Room</a>
-            </Button>
-          ) : null}
-
-          {remoteBatch ? (
+            />
             <Button
+              className="h-9"
               disabled={!authSession}
               size="sm"
-              variant="outline"
-              onClick={downloadImage}
+              variant="secondary"
+              onClick={() => void loadLayoutFromCode()}
             >
-              Download
+              load layout
             </Button>
-          ) : null}
+
+            <Button
+              className="h-9"
+              disabled={authLoading}
+              size="sm"
+              variant={authSession ? "outline" : "default"}
+              onClick={() => void loginWithTelegram()}
+            >
+              {authLoading
+                ? "Loading..."
+                : authSession
+                  ? "tg linked"
+                  : "tg login"}
+            </Button>
+            <span
+              className={cn(
+                "max-w-48 truncate text-xs text-muted-foreground",
+                !authSession?.user.displayName && "font-mono"
+              )}
+            >
+              {authSession?.user.displayName ?? authStatus}
+            </span>
+            {telegramWidgetVisible ? (
+              <div ref={telegramWidgetRef} className="min-h-8" />
+            ) : null}
+
+            <Separator
+              orientation="vertical"
+              className="mx-2 hidden h-8 md:block"
+            />
+
+            <Button
+              className="h-9"
+              disabled={!remoteBatch || !authSession}
+              size="sm"
+              variant="outline"
+              onClick={saveRemoteLayout}
+            >
+              save edits
+            </Button>
+
+            {remoteBatch ? (
+              <Button asChild size="sm">
+                <a href={jigsawCreateFromBatch()}>create room</a>
+              </Button>
+            ) : null}
+
+            {remoteBatch ? (
+              <Button
+                disabled={!authSession}
+                size="sm"
+                variant="outline"
+                onClick={downloadImage}
+              >
+                download
+              </Button>
+            ) : null}
+          </div>
         </div>
       </header>
 
       <div className="grid min-h-0 grid-cols-1 overflow-hidden lg:grid-cols-[280px_minmax(0,1fr)_320px]">
         {/* left sidebar layers */}
         <aside className="glass-sidebar corner-brackets flex min-h-0 flex-col overflow-hidden border-r text-card-foreground">
-          <PanelHeader title="Layers" meta="Drag to reorder" />
+          <PanelHeader title="layers" meta="Drag to reorder" />
           <div className="thin-scrollbar flex-1 space-y-1 overflow-auto p-2">
             {layerListEntries.map(({ item, itemIndex, layerIndex }) => {
               const isSelected = selectedIdSet.has(item.id)
@@ -1594,7 +1599,7 @@ export function App() {
                       {getImageMarkerCode(itemIndex)}
                     </span>
                     <span className="min-w-0 flex-1 truncate font-mono text-xs text-muted-foreground">
-                      Layer {layerIndex + 1} / {layout.items.length}
+                      layer {layerIndex + 1} / {layout.items.length}
                     </span>
                     <span className="font-mono text-[10px] text-muted-foreground opacity-70">
                       {item.width}x{item.height}
@@ -1825,7 +1830,7 @@ export function App() {
         <aside className="glass-sidebar corner-brackets flex min-h-0 flex-col overflow-y-auto border-l text-card-foreground">
           {/* canvas section */}
           <section className="border-b">
-            <PanelHeader title="Canvas" meta="Ctrl drag keeps images" />
+            <PanelHeader title="canvas" meta="Ctrl drag keeps images" />
             <div className="space-y-4 p-4">
               <div className="grid grid-cols-2 gap-2">
                 <NumberField
@@ -1861,16 +1866,16 @@ export function App() {
 
               <div className="space-y-2">
                 <p className="text-xs font-medium text-muted-foreground">
-                  Aspect Ratio
+                  aspect ratio
                 </p>
                 <div className="grid grid-cols-4 gap-1.5">
                   <Button
                     className="h-8 text-xs"
                     size="sm"
-                    variant={activeRatio === "Original" ? "default" : "outline"}
+                    variant={activeRatio === "original" ? "default" : "outline"}
                     onClick={restoreOriginalCanvas}
                   >
-                    Original
+                    original
                   </Button>
                   {ASPECT_RATIO_PRESETS.map((preset) => (
                     <Button
@@ -1889,9 +1894,9 @@ export function App() {
               </div>
 
               <div className="flex items-center justify-between border p-2">
-                <span className="text-sm">Canvas markers</span>
+                <span className="text-sm">canvas markers</span>
                 <Toggle
-                  aria-label="Toggle canvas markers"
+                  aria-label="toggle canvas markers"
                   className="h-8 font-mono text-xs data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
                   pressed={showCanvasMarkers}
                   size="sm"
@@ -1907,7 +1912,7 @@ export function App() {
           {/* selection section */}
           <section className="border-b">
             <PanelHeader
-              title="Selection"
+              title="selection"
               meta={
                 selectedIds.length > 1
                   ? `${selectedIds.length} selected`
@@ -1943,39 +1948,39 @@ export function App() {
               </div>
             ) : (
               <p className="p-4 text-sm text-muted-foreground">
-                No image selected. Click on an image to edit its properties.
+                no image selected. click on an image to edit its properties.
               </p>
             )}
           </section>
 
           {/* info / help section */}
           <section className="flex-1 p-4">
-            <h3 className="mb-2 text-sm font-medium">Shortcuts</h3>
+            <h3 className="mb-2 text-sm font-medium">shortcuts</h3>
             <div className="space-y-2 text-xs text-muted-foreground">
               <p className="flex items-center justify-between">
                 <span>Move selected</span>
                 <kbd className="bg-muted px-1.5 py-0.5 font-mono">Arrows</kbd>
               </p>
               <p className="flex items-center justify-between">
-                <span>Move faster</span>
+                <span>move faster</span>
                 <kbd className="bg-muted px-1.5 py-0.5 font-mono">
                   Shift + Arrows
                 </kbd>
               </p>
               <p className="flex items-center justify-between">
-                <span>Add to selection</span>
+                <span>add to selection</span>
                 <kbd className="bg-muted px-1.5 py-0.5 font-mono">
                   Shift Click
                 </kbd>
               </p>
               <p className="flex items-center justify-between">
-                <span>Keep ratio on resize</span>
+                <span>keep ratio on resize</span>
                 <kbd className="bg-muted px-1.5 py-0.5 font-mono">
                   Shift Drag
                 </kbd>
               </p>
               <p className="flex items-center justify-between">
-                <span>Resize canvas only</span>
+                <span>resize canvas only</span>
                 <kbd className="bg-muted px-1.5 py-0.5 font-mono">
                   Ctrl Drag
                 </kbd>
@@ -2409,7 +2414,7 @@ function getCanvasRatioLabel(
   originalCanvas: CanvasLayout["canvas"]
 ): string {
   if (sameCanvasRatio(canvas, originalCanvas)) {
-    return "Original"
+    return "original"
   }
 
   const preset = ASPECT_RATIO_PRESETS.find((item) =>

@@ -27,7 +27,7 @@ export function JigsawProfileApp() {
   )
   const [history, setHistory] = useState<JigsawHistoryItem[]>([])
   const [status, setStatus] = useState(() =>
-    readLocalAuthSession() ? "Loading profile..." : "Telegram login required"
+    readLocalAuthSession() ? "loading profile..." : "tg login required"
   )
   const [loading, setLoading] = useState(false)
   const [widgetVisible, setWidgetVisible] = useState(false)
@@ -38,7 +38,7 @@ export function JigsawProfileApp() {
 
     setAuthSession(session)
     setHistory(nextHistory)
-    setStatus(nextHistory.length ? "History synced" : "No solved jigsaws yet")
+    setStatus(nextHistory.length ? "history synced" : "no solved jigsaws yet")
   }
 
   async function loginWithTelegram(): Promise<void> {
@@ -58,12 +58,12 @@ export function JigsawProfileApp() {
       }
 
       setWidgetVisible(true)
-      setStatus("Confirm in Telegram widget")
+      setStatus("confirm in tg widget")
       return
     }
 
     setLoading(true)
-    setStatus("Telegram WebApp login...")
+    setStatus("tg webapp login...")
 
     try {
       const session = await loginTelegramWebApp(anonSessionRef.current.token)
@@ -100,7 +100,7 @@ export function JigsawProfileApp() {
         setAuthSession(session)
         setHistory(nextHistory)
         setStatus(
-          nextHistory.length ? "History synced" : "No solved jigsaws yet"
+          nextHistory.length ? "history synced" : "no solved jigsaws yet"
         )
       } catch (error) {
         if (!disposed) {
@@ -149,7 +149,7 @@ export function JigsawProfileApp() {
           setHistory(nextHistory)
           setWidgetVisible(false)
           setStatus(
-            nextHistory.length ? "History synced" : "No solved jigsaws yet"
+            nextHistory.length ? "history synced" : "no solved jigsaws yet"
           )
         })
         .catch((error) => {
@@ -301,8 +301,8 @@ export function JigsawProfileApp() {
           ) : (
             <div className="jigsaw-room__history-empty">
               <p>
-                Finish a jigsaw room while linked with Telegram. Safe refs keep
-                raw image URLs and tokens out of history.
+                finish a jigsaw room while linked with tg. safe refs keep raw
+                image urls and tokens out of history.
               </p>
             </div>
           )}
