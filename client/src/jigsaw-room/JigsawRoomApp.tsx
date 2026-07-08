@@ -511,6 +511,19 @@ export function JigsawRoomApp({ roomId }: JigsawRoomAppProps) {
         setReady(true)
         setRoomStatus("")
         refreshStats()
+
+        const bootStats = getJigsawStats(
+          state,
+          app.ticker.FPS || 0,
+          camera.zoom
+        )
+
+        if (
+          bootStats.totalPieces > 0 &&
+          bootStats.placedPieces >= bootStats.totalPieces
+        ) {
+          solvedAnnouncedRef.current = true
+        }
       } catch (error) {
         if (!disposed) {
           setReady(false)
@@ -563,6 +576,8 @@ export function JigsawRoomApp({ roomId }: JigsawRoomAppProps) {
   }, [])
 
   useEffect(() => {
+    if (solved) return
+
     const interval = window.setInterval(() => {
       setTimerNow(Date.now())
     }, 500)
@@ -570,7 +585,7 @@ export function JigsawRoomApp({ roomId }: JigsawRoomAppProps) {
     return () => {
       window.clearInterval(interval)
     }
-  }, [])
+  }, [solved])
 
   useEffect(() => {
     const saved = readLocalAuthSession()
@@ -1164,7 +1179,9 @@ export function JigsawRoomApp({ roomId }: JigsawRoomAppProps) {
                   type="button"
                   onClick={(event) => {
                     arrangePieces(mode)
-                    event.currentTarget.closest("details")?.removeAttribute("open")
+                    event.currentTarget
+                      .closest("details")
+                      ?.removeAttribute("open")
                   }}
                   disabled={!ready || roomTimer.paused}
                 >
