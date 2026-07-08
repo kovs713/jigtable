@@ -11,6 +11,13 @@ import { isRecord } from "@jigtable/shared"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { Separator } from "@/components/ui/separator"
 import { Slider } from "@/components/ui/slider"
 import { Toggle } from "@/components/ui/toggle"
@@ -26,6 +33,7 @@ import {
   saveLocalAuthSession,
   type AuthSession,
 } from "@/jigsaw-room/multiplayer/auth"
+import { fetchUserBatches, type UserBatchItem } from "@/jigsaw-room/room-api"
 import { cn } from "@/lib/utils"
 
 type CanvasLayout = {
@@ -239,6 +247,11 @@ export function App() {
   const [remoteBatch, setRemoteBatch] = useState<RemoteBatch | null>(() =>
     getInitialRemoteBatch()
   )
+  const [batches, setBatches] = useState<UserBatchItem[]>([])
+  const [selectedBatch, setSelectedBatch] = useState<{
+    batchId: string
+    batchToken: string
+  } | null>(null)
   const [authSession, setAuthSession] = useState<AuthSession | null>(() =>
     readLocalAuthSession()
   )
@@ -387,6 +400,42 @@ export function App() {
     }
   }, [authSession, layout, remoteBatch, applyBatchLayout])
 
+  const applyRemoteBatch = useCallback(
+    async (batch: RemoteBatch) => {
+      if (!authSession) {
+        setStatus("Telegram login required")
+        return
+      }
+
+      setStatus("Loading images...")
+
+      try {
+        const payload = await fetchBatchLayout(batch, authSession.token)
+        const layout = normalizeCanvasLayout(payload.layout)
+
+        setOriginalCanvas(layout.canvas)
+        setLayout(layout)
+        selectOnlyItem(layout.items[0]?.id ?? "")
+        setRemoteBatch({
+          batchId: payload.batchId,
+          token: batch.token,
+          outputUrl: payload.outputUrl,
+        })
+        window.history.replaceState(
+          null,
+          "",
+          `?batchId=${encodeURIComponent(payload.batchId)}&token=${encodeURIComponent(batch.token)}`
+        )
+        setStatus("Ready to edit")
+      } catch (error) {
+        setStatus(
+          error instanceof Error ? error.message : "Failed to load images"
+        )
+      }
+    },
+    [authSession]
+  )
+
   useEffect(() => {
     zoomRef.current = viewportScale
   }, [viewportScale])
@@ -482,6 +531,46 @@ export function App() {
       disposed = true
     }
   }, [])
+
+  useEffect(() => {
+    if (!authSession) {
+      return
+    }
+
+    let disposed = false
+
+    void fetchUserBatches(authSession.token)
+      .then((items) => {
+        if (disposed) {
+          return
+        }
+
+        setBatches(items)
+
+        if (!remoteBatch && !selectedBatch && items[0]) {
+          const first = items[0]
+
+          setSelectedBatch({
+            batchId: first.batchId,
+            batchToken: first.batchToken,
+          })
+          void applyRemoteBatch({
+            batchId: first.batchId,
+            token: first.batchToken,
+            outputUrl: null,
+          })
+        }
+      })
+      .catch((error) => {
+        if (!disposed) {
+          setStatus(readErrorMessage(error))
+        }
+      })
+
+    return () => {
+      disposed = true
+    }
+  }, [authSession, applyRemoteBatch, remoteBatch, selectedBatch])
 
   useEffect(() => {
     const host = telegramWidgetRef.current
@@ -1206,36 +1295,19 @@ export function App() {
       return
     }
 
-    if (!authSession) {
-      setStatus("Telegram login required")
-      return
-    }
+    await applyRemoteBatch(batch)
+  }
 
-    setStatus("Loading images...")
-
-    try {
-      const payload = await fetchBatchLayout(batch, authSession.token)
-      const layout = normalizeCanvasLayout(payload.layout)
-
-      setOriginalCanvas(layout.canvas)
-      setLayout(layout)
-      selectOnlyItem(layout.items[0]?.id ?? "")
-      setRemoteBatch({
-        batchId: payload.batchId,
-        token: batch.token,
-        outputUrl: payload.outputUrl,
-      })
-      window.history.replaceState(
-        null,
-        "",
-        `?batchId=${encodeURIComponent(payload.batchId)}&token=${encodeURIComponent(batch.token)}`
-      )
-      setStatus("Ready to edit")
-    } catch (error) {
-      setStatus(
-        error instanceof Error ? error.message : "Failed to load images"
-      )
-    }
+  function selectBuild(batch: UserBatchItem) {
+    setSelectedBatch({
+      batchId: batch.batchId,
+      batchToken: batch.batchToken,
+    })
+    void applyRemoteBatch({
+      batchId: batch.batchId,
+      token: batch.batchToken,
+      outputUrl: null,
+    })
   }
 
   function updateSelectedItem(patch: Partial<CanvasItem>) {
@@ -1351,6 +1423,40 @@ export function App() {
         />
 
         <div className="flex flex-wrap items-center gap-2 md:ml-auto">
+          {batches.length ? (
+            <Select
+              value={selectedBatch?.batchId ?? ""}
+              disabled={!authSession}
+              onValueChange={(value) => {
+                const batch = batches.find((item) => item.batchId === value)
+
+                if (batch) {
+                  selectBuild(batch)
+                }
+              }}
+            >
+              <SelectTrigger className="h-9 w-full font-mono text-sm sm:w-56">
+                <SelectValue placeholder="Select build">
+                  {selectedBatch
+                    ? formatBatchTitle(
+                        batches.find(
+                          (item) => item.batchId === selectedBatch.batchId
+                        ) ?? null
+                      )
+                    : "Select build"}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                {batches.map((batch, index) => (
+                  <SelectItem key={batch.batchId} value={batch.batchId}>
+                    {String(index + 1).padStart(2, "0")} · {batch.imageCount}{" "}
+                    images · {formatBatchMeta(batch)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          ) : null}
+
           <Input
             className="h-9 w-full font-mono text-sm sm:w-64"
             placeholder="Paste bot link or code"
@@ -2634,6 +2740,35 @@ function updateScale(next: CanvasItem, previous: CanvasItem): CanvasItem {
     ...next,
     scale: round(next.width / originalWidth),
   }
+}
+
+function formatBatchDate(value: string | null): string {
+  if (!value) {
+    return "no date"
+  }
+
+  return new Intl.DateTimeFormat("ru-RU", {
+    day: "2-digit",
+    month: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(new Date(value))
+}
+
+function formatBatchTitle(batch: UserBatchItem | null): string {
+  if (!batch) {
+    return "Current build"
+  }
+
+  return `${batch.imageCount} images`
+}
+
+function formatBatchMeta(batch: UserBatchItem): string {
+  const canvas = batch.canvas
+    ? `${Math.round(batch.canvas.width)}x${Math.round(batch.canvas.height)}`
+    : "canvas pending"
+
+  return `${canvas} · ${formatBatchDate(batch.createdAt)}`
 }
 
 function getInitialRemoteBatch(): RemoteBatch | null {
