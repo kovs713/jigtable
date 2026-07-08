@@ -47,7 +47,7 @@ export function setupPieceInteractions({
   onGroupGrab,
   onGroupMove,
   onGroupDrop,
-  onToggleLock,
+  // onToggleLock,
 }: {
   app: Application
   state: JigsawState
@@ -87,9 +87,9 @@ export function setupPieceInteractions({
     }
 
     if (event.ctrlKey || event.metaKey) {
-//      event.preventDefault()
-//      onToggleLock?.(pieceId)
-//      return
+      //      event.preventDefault()
+      //      onToggleLock?.(pieceId)
+      //      return
     }
 
     startDrag(pieceId, event, world)
