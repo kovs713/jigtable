@@ -8,7 +8,7 @@
   font-style: normal;
   font-display: swap;
   font-weight: 100 900;
-  src: url("/Satoshi-Variable.woff2") format("woff2");
+  src: url("/fonts/Satoshi-Variable.woff2") format("woff2");
 }
 
 @font-face {
@@ -16,7 +16,7 @@
   font-style: italic;
   font-display: swap;
   font-weight: 100 900;
-  src: url("/Satoshi-VariableItalic.woff2") format("woff2");
+  src: url("/fonts/Satoshi-VariableItalic.woff2") format("woff2");
 }
 
 @custom-variant dark (&:is(.dark *));

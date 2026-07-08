@@ -1,0 +1,27 @@
+{
+  "id": "/",
+  "name": "Jigtable — Collaborative Jigsaw Puzzles",
+  "short_name": "Jigtable",
+  "description": "Create, share, edit, and solve collaborative online jigsaw puzzles with friends in real time.",
+  "lang": "en",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "display_override": ["standalone", "minimal-ui", "browser"],
+  "theme_color": "#17bac8",
+  "background_color": "#0b0b0b",
+  "orientation": "any",
+  "categories": ["games", "entertainment", "photo"],
+  "icons": [
+    {
+      "src": "/android-chrome-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/android-chrome-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

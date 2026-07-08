@@ -142,7 +142,7 @@ async function loadPingSound(): Promise<void> {
 
     ensurePingGain(ctx)
 
-    const response = await fetch("/Ui_ping.mp3")
+    const response = await fetch("/assets/Ui_ping.mp3")
     const arrayBuffer = await response.arrayBuffer()
     audioBuffer = await ctx.decodeAudioData(arrayBuffer)
     isAudioReady = true
