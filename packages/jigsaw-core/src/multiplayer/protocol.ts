@@ -28,6 +28,16 @@ export interface JigsawGroupLock {
   lockedAt: number
 }
 
+export interface JigsawLock {
+  targetType: "piece" | "group"
+  targetId: string
+  playerId: string
+  playerName: string
+  playerColor: string
+  lockedAt: number
+  connectionId: string
+}
+
 export interface JigsawPlayerCursor {
   playerId: string
   playerName: string
@@ -63,7 +73,7 @@ export interface JigsawRoomSnapshot {
   pieces: JigsawState["pieces"]
   groups: JigsawState["groups"]
   players: JigsawPlayer[]
-  locks: JigsawGroupLock[]
+  locks: JigsawLock[]
   cursors: JigsawPlayerCursor[]
   timer: JigsawRoomTimer
   stats: JigsawRoomStats
@@ -94,6 +104,7 @@ export type ClientToServerMessage =
   | { type: "group:drop"; groupId: GroupId; x: number; y: number }
   | { type: "group:release"; groupId: GroupId }
   | { type: "groups:arrange"; mode: ArrangeLoosePiecesMode }
+  | { type: "room:lock-toggle"; targetType: "piece" | "group"; targetId: string }
   | { type: "cursor:move"; x: number; y: number }
   | { type: "cursor:hide" }
   | { type: "session:pause" }
@@ -110,6 +121,19 @@ export type ServerToClientMessage =
   | { type: "session:resumed"; timer: JigsawRoomTimer }
   | { type: "group:locked"; lock: JigsawGroupLock }
   | { type: "group:unlocked"; groupId: GroupId; playerId: string }
+  | {
+      type: "room:lock-updated"
+      targetType: "piece" | "group"
+      targetId: string
+      lockedBy: { userId: string; name: string; color: string } | null
+    }
+  | {
+      type: "room:lock-rejected"
+      targetType: "piece" | "group"
+      targetId: string
+      reason: "already_locked"
+      lockedBy: { userId: string; name: string; color: string }
+    }
   | {
       type: "group:moved"
       groupId: GroupId

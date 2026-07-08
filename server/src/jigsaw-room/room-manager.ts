@@ -6,6 +6,7 @@ import type {
   GroupId,
   GroupState,
   JigsawGroupLock,
+  JigsawLock,
   JigsawPlayer,
   JigsawPlayerCursor,
   JigsawRoomSnapshot,
@@ -49,6 +50,7 @@ export interface JigsawSocketData {
   roomId?: string
   sessionToken?: string
   player?: JigsawPlayer
+  connectionId?: string
 }
 
 export type JigsawSocket = ServerWebSocket<JigsawSocketData>
@@ -63,6 +65,7 @@ interface JigsawRoom {
   cursors: Map<string, JigsawPlayerCursor>
   sockets: Set<JigsawSocket>
   locks: Map<GroupId, JigsawGroupLock>
+  toggleLocks: Map<string, JigsawLock>
   timer: JigsawRoomTimer
   pingCooldowns: Map<string, number>
   createdAt: number
@@ -181,6 +184,11 @@ export class JigsawRoomManager {
       return
     }
 
+    if (message.type === "room:lock-toggle") {
+      this.handleLockToggle(socket, room, player, message)
+      return
+    }
+
     if (message.type === "room:ping") {
       this.handlePing(room, player, message)
       return
@@ -199,6 +207,7 @@ export class JigsawRoomManager {
   handleClose(socket: JigsawSocket): void {
     const roomId = socket.data.roomId
     const player = socket.data.player
+    const connectionId = socket.data.connectionId
 
     if (!roomId || !player) {
       return
@@ -211,6 +220,8 @@ export class JigsawRoomManager {
     }
 
     room.sockets.delete(socket)
+
+    this.releaseConnectionLocks(room, connectionId)
 
     const playerStillConnected = [...room.sockets].some(
       (item) => item.data.player?.id === player.id
@@ -303,6 +314,7 @@ export class JigsawRoomManager {
     const player = session.player
     const isNewPlayer = !room.players.has(player.id)
 
+    socket.data.connectionId = crypto.randomUUID()
     socket.data.roomId = room.roomId
     socket.data.sessionToken = session.token
     socket.data.player = player
@@ -353,6 +365,15 @@ export class JigsawRoomManager {
       return
     }
 
+    if (this.isGroupBlockedByToggleLock(room, player.id, groupId)) {
+      send(socket, {
+        type: "error",
+        code: "group_locked",
+        message: "Group locked",
+      })
+      return
+    }
+
     const existingLock = room.locks.get(groupId)
 
     if (existingLock && existingLock.playerId !== player.id) {
@@ -374,6 +395,131 @@ export class JigsawRoomManager {
     room.locks.set(groupId, lock)
     room.updatedAt = Date.now()
     broadcast(room, { type: "group:locked", lock })
+  }
+
+  private handleLockToggle(
+    socket: JigsawSocket,
+    room: JigsawRoom,
+    player: JigsawPlayer,
+    message: { targetType: "piece" | "group"; targetId: string }
+  ): void {
+    if (room.timer.paused) {
+      send(socket, {
+        type: "error",
+        code: "session_paused",
+        message: "Session is paused",
+      })
+      return
+    }
+
+    const key = `${message.targetType}:${message.targetId}`
+    const existingLock = room.toggleLocks.get(key)
+
+    if (existingLock) {
+      if (existingLock.playerId === player.id) {
+        room.toggleLocks.delete(key)
+        room.updatedAt = Date.now()
+        broadcast(room, {
+          type: "room:lock-updated",
+          targetType: message.targetType,
+          targetId: message.targetId,
+          lockedBy: null,
+        })
+      } else {
+        send(socket, {
+          type: "room:lock-rejected",
+          targetType: message.targetType,
+          targetId: message.targetId,
+          reason: "already_locked",
+          lockedBy: {
+            userId: existingLock.playerId,
+            name: existingLock.playerName,
+            color: existingLock.playerColor,
+          },
+        })
+      }
+      return
+    }
+
+    const connectionId = socket.data.connectionId
+
+    if (!connectionId) {
+      return
+    }
+
+    const lock = {
+      targetType: message.targetType,
+      targetId: message.targetId,
+      playerId: player.id,
+      playerName: player.name,
+      playerColor: player.color,
+      lockedAt: Date.now(),
+      connectionId,
+    } satisfies JigsawLock
+
+    room.toggleLocks.set(key, lock)
+    room.updatedAt = Date.now()
+    broadcast(room, {
+      type: "room:lock-updated",
+      targetType: message.targetType,
+      targetId: message.targetId,
+      lockedBy: {
+        userId: player.id,
+        name: player.name,
+        color: player.color,
+      },
+    })
+  }
+
+  private isGroupBlockedByToggleLock(
+    room: JigsawRoom,
+    playerId: string,
+    groupId: GroupId
+  ): boolean {
+    const group = room.state.groups[groupId]
+
+    if (!group) {
+      return false
+    }
+
+    const groupKey = `group:${groupId}`
+    const groupLock = room.toggleLocks.get(groupKey)
+
+    if (groupLock && groupLock.playerId !== playerId) {
+      return true
+    }
+
+    for (const pieceId of group.pieceIds) {
+      const pieceKey = `piece:${pieceId}`
+      const pieceLock = room.toggleLocks.get(pieceKey)
+
+      if (pieceLock && pieceLock.playerId !== playerId) {
+        return true
+      }
+    }
+
+    return false
+  }
+
+  private releaseConnectionLocks(
+    room: JigsawRoom,
+    connectionId: string | undefined
+  ): void {
+    if (!connectionId) {
+      return
+    }
+
+    for (const [key, lock] of room.toggleLocks) {
+      if (lock.connectionId === connectionId) {
+        room.toggleLocks.delete(key)
+        broadcast(room, {
+          type: "room:lock-updated",
+          targetType: lock.targetType,
+          targetId: lock.targetId,
+          lockedBy: null,
+        })
+      }
+    }
   }
 
   private moveGroup(
@@ -398,6 +544,15 @@ export class JigsawRoomManager {
         type: "error",
         code: "lock_required",
         message: "Lock required",
+      })
+      return
+    }
+
+    if (this.isGroupBlockedByToggleLock(room, player.id, groupId)) {
+      send(socket, {
+        type: "error",
+        code: "group_locked",
+        message: "Group locked",
       })
       return
     }
@@ -435,6 +590,11 @@ export class JigsawRoomManager {
       return
     }
 
+    if (this.isGroupBlockedByToggleLock(room, player.id, groupId)) {
+      this.releaseGroup(room, player, groupId)
+      return
+    }
+
     const beforeGroupIds = new Set(Object.keys(room.state.groups))
     moveGroupToAnchor(room.state, groupId, x, y)
 
@@ -451,6 +611,37 @@ export class JigsawRoomManager {
     }
 
     room.updatedAt = Date.now()
+
+    for (const removedGroupId of removedGroupIds) {
+      const removedKey = `group:${removedGroupId}`
+      const removedLock = room.toggleLocks.get(removedKey)
+      if (removedLock) {
+        room.toggleLocks.delete(removedKey)
+        const keptKey = `group:${snap.groupId}`
+        if (!room.toggleLocks.has(keptKey)) {
+          room.toggleLocks.set(keptKey, {
+            ...removedLock,
+            targetId: snap.groupId,
+          })
+        }
+        broadcast(room, {
+          type: "room:lock-updated",
+          targetType: "group",
+          targetId: removedGroupId,
+          lockedBy: null,
+        })
+        broadcast(room, {
+          type: "room:lock-updated",
+          targetType: "group",
+          targetId: snap.groupId,
+          lockedBy: {
+            userId: removedLock.playerId,
+            name: removedLock.playerName,
+            color: removedLock.playerColor,
+          },
+        })
+      }
+    }
 
     if (snap.kind === "neighbor") {
       broadcast(room, {
@@ -632,6 +823,16 @@ export class JigsawRoomManager {
         playerId: lock.playerId,
       })
     }
+
+    for (const [key, lock] of room.toggleLocks) {
+      room.toggleLocks.delete(key)
+      broadcast(room, {
+        type: "room:lock-updated",
+        targetType: lock.targetType,
+        targetId: lock.targetId,
+        lockedBy: null,
+      })
+    }
   }
 
   private releasePlayerLocks(room: JigsawRoom, playerId: string): void {
@@ -639,6 +840,18 @@ export class JigsawRoomManager {
       if (lock.playerId === playerId) {
         room.locks.delete(groupId)
         broadcast(room, { type: "group:unlocked", groupId, playerId })
+      }
+    }
+
+    for (const [key, lock] of room.toggleLocks) {
+      if (lock.playerId === playerId) {
+        room.toggleLocks.delete(key)
+        broadcast(room, {
+          type: "room:lock-updated",
+          targetType: lock.targetType,
+          targetId: lock.targetId,
+          lockedBy: null,
+        })
       }
     }
   }
@@ -742,6 +955,7 @@ export class JigsawRoomManager {
       cursors: new Map<string, JigsawPlayerCursor>(),
       sockets: new Set<JigsawSocket>(),
       locks: new Map<GroupId, JigsawGroupLock>(),
+      toggleLocks: new Map<string, JigsawLock>(),
       pingCooldowns: new Map<string, number>(),
       timer: {
         elapsedMs: 0,
@@ -771,6 +985,8 @@ function clampPieceCount(value: number): number {
 }
 
 function toSnapshot(room: JigsawRoom): JigsawRoomSnapshot {
+  const toggleLocks: JigsawLock[] = [...room.toggleLocks.values()]
+
   return {
     roomId: room.roomId,
     jigsaw: {
@@ -781,7 +997,7 @@ function toSnapshot(room: JigsawRoom): JigsawRoomSnapshot {
     pieces: room.state.pieces,
     groups: room.state.groups,
     players: [...room.players.values()],
-    locks: [...room.locks.values()],
+    locks: toggleLocks,
     cursors: [...room.cursors.values()],
     timer: room.timer,
     stats: getStats(room),
@@ -806,6 +1022,12 @@ function updatePlayerLocks(room: JigsawRoom, player: JigsawPlayer): void {
   for (const [groupId, lock] of room.locks) {
     if (lock.playerId === player.id) {
       room.locks.set(groupId, { ...lock, playerName: player.name })
+    }
+  }
+
+  for (const [key, lock] of room.toggleLocks) {
+    if (lock.playerId === player.id) {
+      room.toggleLocks.set(key, { ...lock, playerName: player.name, playerColor: player.color })
     }
   }
 }

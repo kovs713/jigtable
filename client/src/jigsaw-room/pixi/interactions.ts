@@ -36,6 +36,7 @@ export function setupPieceInteractions({
   onGroupGrab,
   onGroupMove,
   onGroupDrop,
+  onToggleLock,
 }: {
   app: Application
   state: JigsawState
@@ -47,6 +48,7 @@ export function setupPieceInteractions({
   onGroupGrab?: (groupId: GroupId) => void
   onGroupMove?: (groupId: GroupId) => void
   onGroupDrop?: (groupId: GroupId) => void
+  onToggleLock?: (pieceId: PieceId) => void
 }): InteractionController {
   const canvas = app.canvas as HTMLCanvasElement
   let drag: DragState | null = null
@@ -60,9 +62,17 @@ export function setupPieceInteractions({
     }
 
     const world = camera.screenToWorld(event.clientX, event.clientY)
-    const pieceId = pieces.pickPieceAt(world.x, world.y)
+    const pieceId = pieces.pickPieceAt(world.x, world.y, {
+      includeLocked: true,
+    })
 
     if (!pieceId) {
+      return
+    }
+
+    if (event.ctrlKey || event.metaKey) {
+      event.preventDefault()
+      onToggleLock?.(pieceId)
       return
     }
 

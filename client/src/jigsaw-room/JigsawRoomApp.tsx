@@ -23,6 +23,7 @@ import type {
 } from "@jigtable/jigsaw-core/jigsaw/types"
 import type {
   JigsawGroupLock,
+  JigsawLock,
   JigsawPlayer,
   JigsawRoomSnapshot,
   JigsawRoomTimer,
@@ -67,6 +68,8 @@ import type { DebugTicker } from "./pixi/debug"
 import { createDebugTicker, getJigsawStats } from "./pixi/debug"
 import type { InteractionController } from "./pixi/interactions"
 import { setupPieceInteractions } from "./pixi/interactions"
+import type { LockOverlayRenderer } from "./pixi/locks"
+import { createLockOverlayRenderer } from "./pixi/locks"
 import type { PieceViewSet } from "./pixi/pieces"
 import { createPieceViews } from "./pixi/pieces"
 import type { PingController } from "./pixi/pings"
@@ -120,6 +123,7 @@ interface JigsawRuntime {
   cursors: RemoteCursorViewSet
   cursorBroadcast: CursorBroadcastController
   pings: PingController
+  lockOverlays: LockOverlayRenderer
   debug: DebugTicker
   interactions: InteractionController
 }
@@ -152,6 +156,7 @@ export function JigsawRoomApp({ roomId }: JigsawRoomAppProps) {
   const sessionRef = useRef<JigsawSession>(initialSession)
   const playerRef = useRef<JigsawPlayer>(initialSession.player)
   const groupLocksRef = useRef(new Map<string, JigsawGroupLock>())
+  const toggleLocksRef = useRef(new Map<string, JigsawLock>())
   const roomTimerRef = useRef<JigsawRoomTimer>(createInitialTimer())
   const lastMoveSentAtRef = useRef(0)
   const highlightTimerRef = useRef<number | null>(null)
@@ -411,12 +416,66 @@ export function JigsawRoomApp({ roomId }: JigsawRoomAppProps) {
 
             const lock = groupLocksRef.current.get(groupId)
 
-            return !lock || lock.playerId === playerRef.current.id
+            if (lock && lock.playerId !== playerRef.current.id) {
+              return false
+            }
+
+            const toggleKey = `group:${groupId}`
+            const toggleLock = toggleLocksRef.current.get(toggleKey)
+
+            if (toggleLock && toggleLock.playerId !== playerRef.current.id) {
+              return false
+            }
+
+            const group = state.groups[groupId]
+
+            if (group) {
+              for (const pieceId of group.pieceIds) {
+                const pieceKey = `piece:${pieceId}`
+                const pieceLock = toggleLocksRef.current.get(pieceKey)
+
+                if (
+                  pieceLock &&
+                  pieceLock.playerId !== playerRef.current.id
+                ) {
+                  return false
+                }
+              }
+            }
+
+            return true
           },
           isServerMode() {
             return multiplayerRef.current?.isConnected() ?? false
           },
           onChange: refreshStats,
+          onToggleLock(pieceId) {
+            const piece = state.pieces[pieceId]
+
+            if (!piece) {
+              return
+            }
+
+            const group = state.groups[piece.groupId]
+
+            if (!group) {
+              return
+            }
+
+            if (group.pieceIds.length > 1) {
+              multiplayerRef.current?.send({
+                type: "room:lock-toggle",
+                targetType: "group",
+                targetId: piece.groupId,
+              })
+            } else {
+              multiplayerRef.current?.send({
+                type: "room:lock-toggle",
+                targetType: "piece",
+                targetId: pieceId,
+              })
+            }
+          },
           onGroupGrab(groupId) {
             multiplayerRef.current?.send({ type: "group:grab", groupId })
           },
@@ -507,6 +566,12 @@ export function JigsawRoomApp({ roomId }: JigsawRoomAppProps) {
         }
 
         app.canvas.addEventListener("pointerdown", onAltClickPing)
+        const lockOverlays = createLockOverlayRenderer(
+          scene.lockLayer,
+          state,
+          pieces
+        )
+
         const debug = createDebugTicker(app, state, camera, setStats)
 
         runtimeRef.current = {
@@ -518,6 +583,7 @@ export function JigsawRoomApp({ roomId }: JigsawRoomAppProps) {
           cursors,
           cursorBroadcast,
           pings,
+          lockOverlays,
           debug,
           interactions,
         }
@@ -540,6 +606,7 @@ export function JigsawRoomApp({ roomId }: JigsawRoomAppProps) {
           interactions.destroy()
           cursorBroadcast.destroy()
           pings.destroy()
+          lockOverlays.destroy()
           multiplayerRef.current?.destroy()
           multiplayerRef.current = null
           debug.destroy()
@@ -929,10 +996,14 @@ export function JigsawRoomApp({ roomId }: JigsawRoomAppProps) {
       setRoomStatus("")
       applyRoomTimer(message.state.timer)
       groupLocksRef.current.clear()
+      toggleLocksRef.current.clear()
 
       for (const lock of message.state.locks) {
-        groupLocksRef.current.set(lock.groupId, lock)
+        const key = `${lock.targetType}:${lock.targetId}`
+        toggleLocksRef.current.set(key, lock)
       }
+
+      runtime?.lockOverlays.update(toggleLocksRef.current)
 
       runtime?.cursors.syncCursors(message.state.cursors, playerRef.current.id)
 
@@ -992,6 +1063,31 @@ export function JigsawRoomApp({ roomId }: JigsawRoomAppProps) {
 
     if (message.type === "group:unlocked") {
       groupLocksRef.current.delete(message.groupId)
+      return
+    }
+
+    if (message.type === "room:lock-updated") {
+      const key = `${message.targetType}:${message.targetId}`
+
+      if (message.lockedBy) {
+        toggleLocksRef.current.set(key, {
+          targetType: message.targetType,
+          targetId: message.targetId,
+          playerId: message.lockedBy.userId,
+          playerName: message.lockedBy.name,
+          playerColor: message.lockedBy.color,
+          lockedAt: Date.now(),
+          connectionId: "",
+        })
+      } else {
+        toggleLocksRef.current.delete(key)
+      }
+
+      runtime?.lockOverlays.update(toggleLocksRef.current)
+      return
+    }
+
+    if (message.type === "room:lock-rejected") {
       return
     }
 

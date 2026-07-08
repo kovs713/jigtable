@@ -18,6 +18,7 @@ export interface JigsawScene {
   world: Container
   boardLayer: Container
   piecesLayer: Container
+  lockLayer: Container
   overlayLayer: Container
   setPreviewVisible: (visible: boolean) => void
   setColors: (colors: SceneColors) => void
@@ -32,6 +33,7 @@ export function createJigsawScene(
   const world = new Container({ label: "jigsaw-world" })
   const boardLayer = new Container({ label: "jigsaw-board-layer" })
   const piecesLayer = new Container({ label: "jigsaw-pieces-layer" })
+  const lockLayer = new Container({ label: "jigsaw-lock-layer" })
   const overlayLayer = new Container({ label: "jigsaw-overlay-layer" })
 
   overlayLayer.eventMode = "none"
@@ -50,13 +52,14 @@ export function createJigsawScene(
   preview.visible = false
   overlayLayer.addChild(preview)
 
-  world.addChild(boardLayer, piecesLayer, overlayLayer)
+  world.addChild(boardLayer, piecesLayer, lockLayer, overlayLayer)
   app.stage.addChild(world)
 
   return {
     world,
     boardLayer,
     piecesLayer,
+    lockLayer,
     overlayLayer,
     setPreviewVisible(visible: boolean) {
       preview.visible = visible

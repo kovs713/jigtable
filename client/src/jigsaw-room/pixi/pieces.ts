@@ -250,7 +250,7 @@ export function createPieceViews(
   }
 }
 
-interface ShapeMetrics {
+export interface ShapeMetrics {
   margin: number
   scale: number
   textureWidth: number
@@ -399,7 +399,7 @@ function createPieceAtlas(
   return { atlasTextures, byId }
 }
 
-function createShapeMetrics(state: JigsawState): ShapeMetrics {
+export function createShapeMetrics(state: JigsawState): ShapeMetrics {
   const t = state.config.tabSizePercent / 200
   const j = state.config.jitterPercent / 100
   const maxTabDepth =
