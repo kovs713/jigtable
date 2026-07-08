@@ -19,11 +19,6 @@
 
   --jigsaw-pixi-preview-overlay: #ffffff;
   --jigsaw-pixi-preview-overlay-alpha: 0.12;
-  --jigsaw-pixi-piece-stroke: color-mix(
-    in oklch,
-    var(--foreground),
-    transparent 18%
-  );
 
   --jigsaw-pixi-piece-highlight: #f4d35e;
   --jigsaw-pixi-placed-stroke: var(--primary);

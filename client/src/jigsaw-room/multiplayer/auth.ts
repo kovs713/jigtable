@@ -27,6 +27,7 @@ export interface JigsawHistoryItem {
   elapsedMs: number
   pieceCount: number
   snapCount: number
+  imageUrl: string | null
   source: {
     kind: "dev" | "batch_render" | "external"
     label: string

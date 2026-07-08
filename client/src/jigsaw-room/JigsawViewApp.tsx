@@ -4,6 +4,7 @@ import {
   fetchJigsawRoomResult,
   type JigsawRoomResult,
 } from "./room-api"
+import { HistoryPreview } from "./HistoryPreview"
 import { formatDate, formatDuration } from "./time"
 
 import "./jigsaw-room.css"
@@ -74,9 +75,10 @@ export function JigsawViewApp({ roomId }: { roomId: string }) {
 
         <div className="jigsaw-room__view-canvas">
           {result.imageUrl ? (
-            <img
-              src={result.imageUrl}
-              alt="Completed puzzle"
+            <HistoryPreview
+              imageUrl={result.imageUrl}
+              pieceCount={result.pieceCount}
+              maxWidth={800}
               className="jigsaw-room__view-image"
             />
           ) : (

@@ -2,11 +2,7 @@ import type { Application, Texture } from "pixi.js"
 import { Container, Graphics, Sprite } from "pixi.js"
 
 import { getJigsawBounds } from "@jigtable/jigsaw-core/jigsaw/config"
-import type {
-  JigsawState,
-  PieceEdgePoint,
-  PieceEdgeShape,
-} from "@jigtable/jigsaw-core/jigsaw/types"
+import type { JigsawState } from "@jigtable/jigsaw-core/jigsaw/types"
 
 export interface SceneColors {
   boardFill: number
@@ -14,7 +10,6 @@ export interface SceneColors {
   boardGrid: number
   previewOverlay: number
   previewOverlayAlpha: number
-  pieceStroke: number
   pieceHighlight: number
   placedStroke: number
 }
@@ -46,13 +41,11 @@ export function createJigsawScene(
   boardLayer.addChild(solutionArea)
 
   const previewOverlay = new Graphics()
-  const previewGrid = new Graphics()
   const preview = createPreviewOverlay(
     state,
     imageTexture,
     colors,
     previewOverlay,
-    previewGrid,
   )
   preview.visible = false
   overlayLayer.addChild(preview)
@@ -71,7 +64,6 @@ export function createJigsawScene(
     setColors(nextColors: SceneColors) {
       drawSolutionArea(solutionArea, state, nextColors)
       drawPreviewOverlay(previewOverlay, state, nextColors)
-      drawPreviewGrid(previewGrid, state, nextColors)
     },
   }
 }
@@ -89,7 +81,6 @@ export function readSceneColors(root: HTMLElement): SceneColors {
       "--jigsaw-pixi-preview-overlay-alpha",
       0.12
     ),
-    pieceStroke: readColor(style, "--jigsaw-pixi-piece-stroke", 0x0a1018),
     pieceHighlight: readColor(style, "--jigsaw-pixi-piece-highlight", 0xffee88),
     placedStroke: readColor(style, "--jigsaw-pixi-placed-stroke", 0xc6f36a),
   }
@@ -112,133 +103,11 @@ function drawSolutionArea(
     .stroke({ width: 2, color: colors.boardStroke, alpha: 0.95 })
 }
 
-function drawSolutionCutLines(area: Graphics, state: JigsawState): void {
-  const definitions = Object.values(state.definitions)
-
-  for (const definition of definitions) {
-    if (definition.row < state.config.rows - 1) {
-      drawEdge(
-        area,
-        definition.correctX,
-        definition.correctY + definition.height,
-        definition.correctX + definition.width,
-        definition.correctY + definition.height,
-        0,
-        1,
-        definition.edges.bottom,
-        definition.height
-      )
-    }
-
-    if (definition.col < state.config.cols - 1) {
-      drawEdge(
-        area,
-        definition.correctX + definition.width,
-        definition.correctY,
-        definition.correctX + definition.width,
-        definition.correctY + definition.height,
-        1,
-        0,
-        definition.edges.right,
-        definition.width
-      )
-    }
-  }
-}
-
-function drawEdge(
-  area: Graphics,
-  x1: number,
-  y1: number,
-  x2: number,
-  y2: number,
-  normalX: number,
-  normalY: number,
-  shape: PieceEdgeShape,
-  perpendicularLength: number
-): void {
-  area.moveTo(x1, y1)
-
-  if (shape.points.length === 0) {
-    area.lineTo(x2, y2)
-    return
-  }
-
-  const deltaX = x2 - x1
-  const deltaY = y2 - y1
-  const length = Math.hypot(deltaX, deltaY)
-  const unitX = deltaX / length
-  const unitY = deltaY / length
-
-  for (let index = 1; index < shape.points.length; index += 3) {
-    const control1 = edgePointToWorld(
-      shape.points[index],
-      x1,
-      y1,
-      unitX,
-      unitY,
-      normalX,
-      normalY,
-      length,
-      perpendicularLength
-    )
-    const control2 = edgePointToWorld(
-      shape.points[index + 1],
-      x1,
-      y1,
-      unitX,
-      unitY,
-      normalX,
-      normalY,
-      length,
-      perpendicularLength
-    )
-    const end = edgePointToWorld(
-      shape.points[index + 2],
-      x1,
-      y1,
-      unitX,
-      unitY,
-      normalX,
-      normalY,
-      length,
-      perpendicularLength
-    )
-
-    area.bezierCurveTo(
-      control1.x,
-      control1.y,
-      control2.x,
-      control2.y,
-      end.x,
-      end.y
-    )
-  }
-}
-
-function edgePointToWorld(
-  point: PieceEdgePoint,
-  x: number,
-  y: number,
-  unitX: number,
-  unitY: number,
-  normalX: number,
-  normalY: number,
-  length: number,
-  perpendicularLength: number
-): { x: number; y: number } {
-  return {
-    x: x + unitX * point.l * length + normalX * point.w * perpendicularLength,
-    y: y + unitY * point.l * length + normalY * point.w * perpendicularLength,
-  }
-}
-
 function createPreviewOverlay(
   state: JigsawState,
   imageTexture: Texture,
   colors: SceneColors,
   overlay: Graphics,
-  grid: Graphics,
 ): Container {
   const board = getJigsawBounds(state.config)
   const preview = new Container({ label: "jigsaw-preview" })
@@ -250,21 +119,10 @@ function createPreviewOverlay(
   image.alpha = 0.42
 
   drawPreviewOverlay(overlay, state, colors)
-  drawPreviewGrid(grid, state, colors)
 
-  preview.addChild(image, overlay, grid)
+  preview.addChild(image, overlay)
 
   return preview
-}
-
-function drawPreviewGrid(
-  grid: Graphics,
-  state: JigsawState,
-  colors: SceneColors
-): void {
-  grid.clear()
-  drawSolutionCutLines(grid, state)
-  grid.stroke({ width: 1, color: colors.pieceStroke, alpha: 0.25 })
 }
 
 function drawPreviewOverlay(
