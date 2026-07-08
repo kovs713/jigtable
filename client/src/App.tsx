@@ -1,4 +1,11 @@
-import * as React from "react"
+import type {
+  ButtonHTMLAttributes,
+  CSSProperties,
+  DragEvent,
+  MouseEvent,
+  PointerEvent,
+} from "react"
+import { forwardRef, useCallback, useEffect, useRef, useState } from "react"
 
 import { isRecord } from "@jigtable/shared"
 
@@ -8,7 +15,6 @@ import { Separator } from "@/components/ui/separator"
 import { Slider } from "@/components/ui/slider"
 import { Toggle } from "@/components/ui/toggle"
 import { API_BASE_URL } from "@/config"
-import { cn } from "@/lib/utils"
 import {
   fetchAuthMe,
   getTelegramBotUsername,
@@ -19,7 +25,8 @@ import {
   readLocalAuthSession,
   saveLocalAuthSession,
   type AuthSession,
-} from "./jigsaw-room/multiplayer/auth"
+} from "@/jigsaw-room/multiplayer/auth"
+import { cn } from "@/lib/utils"
 
 type CanvasLayout = {
   canvas: {
@@ -214,82 +221,92 @@ const EMPTY_LAYOUT: CanvasLayout = {
 }
 
 export function App() {
-  const telegramWidgetRef = React.useRef<HTMLDivElement | null>(null)
-  const [layout, setLayout] = React.useState<CanvasLayout>(EMPTY_LAYOUT)
-  const [selectedIds, setSelectedIds] = React.useState<string[]>([])
-  const [zoom, setZoom] = React.useState(DEFAULT_ZOOM)
-  const [status, setStatus] = React.useState("Open the link from the bot")
-  const [loadCode, setLoadCode] = React.useState("")
-  const [draggedLayerId, setDraggedLayerId] = React.useState("")
-  const [hoverLinkItemId, setHoverLinkItemId] = React.useState("")
-  const [hoverLinkLine, setHoverLinkLine] =
-    React.useState<HoverLinkLine | null>(null)
-  const [showCanvasMarkers, setShowCanvasMarkers] = React.useState(true)
+  const telegramWidgetRef = useRef<HTMLDivElement | null>(null)
+  const [layout, setLayout] = useState<CanvasLayout>(EMPTY_LAYOUT)
+  const [selectedIds, setSelectedIds] = useState<string[]>([])
+  const [zoom, setZoom] = useState(DEFAULT_ZOOM)
+  const [status, setStatus] = useState("Open the link from the bot")
+  const [loadCode, setLoadCode] = useState("")
+  const [draggedLayerId, setDraggedLayerId] = useState("")
+  const [hoverLinkItemId, setHoverLinkItemId] = useState("")
+  const [hoverLinkLine, setHoverLinkLine] = useState<HoverLinkLine | null>(null)
+  const [showCanvasMarkers, setShowCanvasMarkers] = useState(true)
   const [layerDropPreview, setLayerDropPreview] =
-    React.useState<LayerDropPreview | null>(null)
-  const [originalCanvas, setOriginalCanvas] = React.useState<
-    CanvasLayout["canvas"]
-  >(EMPTY_LAYOUT.canvas)
-  const [remoteBatch, setRemoteBatch] = React.useState<RemoteBatch | null>(() =>
+    useState<LayerDropPreview | null>(null)
+  const [originalCanvas, setOriginalCanvas] = useState<CanvasLayout["canvas"]>(
+    EMPTY_LAYOUT.canvas
+  )
+  const [remoteBatch, setRemoteBatch] = useState<RemoteBatch | null>(() =>
     getInitialRemoteBatch()
   )
-  const [authSession, setAuthSession] = React.useState<AuthSession | null>(() =>
+  const [authSession, setAuthSession] = useState<AuthSession | null>(() =>
     readLocalAuthSession()
   )
-  const [authStatus, setAuthStatus] = React.useState(() =>
+  const [authStatus, setAuthStatus] = useState(() =>
     readLocalAuthSession()
       ? "Checking Telegram session..."
       : "Telegram login required"
   )
-  const [authLoading, setAuthLoading] = React.useState(false)
-  const [telegramWidgetVisible, setTelegramWidgetVisible] =
-    React.useState(false)
-  const dragRef = React.useRef<DragState | null>(null)
-  const didLoadRemoteRef = React.useRef(false)
-  const canvasItemRefs = React.useRef(new Map<string, HTMLElement>())
-  const layerActionRefs = React.useRef(new Map<string, HTMLButtonElement>())
-  const layerRowRefs = React.useRef(new Map<string, HTMLDivElement>())
-  const pendingLayerFocusRef = React.useRef<{
+  const [authLoading, setAuthLoading] = useState(false)
+  const [telegramWidgetVisible, setTelegramWidgetVisible] = useState(false)
+  const dragRef = useRef<DragState | null>(null)
+  const didLoadRemoteRef = useRef(false)
+  const canvasItemRefs = useRef(new Map<string, HTMLElement>())
+  const layerActionRefs = useRef(new Map<string, HTMLButtonElement>())
+  const layerRowRefs = useRef(new Map<string, HTMLDivElement>())
+  const pendingLayerFocusRef = useRef<{
     itemId: string
     action: LayerAction
   } | null>(null)
-  const layoutRef = React.useRef(layout)
+  const layoutRef = useRef(layout)
   layoutRef.current = layout
-  const pastRef = React.useRef<CanvasLayout[]>([])
-  const futureRef = React.useRef<CanvasLayout[]>([])
-  const dragStartLayoutRef = React.useRef<CanvasLayout | null>(null)
+  const pastRef = useRef<CanvasLayout[]>([])
+  const futureRef = useRef<CanvasLayout[]>([])
+  const dragStartLayoutRef = useRef<CanvasLayout | null>(null)
 
-  function pushHistory() {
+  const pushHistory = useCallback(() => {
     pastRef.current.push(structuredClone(layoutRef.current))
+
     if (pastRef.current.length > 200) {
       pastRef.current.shift()
     }
+
     futureRef.current.length = 0
-  }
+  }, [])
 
-  function recordLayoutChange(
-    next: CanvasLayout | ((prev: CanvasLayout) => CanvasLayout)
-  ) {
-    pushHistory()
-    setLayout(next)
-  }
+  const recordLayoutChange = useCallback(
+    (next: CanvasLayout | ((prev: CanvasLayout) => CanvasLayout)) => {
+      pushHistory()
+      setLayout(next)
+    },
+    [pushHistory]
+  )
 
-  function undo() {
+  const undo = useCallback(() => {
     const prev = pastRef.current.pop()
-    if (!prev) return
+
+    if (!prev) {
+      return
+    }
+
     futureRef.current.push(structuredClone(layoutRef.current))
     setLayout(prev)
     setStatus("Undo")
-  }
+  }, [])
 
-  function redo() {
+  const redo = useCallback(() => {
     const next = futureRef.current.pop()
-    if (!next) return
+
+    if (!next) {
+      return
+    }
+
     pastRef.current.push(structuredClone(layoutRef.current))
     setLayout(next)
     setStatus("Redo")
-  }
-  const zoomRef = React.useRef(zoom / 100)
+  }, [])
+
+  const zoomRef = useRef(zoom / 100)
   const selectedId = selectedIds[0] ?? ""
   const selectedIdSet = new Set(selectedIds)
   const selectedItem = layout.items.find((item) => item.id === selectedId)
@@ -305,7 +322,7 @@ export function App() {
   const viewportScale = zoom / 100
   const activeRatio = getCanvasRatioLabel(layout.canvas, originalCanvas)
   const canvasMaxSide = Math.max(layout.canvas.width, layout.canvas.height)
-  const getHoverLinkLine = React.useCallback(
+  const getHoverLinkLine = useCallback(
     (itemId: string): HoverLinkLine | null => {
       const row = layerRowRefs.current.get(itemId)
       const item = canvasItemRefs.current.get(itemId)
@@ -326,11 +343,55 @@ export function App() {
     [layout.items]
   )
 
-  React.useEffect(() => {
+  const applyBatchLayout = useCallback(
+    (payload: ApiBatchLayout, token: string) => {
+      const layout = normalizeCanvasLayout(payload.layout)
+      const firstItemId = layout.items[0]?.id ?? ""
+
+      setLayout(layout)
+      setSelectedIds(firstItemId ? [firstItemId] : [])
+      setRemoteBatch({
+        batchId: payload.batchId,
+        token,
+        outputUrl: payload.outputUrl,
+      })
+    },
+    []
+  )
+
+  const saveRemoteLayout = useCallback(async () => {
+    if (!remoteBatch) {
+      setStatus("Open the link from the bot")
+      return
+    }
+
+    if (!authSession) {
+      setStatus("Telegram login required")
+      return
+    }
+
+    setStatus("Saving edits...")
+
+    try {
+      const payload = await requestBatchLayout(
+        remoteBatch,
+        authSession.token,
+        "PATCH",
+        { layout }
+      )
+
+      applyBatchLayout(payload, remoteBatch.token)
+      setStatus("Edits saved")
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : "Failed to save edits")
+    }
+  }, [authSession, layout, remoteBatch, applyBatchLayout])
+
+  useEffect(() => {
     zoomRef.current = viewportScale
   }, [viewportScale])
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (!hoverLinkItemId) {
       return
     }
@@ -360,7 +421,7 @@ export function App() {
     }
   }, [getHoverLinkLine, hoverLinkItemId, viewportScale])
 
-  React.useEffect(() => {
+  useEffect(() => {
     const pending = pendingLayerFocusRef.current
 
     if (!pending) {
@@ -386,7 +447,7 @@ export function App() {
       ?.focus({ preventScroll: true })
   })
 
-  React.useEffect(() => {
+  useEffect(() => {
     const saved = readLocalAuthSession()
 
     if (!saved) {
@@ -422,7 +483,7 @@ export function App() {
     }
   }, [])
 
-  React.useEffect(() => {
+  useEffect(() => {
     const host = telegramWidgetRef.current
     const botUsername = getTelegramBotUsername()
 
@@ -457,7 +518,7 @@ export function App() {
     }
   }, [telegramWidgetVisible])
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (didLoadRemoteRef.current || !remoteBatch) {
       return
     }
@@ -492,8 +553,8 @@ export function App() {
       })
   }, [authSession, remoteBatch])
 
-  React.useEffect(() => {
-    const handlePointerMove = (event: PointerEvent) => {
+  useEffect(() => {
+    const handlePointerMove = (event: globalThis.PointerEvent) => {
       const drag = dragRef.current
 
       if (!drag) {
@@ -609,7 +670,7 @@ export function App() {
     }
   }, [])
 
-  React.useEffect(() => {
+  useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if ((event.ctrlKey || event.metaKey) && event.key === "s") {
         event.preventDefault()
@@ -672,7 +733,7 @@ export function App() {
     return () => {
       window.removeEventListener("keydown", handleKeyDown)
     }
-  }, [selectedIds])
+  }, [recordLayoutChange, saveRemoteLayout, selectedIds, redo, undo])
 
   function clearSelection() {
     setSelectedIds([])
@@ -710,7 +771,7 @@ export function App() {
   }
 
   function getSelectionMode(
-    event: Pick<React.MouseEvent, "ctrlKey" | "metaKey" | "shiftKey">
+    event: Pick<MouseEvent, "ctrlKey" | "metaKey" | "shiftKey">
   ) {
     if (event.ctrlKey || event.metaKey) {
       return "toggle"
@@ -758,7 +819,7 @@ export function App() {
     }
   }
 
-  function startLayerDrag(event: React.DragEvent<HTMLElement>, itemId: string) {
+  function startLayerDrag(event: DragEvent<HTMLElement>, itemId: string) {
     event.stopPropagation()
     event.dataTransfer.effectAllowed = "move"
     event.dataTransfer.setData("text/plain", itemId)
@@ -773,7 +834,7 @@ export function App() {
   }
 
   function overLayerDropTarget(
-    event: React.DragEvent<HTMLDivElement>,
+    event: DragEvent<HTMLDivElement>,
     targetItemId: string
   ) {
     if (!draggedLayerId) {
@@ -789,7 +850,7 @@ export function App() {
   }
 
   function leaveLayerDropTarget(
-    event: React.DragEvent<HTMLDivElement>,
+    event: DragEvent<HTMLDivElement>,
     targetItemId: string
   ) {
     if (event.currentTarget.contains(event.relatedTarget as Node | null)) {
@@ -801,10 +862,7 @@ export function App() {
     )
   }
 
-  function dropLayerOn(
-    event: React.DragEvent<HTMLDivElement>,
-    targetItemId: string
-  ) {
+  function dropLayerOn(event: DragEvent<HTMLDivElement>, targetItemId: string) {
     event.preventDefault()
     setLayerDropPreview(null)
 
@@ -820,7 +878,7 @@ export function App() {
     setDraggedLayerId("")
   }
 
-  function startMove(event: React.PointerEvent<HTMLElement>, item: CanvasItem) {
+  function startMove(event: PointerEvent<HTMLElement>, item: CanvasItem) {
     if (!isPrimaryPointer(event)) {
       return
     }
@@ -862,7 +920,7 @@ export function App() {
   }
 
   function startItemResize(
-    event: React.PointerEvent<HTMLButtonElement>,
+    event: PointerEvent<HTMLButtonElement>,
     item: CanvasItem,
     edge: ResizeEdge
   ) {
@@ -899,7 +957,7 @@ export function App() {
   }
 
   function startCanvasResize(
-    event: React.PointerEvent<HTMLButtonElement>,
+    event: PointerEvent<HTMLButtonElement>,
     edge: ResizeEdge
   ) {
     if (!isPrimaryPointer(event)) {
@@ -1200,33 +1258,6 @@ export function App() {
     }))
   }
 
-  async function saveRemoteLayout() {
-    if (!remoteBatch) {
-      setStatus("Open the link from the bot")
-      return
-    }
-
-    if (!authSession) {
-      setStatus("Telegram login required")
-      return
-    }
-
-    setStatus("Saving edits...")
-
-    try {
-      const payload = await requestBatchLayout(
-        remoteBatch,
-        authSession.token,
-        "PATCH",
-        { layout }
-      )
-      applyBatchLayout(payload, remoteBatch.token)
-      setStatus("Edits saved")
-    } catch (error) {
-      setStatus(error instanceof Error ? error.message : "Failed to save edits")
-    }
-  }
-
   function jigsawCreateFromBatch(): string {
     if (!remoteBatch) return "/jigsaw"
     const params = new URLSearchParams({
@@ -1273,18 +1304,6 @@ export function App() {
         error instanceof Error ? error.message : "Failed to render image"
       )
     }
-  }
-
-  function applyBatchLayout(payload: ApiBatchLayout, token: string) {
-    const layout = normalizeCanvasLayout(payload.layout)
-
-    setLayout(layout)
-    selectOnlyItem(layout.items[0]?.id ?? "")
-    setRemoteBatch({
-      batchId: payload.batchId,
-      token,
-      outputUrl: payload.outputUrl,
-    })
   }
 
   return (
@@ -1890,9 +1909,9 @@ export function App() {
   )
 }
 
-const LayerActionButton = React.forwardRef<
+const LayerActionButton = forwardRef<
   HTMLButtonElement,
-  React.ButtonHTMLAttributes<HTMLButtonElement>
+  ButtonHTMLAttributes<HTMLButtonElement>
 >(({ className, ...props }, ref) => (
   <button
     ref={ref}
@@ -1921,16 +1940,16 @@ function getImageAriaLabel(index: number): string {
   return `Item ${getImageMarkerCode(index)}`
 }
 
-function getImageMarkerStyle(index: number): React.CSSProperties {
+function getImageMarkerStyle(index: number): CSSProperties {
   return {
     "--image-marker": `var(--image-marker-${(index % IMAGE_MARKER_COUNT) + 1})`,
-  } as React.CSSProperties
+  } as CSSProperties
 }
 
-function getCanvasMarkerStyle(): React.CSSProperties {
+function getCanvasMarkerStyle(): CSSProperties {
   return {
     "--image-marker": "var(--primary)",
-  } as React.CSSProperties
+  } as CSSProperties
 }
 
 function getImageMarkerCode(index: number): string {
@@ -1942,7 +1961,7 @@ function getLayerActionKey(itemId: string, action: LayerAction): string {
 }
 
 function getLayerDropPlacement(
-  event: React.DragEvent<HTMLDivElement>
+  event: DragEvent<HTMLDivElement>
 ): LayerDropPreview["placement"] {
   const bounds = event.currentTarget.getBoundingClientRect()
 
@@ -1979,7 +1998,7 @@ function getConnectorPath(from: DOMRect, to: DOMRect): string {
   return `M ${x1} ${y1} C ${midX} ${y1}, ${midX} ${y2}, ${x2} ${y2}`
 }
 
-function isPrimaryPointer(event: React.PointerEvent<HTMLElement>): boolean {
+function isPrimaryPointer(event: PointerEvent<HTMLElement>): boolean {
   return event.button === 0
 }
 
@@ -1993,7 +2012,7 @@ function ResizeHandles({
   labelPrefix: string
   selected?: boolean
   onPointerDown: (
-    event: React.PointerEvent<HTMLButtonElement>,
+    event: PointerEvent<HTMLButtonElement>,
     edge: ResizeEdge
   ) => void
 }) {

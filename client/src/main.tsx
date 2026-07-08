@@ -4,6 +4,7 @@ import { SpeedInsights } from "@vercel/speed-insights/react"
 
 import { ThemeProvider } from "@/components/theme-provider.tsx"
 import { ErrorBoundary } from "./error-boundary"
+
 import "./index.css"
 
 const App = lazy(() => import("./App.tsx"))
