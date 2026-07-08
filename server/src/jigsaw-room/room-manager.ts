@@ -630,6 +630,12 @@ export class JigsawRoomManager {
     const completedAt = Date.now()
     room.completedAt = completedAt
 
+    if (!room.timer.paused) {
+      room.timer.elapsedMs = getTimerElapsedMs(room.timer, completedAt)
+      room.timer.updatedAt = completedAt
+      room.timer.paused = true
+    }
+
     void this.historyStore
       .recordCompletion({
         roomId: room.roomId,
