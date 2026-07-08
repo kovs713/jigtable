@@ -204,7 +204,7 @@ export function JigsawProfileApp() {
           <div className="jigsaw-room__profile-hero-side">
             <div className="jigsaw-room__profile-actions">
               <a
-                href="/create"
+                href="/rooms/new"
                 className="jigsaw-room__btn jigsaw-room__btn--outline"
               >
                 Create room

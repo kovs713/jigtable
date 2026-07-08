@@ -395,7 +395,7 @@ export function JigsawRoomCreateApp() {
       window.history.replaceState(
         null,
         "",
-        `/create?roomId=${encodeURIComponent(payload.roomId)}`
+        `/rooms/new?roomId=${encodeURIComponent(payload.roomId)}`
       )
     } catch (error) {
       setStatus(
