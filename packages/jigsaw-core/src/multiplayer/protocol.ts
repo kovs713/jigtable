@@ -88,6 +88,7 @@ export interface CreateJigsawRoomResponse {
 export type ClientToServerMessage =
   | { type: "room:join"; roomId: string; sessionToken: string }
   | { type: "room:request_state" }
+  | { type: "room:ping"; id: string; x: number; y: number }
   | { type: "group:grab"; groupId: GroupId }
   | { type: "group:move"; groupId: GroupId; x: number; y: number }
   | { type: "group:drop"; groupId: GroupId; x: number; y: number }
@@ -135,4 +136,14 @@ export type ServerToClientMessage =
     }
   | { type: "groups:arranged"; pieces: Record<PieceId, PieceState> }
   | { type: "stats:updated"; stats: JigsawRoomStats }
+  | {
+      type: "room:pinged"
+      id: string
+      userId: string
+      userName?: string
+      userColor?: string
+      x: number
+      y: number
+      createdAt: number
+    }
   | { type: "error"; code: string; message: string }

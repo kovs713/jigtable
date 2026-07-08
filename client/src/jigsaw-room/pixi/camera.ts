@@ -14,6 +14,7 @@ export interface CameraController {
   readonly zoom: number
   readonly isTouchGestureActive: boolean
   screenToWorld: (clientX: number, clientY: number) => WorldPoint
+  worldToScreen: (worldX: number, worldY: number) => WorldPoint
   fitToRect: (rect: WorldRect) => void
   zoomIn: () => void
   zoomOut: () => void
@@ -70,6 +71,13 @@ export function createCameraController(
     return {
       x: (point.x - x) / zoom,
       y: (point.y - y) / zoom,
+    }
+  }
+
+  function worldToScreen(worldX: number, worldY: number): WorldPoint {
+    return {
+      x: worldX * zoom + x,
+      y: worldY * zoom + y,
     }
   }
 
@@ -290,6 +298,7 @@ export function createCameraController(
       return pinch !== null || touches.size > 1
     },
     screenToWorld,
+    worldToScreen,
     fitToRect,
     zoomIn() {
       zoomFromCenter(ZOOM_STEP)

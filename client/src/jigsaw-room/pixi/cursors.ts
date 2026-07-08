@@ -169,10 +169,11 @@ function createCursorView(cursor: JigsawPlayerCursor): RemoteCursorView {
   const pointer = new Graphics()
   const label = new Text({
     text: cursor.playerName,
+    resolution: app.renderer.resolution,
     style: {
       fill: color,
-      fontFamily: "Inter Variable, sans-serif",
-      fontSize: 12,
+      fontFamily: "Satoshi Variable, system-ui, sans-serif",
+      fontSize: 14,
       fontWeight: "700",
     },
   })

@@ -64,6 +64,7 @@ interface JigsawRoom {
   sockets: Set<JigsawSocket>
   locks: Map<GroupId, JigsawGroupLock>
   timer: JigsawRoomTimer
+  pingCooldowns: Map<string, number>
   createdAt: number
   updatedAt: number
   completedAt?: number
@@ -177,6 +178,11 @@ export class JigsawRoomManager {
 
     if (message.type === "groups:arrange") {
       this.arrangeGroups(room, message.mode)
+      return
+    }
+
+    if (message.type === "room:ping") {
+      this.handlePing(room, player, message)
       return
     }
 
@@ -554,6 +560,35 @@ export class JigsawRoomManager {
     broadcastExcept(room, socket, { type: "cursor:hidden", playerId })
   }
 
+  private handlePing(
+    room: JigsawRoom,
+    player: JigsawPlayer,
+    message: { id: string; x: number; y: number }
+  ): void {
+    if (!Number.isFinite(message.x) || !Number.isFinite(message.y)) {
+      return
+    }
+
+    const now = Date.now()
+    const lastPing = room.pingCooldowns.get(player.id)
+
+    if (lastPing && now - lastPing < LIMITS.jigsaw.pingCooldownMs) {
+      return
+    }
+
+    room.pingCooldowns.set(player.id, now)
+    broadcast(room, {
+      type: "room:pinged",
+      id: message.id,
+      userId: player.id,
+      userName: player.name,
+      userColor: player.color,
+      x: message.x,
+      y: message.y,
+      createdAt: now,
+    })
+  }
+
   private pauseSession(room: JigsawRoom, player: JigsawPlayer): void {
     if (room.timer.paused) {
       return
@@ -707,6 +742,7 @@ export class JigsawRoomManager {
       cursors: new Map<string, JigsawPlayerCursor>(),
       sockets: new Set<JigsawSocket>(),
       locks: new Map<GroupId, JigsawGroupLock>(),
+      pingCooldowns: new Map<string, number>(),
       timer: {
         elapsedMs: 0,
         paused: false,

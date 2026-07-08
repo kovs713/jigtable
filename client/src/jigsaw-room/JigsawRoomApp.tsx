@@ -69,6 +69,8 @@ import type { InteractionController } from "./pixi/interactions"
 import { setupPieceInteractions } from "./pixi/interactions"
 import type { PieceViewSet } from "./pixi/pieces"
 import { createPieceViews } from "./pixi/pieces"
+import type { PingController } from "./pixi/pings"
+import { createPingController } from "./pixi/pings"
 import { fetchJigsawRoomSnapshot } from "./room-api"
 import {
   createInitialTimer,
@@ -117,6 +119,7 @@ interface JigsawRuntime {
   pieces: PieceViewSet
   cursors: RemoteCursorViewSet
   cursorBroadcast: CursorBroadcastController
+  pings: PingController
   debug: DebugTicker
   interactions: InteractionController
 }
@@ -361,7 +364,14 @@ export function JigsawRoomApp({ roomId }: JigsawRoomAppProps) {
           colors.pieceHighlight
         )
         const camera = createCameraController(app, scene.world, state.config, {
-          canStartPrimaryPan(_event, world) {
+          canStartPrimaryPan(event, world) {
+            if (
+              event.altKey &&
+              multiplayerRef.current?.isConnected()
+            ) {
+              return false
+            }
+
             const pieceId = pieces.pickPieceAt(world.x, world.y, {
               includeLocked: true,
             })
@@ -383,6 +393,8 @@ export function JigsawRoomApp({ roomId }: JigsawRoomAppProps) {
         if (initialSnapshot) {
           cursors.syncCursors(initialSnapshot.cursors, playerRef.current.id)
         }
+
+        const pings = createPingController(app, scene.overlayLayer, camera)
 
         const refreshStats = () => {
           setStats(getJigsawStats(state, app.ticker.FPS || 0, camera.zoom))
@@ -466,6 +478,35 @@ export function JigsawRoomApp({ roomId }: JigsawRoomAppProps) {
         }
 
         app.canvas.addEventListener("pointerdown", closeSettings)
+
+        function onAltClickPing(event: PointerEvent): void {
+          if (!(event.altKey && event.button === 0)) return
+
+          const connection = multiplayerRef.current
+
+          if (!connection?.isConnected()) return
+
+          event.preventDefault()
+
+          const world = camera.screenToWorld(event.clientX, event.clientY)
+          const id = crypto.randomUUID()
+
+          connection.send({
+            type: "room:ping",
+            id,
+            x: world.x,
+            y: world.y,
+          })
+          pings.showPing(
+            world.x,
+            world.y,
+            playerRef.current.id,
+            playerRef.current.name,
+            playerRef.current.color
+          )
+        }
+
+        app.canvas.addEventListener("pointerdown", onAltClickPing)
         const debug = createDebugTicker(app, state, camera, setStats)
 
         runtimeRef.current = {
@@ -476,6 +517,7 @@ export function JigsawRoomApp({ roomId }: JigsawRoomAppProps) {
           pieces,
           cursors,
           cursorBroadcast,
+          pings,
           debug,
           interactions,
         }
@@ -497,6 +539,7 @@ export function JigsawRoomApp({ roomId }: JigsawRoomAppProps) {
 
           interactions.destroy()
           cursorBroadcast.destroy()
+          pings.destroy()
           multiplayerRef.current?.destroy()
           multiplayerRef.current = null
           debug.destroy()
@@ -505,6 +548,7 @@ export function JigsawRoomApp({ roomId }: JigsawRoomAppProps) {
           pieces.destroy()
           imageTexture.destroy(true)
           app.canvas.removeEventListener("pointerdown", closeSettings)
+          app.canvas.removeEventListener("pointerdown", onAltClickPing)
           destroyJigsawPixiApp(app)
         }
 
@@ -925,6 +969,19 @@ export function JigsawRoomApp({ roomId }: JigsawRoomAppProps) {
 
     if (message.type === "player:left") {
       runtime?.cursors.removeCursor(message.playerId)
+      return
+    }
+
+    if (message.type === "room:pinged") {
+      if (message.userId === playerRef.current.id) return
+
+      runtime?.pings.showPing(
+        message.x,
+        message.y,
+        message.userId,
+        message.userName ?? "Player",
+        message.userColor ?? "#ffffff"
+      )
       return
     }
 

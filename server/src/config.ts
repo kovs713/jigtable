@@ -53,5 +53,6 @@ export const LIMITS = {
     createSessionPerIpPerMinute: 30,
     roomTtlMs: 6 * 60 * 60 * 1000, // 6h
     cleanupIntervalMs: 10 * 60 * 1000, // 10m
+    pingCooldownMs: 1000,
   },
 } as const
