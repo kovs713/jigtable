@@ -3,9 +3,14 @@ import type { Application } from "pixi.js"
 import type { CameraController } from "./camera"
 
 const PING_DURATION_MS = 1500
+const PING_COOLDOWN_MS = 500
+const PING_SOUND_COOLDOWN_MS = 250
+
 const PING_MAX_RADIUS = 42
 const PING_START_RADIUS = 6
 const PING_DOT_RADIUS = 4
+
+const PING_SOUND_VOLUME = 0.18
 const INDICATOR_FONT_SIZE = 21
 const INDICATOR_DOT_RADIUS = 7
 const EDGE_PADDING = 18
@@ -32,8 +37,92 @@ export interface PingController {
     userId: string,
     userName: string,
     userColor: string
-  ) => void
+  ) => Promise<void>
   destroy: () => void
+}
+
+function isWindowWithWebkitAudioContext(
+  w: Window | undefined
+): w is Window & { webkitAudioContext: typeof AudioContext } {
+  return w?.webkitAudioContext !== undefined
+}
+let audioContext: AudioContext | null = null
+let audioBuffer: AudioBuffer | null = null
+let pingGain: GainNode | null = null
+let isAudioReady = false
+let lastPingSoundAt = 0
+
+function ensurePingGain(): GainNode | null {
+  if (!audioContext) return null
+
+  if (!pingGain) {
+    pingGain = audioContext.createGain()
+    pingGain.gain.value = PING_SOUND_VOLUME
+    pingGain.connect(audioContext.destination)
+  }
+
+  return pingGain
+}
+
+async function loadPingSound(): Promise<void> {
+  if (isAudioReady) return
+  if (typeof window === "undefined") return
+
+  try {
+    if (!audioContext) {
+      const win = window as Window
+      audioContext = new (
+        win.AudioContext ||
+        (isWindowWithWebkitAudioContext(win)
+          ? win.webkitAudioContext
+          : win.AudioContext)
+      )()
+    }
+
+    await audioContext.resume?.()
+    ensurePingGain()
+
+    const response = await fetch("/Ui_ping.mp3")
+    const arrayBuffer = await response.arrayBuffer()
+    audioBuffer = await audioContext.decodeAudioData(arrayBuffer)
+    isAudioReady = true
+  } catch (error) {
+    console.error("Failed to load ping sound:", error)
+  }
+}
+
+async function playPingSound(): Promise<void> {
+  if (typeof window === "undefined" || !isAudioReady || !audioBuffer) return
+
+  const now = performance.now()
+  if (now - lastPingSoundAt < PING_SOUND_COOLDOWN_MS) return
+  lastPingSoundAt = now
+
+  try {
+    if (!audioContext) {
+      const win = window as Window
+      audioContext = new (
+        win.AudioContext ||
+        (isWindowWithWebkitAudioContext(win)
+          ? win.webkitAudioContext
+          : win.AudioContext)
+      )()
+    }
+
+    if (audioContext.state === "suspended") {
+      await audioContext.resume()
+    }
+
+    const gain = ensurePingGain()
+    if (!gain) return
+
+    const source = audioContext.createBufferSource()
+    source.buffer = audioBuffer
+    source.connect(gain)
+    source.start(0)
+  } catch (error) {
+    console.error("Failed to play ping sound:", error)
+  }
 }
 
 export function createPingController(
@@ -44,19 +133,31 @@ export function createPingController(
   const pingLayer = new Container({ label: "jigsaw-ping-layer" })
   const indicatorLayer = new Container({ label: "jigsaw-ping-indicators" })
   const pings: PingView[] = []
+  const lastPingAtByUser = new Map<string, number>()
 
   pingLayer.eventMode = "none"
   indicatorLayer.eventMode = "none"
   layer.addChild(pingLayer)
   app.stage.addChild(indicatorLayer)
 
-  function showPing(
+  async function showPing(
     x: number,
     y: number,
-    _userId: string,
+    userId: string,
     userName: string,
     userColor: string
-  ): void {
+  ): Promise<void> {
+    const now = performance.now()
+    const lastPingAt = lastPingAtByUser.get(userId) ?? 0
+
+    if (now - lastPingAt < PING_COOLDOWN_MS) {
+      return
+    }
+
+    lastPingAtByUser.set(userId, now)
+
+    await loadPingSound()
+
     const color = colorToNumber(userColor) ?? 0xffffff
     const container = new Container()
     const wave = new Graphics()
@@ -93,10 +194,14 @@ export function createPingController(
 
     pings.push(view)
     pingLayer.addChild(container)
+
+    await playPingSound()
   }
 
-  function ensureIndicator(ping: PingView, name: string): void {
-    if (ping.indicator) return
+  loadPingSound()
+
+  async function ensureIndicator(ping: PingView, name: string): Promise<void> {
+    if (ping.indicator) return Promise.resolve()
 
     const container = new Container({ label: "ping-indicator" })
     const dot = new Graphics()
@@ -216,6 +321,8 @@ export function createPingController(
     showPing,
     destroy() {
       app.ticker.remove(updatePings)
+
+      lastPingAtByUser.clear()
 
       for (const ping of pings) {
         ping.container.destroy({ children: true })

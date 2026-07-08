@@ -669,7 +669,7 @@ export function JigsawRoomApp({ roomId }: JigsawRoomAppProps) {
             x: world.x,
             y: world.y,
           })
-          pings.showPing(
+          void pings.showPing(
             world.x,
             world.y,
             playerRef.current.id,
