@@ -1,6 +1,5 @@
 import type { Application } from "pixi.js"
-import type * as React from "react"
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 
 import {
   createImageJigsawConfig,
@@ -32,6 +31,7 @@ import type {
   JigsawSession,
   ServerToClientMessage,
 } from "@jigtable/jigsaw-core/multiplayer/protocol"
+
 import { loadImageTexture } from "./image-texture"
 import {
   fetchAuthMe,
@@ -146,6 +146,61 @@ const EMPTY_STATS = {
   snapCount: 0,
 } satisfies JigsawStats
 
+type FireworkBurst = {
+  delay: number
+  top: number
+  left: number
+  size: number
+}
+
+const FIREWORK_BURSTS = Array.from({ length: FIREWORK_COUNT }, (_, index) =>
+  createFireworkBurst(index)
+)
+
+function createFireworkBurst(index: number): FireworkBurst {
+  const isCenterBurst = index < 7
+  const isFinale = index >= FIREWORK_COUNT - 5
+
+  let delay: number
+
+  if (isCenterBurst) {
+    delay = seededUnit(index, 1) * 180
+  } else if (isFinale) {
+    delay = 6800 + seededUnit(index, 2) * 300
+  } else {
+    delay = 300 + seededUnit(index, 3) * 6500
+  }
+
+  return {
+    delay,
+    top:
+      isCenterBurst || isFinale
+        ? 30 + seededUnit(index, 4) * 40
+        : seededUnit(index, 5) * 100,
+    left:
+      isCenterBurst || isFinale
+        ? 30 + seededUnit(index, 6) * 40
+        : seededUnit(index, 7) * 100,
+    size:
+      isCenterBurst || isFinale
+        ? 7 + seededUnit(index, 8) * 4
+        : 4 + seededUnit(index, 9) * 4,
+  }
+}
+
+function seededUnit(index: number, salt: number): number {
+  let value = Math.imul(index + 1, 0x45d9f3b) ^ Math.imul(salt + 1, 0x119de1f3)
+
+  value = Math.imul(value ^ (value >>> 16), 0x45d9f3b)
+  value = Math.imul(value ^ (value >>> 16), 0x45d9f3b)
+
+  return ((value >>> 0) % 10_000) / 10_000
+}
+
+function readCurrentTimeMs(): number {
+  return Date.now()
+}
+
 function findLockForMergedPieces(
   locks: Map<string, JigsawLock>,
   affectedPieceIds: PieceId[],
@@ -240,11 +295,9 @@ function retargetLocksAfterSnap(
 }
 
 export function JigsawRoomApp({ roomId }: JigsawRoomAppProps) {
-  const initialSessionRef = useRef<JigsawSession | null>(null)
-
-  const initialSession = initialSessionRef.current ?? readLocalJigsawSession()
-
-  initialSessionRef.current = initialSession
+  const [initialSession] = useState<JigsawSession>(() =>
+    readLocalJigsawSession()
+  )
   const roomRef = useRef<HTMLDivElement | null>(null)
   const mountRef = useRef<HTMLDivElement | null>(null)
   const telegramWidgetRef = useRef<HTMLDivElement | null>(null)
@@ -298,36 +351,7 @@ export function JigsawRoomApp({ roomId }: JigsawRoomAppProps) {
     stats.totalPieces > 0 && stats.placedPieces >= stats.totalPieces
   const remainingPieces = Math.max(stats.totalPieces - stats.placedPieces, 0)
 
-  const fireworkBursts = useMemo(() => {
-    if (!showSolvedCelebration) return []
-    return Array.from({ length: FIREWORK_COUNT }, (_, i) => {
-      const isCenterBurst = i < 7
-      const isFinale = i >= FIREWORK_COUNT - 5
-      let delay: number
-      if (isCenterBurst) {
-        delay = Math.random() * 180
-      } else if (isFinale) {
-        delay = 6800 + Math.random() * 300
-      } else {
-        delay = 300 + Math.random() * 6500
-      }
-      return {
-        delay,
-        top:
-          isCenterBurst || isFinale
-            ? 30 + Math.random() * 40
-            : Math.random() * 100,
-        left:
-          isCenterBurst || isFinale
-            ? 30 + Math.random() * 40
-            : Math.random() * 100,
-        size:
-          isCenterBurst || isFinale
-            ? 7 + Math.random() * 4
-            : 4 + Math.random() * 4,
-      }
-    })
-  }, [showSolvedCelebration])
+  const fireworkBursts = showSolvedCelebration ? FIREWORK_BURSTS : []
   const completionPercent =
     stats.totalPieces > 0
       ? Math.round((stats.placedPieces / stats.totalPieces) * 100)
@@ -345,9 +369,498 @@ export function JigsawRoomApp({ roomId }: JigsawRoomAppProps) {
     roomBackgroundColor
   ) as React.CSSProperties
 
-  roomTimerRef.current = roomTimer
-  handleServerMessageRef.current = handleServerMessage
-  toggleSessionPauseRef.current = toggleSessionPause
+  function applyRoomBackground(
+    color: string,
+    { syncScene = true }: { syncScene?: boolean } = {}
+  ): void {
+    setRoomBackgroundColor(color)
+
+    const root = roomRef.current
+
+    if (!root) {
+      return
+    }
+
+    setRoomBackgroundStyle(root, color)
+
+    if (syncScene) {
+      const colors = readSceneColors(root)
+
+      runtimeRef.current?.scene.setColors(colors)
+      runtimeRef.current?.pieces.setHighlightColor(colors.pieceHighlight)
+    }
+  }
+
+  function changeRoomBackground(
+    event: React.ChangeEvent<HTMLInputElement>
+  ): void {
+    const color = normalizeHexColor(event.target.value)
+
+    if (!color) {
+      return
+    }
+
+    applyRoomBackground(color)
+    saveStoredRoomBackground(activeRoomId, color)
+  }
+
+  function refreshStatsNow(): void {
+    const runtime = runtimeRef.current
+
+    if (!runtime) {
+      return
+    }
+
+    setStats(
+      getJigsawStats(
+        runtime.state,
+        runtime.app.ticker.FPS || 0,
+        runtime.camera.zoom
+      )
+    )
+  }
+
+  function applyRoomTimer(timer: JigsawRoomTimer): void {
+    roomTimerRef.current = timer
+    setRoomTimer(timer)
+    setTimerNow(readCurrentTimeMs())
+  }
+
+  function applyJigsawSession(session: JigsawSession): void {
+    saveLocalJigsawSession(session)
+    sessionRef.current = session
+    playerRef.current = session.player
+    setProfileForm({
+      name: session.player.name,
+      color: session.player.color,
+    })
+  }
+
+  async function saveProfile(
+    event: React.SubmitEvent<HTMLFormElement>
+  ): Promise<void> {
+    event.preventDefault()
+
+    const name = profileForm.name.trim()
+
+    if (!name) {
+      setSessionStatus("error")
+      setSessionMessage("Nickname required")
+      return
+    }
+
+    setSessionStatus("saving")
+    setSessionMessage("")
+
+    try {
+      const session = await saveJigsawSessionProfile(sessionRef.current.token, {
+        name,
+        color: profileForm.color,
+      })
+
+      applyJigsawSession(session)
+
+      if (authSession) {
+        const refreshed = await fetchAuthMe(authSession.token)
+
+        setAuthSession(refreshed)
+      }
+
+      setSessionStatus("saved")
+    } catch (error) {
+      setSessionStatus("error")
+      setSessionMessage(readErrorMessage(error))
+    }
+  }
+
+  async function loginWithTelegram(): Promise<void> {
+    if (!hasTelegramWebAppInitData()) {
+      if (!getTelegramBotUsername()) {
+        setAuthStatus(
+          "Set VITE_TELEGRAM_BOT_USERNAME to bot username ending with bot"
+        )
+        return
+      }
+
+      const widgetBlocker = getTelegramLoginWidgetBlocker()
+
+      if (widgetBlocker) {
+        setAuthStatus(widgetBlocker)
+        return
+      }
+
+      setTelegramWidgetVisible(true)
+      setAuthStatus("Confirm in Telegram widget")
+      return
+    }
+
+    setAuthStatus("Telegram WebApp login...")
+
+    try {
+      const session = await loginTelegramWebApp(sessionRef.current.token)
+      const history = await fetchJigsawHistory(session.token)
+
+      setAuthSession(session)
+      setHistoryCount(history.length)
+      setAuthStatus("Telegram linked")
+    } catch (error) {
+      setAuthStatus(readErrorMessage(error))
+    }
+  }
+
+  async function loginWithTelegramWidget(
+    payload: Record<string, unknown>
+  ): Promise<void> {
+    setAuthStatus("Telegram widget login...")
+
+    try {
+      const session = await loginTelegramWidget(
+        payload,
+        sessionRef.current.token
+      )
+      const history = await fetchJigsawHistory(session.token)
+
+      setAuthSession(session)
+      setHistoryCount(history.length)
+      setTelegramWidgetVisible(false)
+      setAuthStatus("Telegram linked")
+    } catch (error) {
+      setAuthStatus(readErrorMessage(error))
+    }
+  }
+
+  function handleServerMessage(message: ServerToClientMessage): void {
+    const runtime = runtimeRef.current
+
+    if (message.type === "cursor:moved") {
+      if (message.cursor.playerId !== playerRef.current.id) {
+        runtime?.cursors.applyCursor(message.cursor)
+      }
+
+      return
+    }
+
+    if (message.type === "cursor:hidden") {
+      runtime?.cursors.removeCursor(message.playerId)
+      return
+    }
+
+    if (message.type === "session:paused") {
+      applyRoomTimer(message.timer)
+      runtime?.interactions.cancelDrag()
+      multiplayerRef.current?.requestState()
+      return
+    }
+
+    if (message.type === "session:resumed") {
+      applyRoomTimer(message.timer)
+      return
+    }
+
+    if (message.type === "room:state") {
+      setRoomStatus("")
+      applyRoomTimer(message.state.timer)
+      groupLocksRef.current.clear()
+      toggleLocksRef.current.clear()
+
+      for (const lock of message.state.locks) {
+        const key = `${lock.targetType}:${lock.targetId}`
+        toggleLocksRef.current.set(key, lock)
+      }
+
+      runtime?.lockOverlays.update(toggleLocksRef.current)
+
+      runtime?.cursors.syncCursors(message.state.cursors, playerRef.current.id)
+
+      if (message.state.timer.paused) {
+        runtime?.interactions.cancelDrag()
+      }
+
+      applyRoomState(runtime, message.state)
+      setStats((current) => ({
+        ...current,
+        totalPieces: message.state.stats.totalPieces,
+        placedPieces: message.state.stats.placedPieces,
+        groupsCount: message.state.stats.groupsCount,
+        snapCount: message.state.stats.snapCount,
+      }))
+      return
+    }
+
+    if (message.type === "player:joined") {
+      return
+    }
+
+    if (message.type === "player:updated") {
+      if (message.player.id === playerRef.current.id) {
+        applyJigsawSession({
+          ...sessionRef.current,
+          player: message.player,
+          updatedAt: readCurrentTimeMs(),
+        })
+      }
+
+      return
+    }
+
+    if (message.type === "player:left") {
+      runtime?.cursors.removeCursor(message.playerId)
+      return
+    }
+
+    if (message.type === "room:pinged") {
+      if (message.userId === playerRef.current.id) return
+
+      runtime?.pings.showPing(
+        message.x,
+        message.y,
+        message.userId,
+        message.userName ?? "Player",
+        message.userColor ?? "#ffffff"
+      )
+      return
+    }
+
+    if (message.type === "group:locked") {
+      groupLocksRef.current.set(message.lock.groupId, message.lock)
+      return
+    }
+
+    if (message.type === "group:unlocked") {
+      groupLocksRef.current.delete(message.groupId)
+      return
+    }
+
+    if (message.type === "room:lock-updated") {
+      const key = `${message.targetType}:${message.targetId}`
+
+      if (message.lockedBy) {
+        toggleLocksRef.current.set(key, {
+          targetType: message.targetType,
+          targetId: message.targetId,
+          playerId: message.lockedBy.userId,
+          playerName: message.lockedBy.name,
+          playerColor: message.lockedBy.color,
+          lockedAt: readCurrentTimeMs(),
+          connectionId: "",
+        })
+      } else {
+        toggleLocksRef.current.delete(key)
+      }
+
+      runtime?.lockOverlays.update(toggleLocksRef.current)
+      return
+    }
+
+    if (message.type === "room:lock-rejected") {
+      return
+    }
+
+    if (message.type === "group:moved") {
+      if (!runtime) {
+        return
+      }
+
+      const movedPieceIds = moveGroupToAnchor(
+        runtime.state,
+        message.groupId,
+        message.x,
+        message.y
+      )
+      runtime.pieces.syncPieces(movedPieceIds)
+      refreshStatsNow()
+      return
+    }
+
+    if (message.type === "groups:merged" || message.type === "pieces:placed") {
+      if (!runtime) {
+        return
+      }
+
+      applyStatePatch(
+        runtime,
+        message.pieces,
+        message.groups,
+        message.type === "groups:merged" ? message.removedGroupIds : [],
+        message.snapCount
+      )
+      return
+    }
+
+    if (message.type === "groups:arranged") {
+      if (!runtime) {
+        return
+      }
+
+      for (const [pieceId, piece] of Object.entries(message.pieces)) {
+        runtime.state.pieces[pieceId] = structuredClone(piece)
+      }
+
+      runtime.interactions.cancelDrag()
+      runtime.pieces.syncPieces(Object.keys(message.pieces))
+      refreshStatsNow()
+      return
+    }
+
+    if (message.type === "stats:updated") {
+      setStats((current) => ({
+        ...current,
+        totalPieces: message.stats.totalPieces,
+        placedPieces: message.stats.placedPieces,
+        groupsCount: message.stats.groupsCount,
+        snapCount: message.stats.snapCount,
+      }))
+      return
+    }
+
+    if (message.type === "error") {
+      if (message.code === "room_not_found") {
+        setRoomStatus(message.message)
+        setConnectionStatus("unavailable")
+        return
+      }
+
+      if (
+        message.code === "session_required" ||
+        message.code === "not_joined"
+      ) {
+        setRoomStatus(message.message)
+        setConnectionStatus("unavailable")
+        return
+      }
+
+      if (message.code === "session_paused") {
+        runtime?.interactions.cancelDrag()
+        multiplayerRef.current?.requestState()
+        return
+      }
+
+      multiplayerRef.current?.requestState()
+    }
+  }
+
+  useEffect(() => {
+    handleServerMessageRef.current = handleServerMessage
+  })
+
+  function toggleSessionPause(): void {
+    const connection = multiplayerRef.current
+
+    if (!connection?.isConnected()) {
+      return
+    }
+
+    connection.send({
+      type: roomTimerRef.current.paused ? "session:resume" : "session:pause",
+    })
+  }
+
+  useEffect(() => {
+    toggleSessionPauseRef.current = toggleSessionPause
+  })
+
+  function togglePreview(): void {
+    const runtime = runtimeRef.current
+
+    if (!runtime) {
+      return
+    }
+
+    setPreviewVisible((current) => {
+      const next = !current
+      runtime.scene.setPreviewVisible(next)
+      return next
+    })
+  }
+
+  function highlightAllPieces(): void {
+    const runtime = runtimeRef.current
+
+    if (!runtime) {
+      return
+    }
+
+    if (highlightTimerRef.current !== null) {
+      window.clearTimeout(highlightTimerRef.current)
+    }
+
+    runtime.pieces.setAllHighlighted(true)
+    setPiecesHighlighted(true)
+    highlightTimerRef.current = window.setTimeout(() => {
+      runtimeRef.current?.pieces.setAllHighlighted(false)
+      setPiecesHighlighted(false)
+      highlightTimerRef.current = null
+    }, 900)
+  }
+
+  function quickSolveDevRoom(): void {
+    const runtime = runtimeRef.current
+
+    if (!runtime || !canQuickSolve) {
+      return
+    }
+
+    for (const [pieceId, piece] of Object.entries(runtime.state.pieces)) {
+      const definition = runtime.state.definitions[pieceId]
+
+      if (!definition) {
+        continue
+      }
+
+      piece.x = definition.correctX
+      piece.y = definition.correctY
+      piece.placed = true
+      piece.locked = true
+    }
+
+    for (const group of Object.values(runtime.state.groups)) {
+      group.locked = true
+    }
+
+    runtime.interactions.cancelDrag()
+    runtime.pieces.syncAll()
+    refreshStatsNow()
+  }
+
+  function arrangePieces(mode: ArrangeLoosePiecesMode): void {
+    const runtime = runtimeRef.current
+
+    if (!runtime || !ready || roomTimer.paused) {
+      return
+    }
+
+    const connection = multiplayerRef.current
+
+    if (connection?.isConnected()) {
+      connection.send({ type: "groups:arrange", mode })
+      return
+    }
+
+    const movedPieceIds = arrangeLoosePieces(runtime.state, mode)
+
+    if (movedPieceIds.length === 0) {
+      return
+    }
+
+    runtime.interactions.cancelDrag()
+    runtime.pieces.syncPieces(movedPieceIds)
+    refreshStatsNow()
+  }
+
+  function zoomInView(): void {
+    runtimeRef.current?.camera.zoomIn()
+    refreshStatsNow()
+  }
+
+  function zoomOutView(): void {
+    runtimeRef.current?.camera.zoomOut()
+    refreshStatsNow()
+  }
+
+  function resetViewZoom(): void {
+    runtimeRef.current?.camera.resetView()
+    refreshStatsNow()
+  }
 
   useEffect(() => {
     const host = mountRef.current
@@ -917,491 +1430,6 @@ export function JigsawRoomApp({ roomId }: JigsawRoomAppProps) {
     }
   }, [])
 
-  function applyRoomBackground(
-    color: string,
-    { syncScene = true }: { syncScene?: boolean } = {}
-  ): void {
-    setRoomBackgroundColor(color)
-
-    const root = roomRef.current
-
-    if (!root) {
-      return
-    }
-
-    setRoomBackgroundStyle(root, color)
-
-    if (syncScene) {
-      const colors = readSceneColors(root)
-
-      runtimeRef.current?.scene.setColors(colors)
-      runtimeRef.current?.pieces.setHighlightColor(colors.pieceHighlight)
-    }
-  }
-
-  function changeRoomBackground(
-    event: React.ChangeEvent<HTMLInputElement>
-  ): void {
-    const color = normalizeHexColor(event.target.value)
-
-    if (!color) {
-      return
-    }
-
-    applyRoomBackground(color)
-    saveStoredRoomBackground(activeRoomId, color)
-  }
-
-  function refreshStatsNow(): void {
-    const runtime = runtimeRef.current
-
-    if (!runtime) {
-      return
-    }
-
-    setStats(
-      getJigsawStats(
-        runtime.state,
-        runtime.app.ticker.FPS || 0,
-        runtime.camera.zoom
-      )
-    )
-  }
-
-  function applyRoomTimer(timer: JigsawRoomTimer): void {
-    roomTimerRef.current = timer
-    setRoomTimer(timer)
-    setTimerNow(Date.now())
-  }
-
-  function applyJigsawSession(session: JigsawSession): void {
-    saveLocalJigsawSession(session)
-    sessionRef.current = session
-    playerRef.current = session.player
-    setProfileForm({
-      name: session.player.name,
-      color: session.player.color,
-    })
-  }
-
-  async function saveProfile(
-    event: React.SubmitEvent<HTMLFormElement>
-  ): Promise<void> {
-    event.preventDefault()
-
-    const name = profileForm.name.trim()
-
-    if (!name) {
-      setSessionStatus("error")
-      setSessionMessage("Nickname required")
-      return
-    }
-
-    setSessionStatus("saving")
-    setSessionMessage("")
-
-    try {
-      const session = await saveJigsawSessionProfile(sessionRef.current.token, {
-        name,
-        color: profileForm.color,
-      })
-
-      applyJigsawSession(session)
-
-      if (authSession) {
-        const refreshed = await fetchAuthMe(authSession.token)
-
-        setAuthSession(refreshed)
-      }
-
-      setSessionStatus("saved")
-    } catch (error) {
-      setSessionStatus("error")
-      setSessionMessage(readErrorMessage(error))
-    }
-  }
-
-  async function loginWithTelegram(): Promise<void> {
-    if (!hasTelegramWebAppInitData()) {
-      if (!getTelegramBotUsername()) {
-        setAuthStatus(
-          "Set VITE_TELEGRAM_BOT_USERNAME to bot username ending with bot"
-        )
-        return
-      }
-
-      const widgetBlocker = getTelegramLoginWidgetBlocker()
-
-      if (widgetBlocker) {
-        setAuthStatus(widgetBlocker)
-        return
-      }
-
-      setTelegramWidgetVisible(true)
-      setAuthStatus("Confirm in Telegram widget")
-      return
-    }
-
-    setAuthStatus("Telegram WebApp login...")
-
-    try {
-      const session = await loginTelegramWebApp(sessionRef.current.token)
-      const history = await fetchJigsawHistory(session.token)
-
-      setAuthSession(session)
-      setHistoryCount(history.length)
-      setAuthStatus("Telegram linked")
-    } catch (error) {
-      setAuthStatus(readErrorMessage(error))
-    }
-  }
-
-  async function loginWithTelegramWidget(
-    payload: Record<string, unknown>
-  ): Promise<void> {
-    setAuthStatus("Telegram widget login...")
-
-    try {
-      const session = await loginTelegramWidget(
-        payload,
-        sessionRef.current.token
-      )
-      const history = await fetchJigsawHistory(session.token)
-
-      setAuthSession(session)
-      setHistoryCount(history.length)
-      setTelegramWidgetVisible(false)
-      setAuthStatus("Telegram linked")
-    } catch (error) {
-      setAuthStatus(readErrorMessage(error))
-    }
-  }
-
-  function handleServerMessage(message: ServerToClientMessage): void {
-    const runtime = runtimeRef.current
-
-    if (message.type === "cursor:moved") {
-      if (message.cursor.playerId !== playerRef.current.id) {
-        runtime?.cursors.applyCursor(message.cursor)
-      }
-
-      return
-    }
-
-    if (message.type === "cursor:hidden") {
-      runtime?.cursors.removeCursor(message.playerId)
-      return
-    }
-
-    if (message.type === "session:paused") {
-      applyRoomTimer(message.timer)
-      runtime?.interactions.cancelDrag()
-      multiplayerRef.current?.requestState()
-      return
-    }
-
-    if (message.type === "session:resumed") {
-      applyRoomTimer(message.timer)
-      return
-    }
-
-    if (message.type === "room:state") {
-      setRoomStatus("")
-      applyRoomTimer(message.state.timer)
-      groupLocksRef.current.clear()
-      toggleLocksRef.current.clear()
-
-      for (const lock of message.state.locks) {
-        const key = `${lock.targetType}:${lock.targetId}`
-        toggleLocksRef.current.set(key, lock)
-      }
-
-      runtime?.lockOverlays.update(toggleLocksRef.current)
-
-      runtime?.cursors.syncCursors(message.state.cursors, playerRef.current.id)
-
-      if (message.state.timer.paused) {
-        runtime?.interactions.cancelDrag()
-      }
-
-      applyRoomState(runtime, message.state)
-      setStats((current) => ({
-        ...current,
-        totalPieces: message.state.stats.totalPieces,
-        placedPieces: message.state.stats.placedPieces,
-        groupsCount: message.state.stats.groupsCount,
-        snapCount: message.state.stats.snapCount,
-      }))
-      return
-    }
-
-    if (message.type === "player:joined") {
-      return
-    }
-
-    if (message.type === "player:updated") {
-      if (message.player.id === playerRef.current.id) {
-        applyJigsawSession({
-          ...sessionRef.current,
-          player: message.player,
-          updatedAt: Date.now(),
-        })
-      }
-
-      return
-    }
-
-    if (message.type === "player:left") {
-      runtime?.cursors.removeCursor(message.playerId)
-      return
-    }
-
-    if (message.type === "room:pinged") {
-      if (message.userId === playerRef.current.id) return
-
-      runtime?.pings.showPing(
-        message.x,
-        message.y,
-        message.userId,
-        message.userName ?? "Player",
-        message.userColor ?? "#ffffff"
-      )
-      return
-    }
-
-    if (message.type === "group:locked") {
-      groupLocksRef.current.set(message.lock.groupId, message.lock)
-      return
-    }
-
-    if (message.type === "group:unlocked") {
-      groupLocksRef.current.delete(message.groupId)
-      return
-    }
-
-    if (message.type === "room:lock-updated") {
-      const key = `${message.targetType}:${message.targetId}`
-
-      if (message.lockedBy) {
-        toggleLocksRef.current.set(key, {
-          targetType: message.targetType,
-          targetId: message.targetId,
-          playerId: message.lockedBy.userId,
-          playerName: message.lockedBy.name,
-          playerColor: message.lockedBy.color,
-          lockedAt: Date.now(),
-          connectionId: "",
-        })
-      } else {
-        toggleLocksRef.current.delete(key)
-      }
-
-      runtime?.lockOverlays.update(toggleLocksRef.current)
-      return
-    }
-
-    if (message.type === "room:lock-rejected") {
-      return
-    }
-
-    if (message.type === "group:moved") {
-      if (!runtime) {
-        return
-      }
-
-      const movedPieceIds = moveGroupToAnchor(
-        runtime.state,
-        message.groupId,
-        message.x,
-        message.y
-      )
-      runtime.pieces.syncPieces(movedPieceIds)
-      refreshStatsNow()
-      return
-    }
-
-    if (message.type === "groups:merged" || message.type === "pieces:placed") {
-      if (!runtime) {
-        return
-      }
-
-      applyStatePatch(
-        runtime,
-        message.pieces,
-        message.groups,
-        message.type === "groups:merged" ? message.removedGroupIds : [],
-        message.snapCount
-      )
-      return
-    }
-
-    if (message.type === "groups:arranged") {
-      if (!runtime) {
-        return
-      }
-
-      for (const [pieceId, piece] of Object.entries(message.pieces)) {
-        runtime.state.pieces[pieceId] = structuredClone(piece)
-      }
-
-      runtime.interactions.cancelDrag()
-      runtime.pieces.syncPieces(Object.keys(message.pieces))
-      refreshStatsNow()
-      return
-    }
-
-    if (message.type === "stats:updated") {
-      setStats((current) => ({
-        ...current,
-        totalPieces: message.stats.totalPieces,
-        placedPieces: message.stats.placedPieces,
-        groupsCount: message.stats.groupsCount,
-        snapCount: message.stats.snapCount,
-      }))
-      return
-    }
-
-    if (message.type === "error") {
-      if (message.code === "room_not_found") {
-        setRoomStatus(message.message)
-        setConnectionStatus("unavailable")
-        return
-      }
-
-      if (
-        message.code === "session_required" ||
-        message.code === "not_joined"
-      ) {
-        setRoomStatus(message.message)
-        setConnectionStatus("unavailable")
-        return
-      }
-
-      if (message.code === "session_paused") {
-        runtime?.interactions.cancelDrag()
-        multiplayerRef.current?.requestState()
-        return
-      }
-
-      multiplayerRef.current?.requestState()
-    }
-  }
-
-  function toggleSessionPause(): void {
-    const connection = multiplayerRef.current
-
-    if (!connection?.isConnected()) {
-      return
-    }
-
-    connection.send({
-      type: roomTimer.paused ? "session:resume" : "session:pause",
-    })
-  }
-
-  function togglePreview(): void {
-    const runtime = runtimeRef.current
-
-    if (!runtime) {
-      return
-    }
-
-    setPreviewVisible((current) => {
-      const next = !current
-      runtime.scene.setPreviewVisible(next)
-      return next
-    })
-  }
-
-  function highlightAllPieces(): void {
-    const runtime = runtimeRef.current
-
-    if (!runtime) {
-      return
-    }
-
-    if (highlightTimerRef.current !== null) {
-      window.clearTimeout(highlightTimerRef.current)
-    }
-
-    runtime.pieces.setAllHighlighted(true)
-    setPiecesHighlighted(true)
-    highlightTimerRef.current = window.setTimeout(() => {
-      runtimeRef.current?.pieces.setAllHighlighted(false)
-      setPiecesHighlighted(false)
-      highlightTimerRef.current = null
-    }, 900)
-  }
-
-  function quickSolveDevRoom(): void {
-    const runtime = runtimeRef.current
-
-    if (!runtime || !canQuickSolve) {
-      return
-    }
-
-    for (const [pieceId, piece] of Object.entries(runtime.state.pieces)) {
-      const definition = runtime.state.definitions[pieceId]
-
-      if (!definition) {
-        continue
-      }
-
-      piece.x = definition.correctX
-      piece.y = definition.correctY
-      piece.placed = true
-      piece.locked = true
-    }
-
-    for (const group of Object.values(runtime.state.groups)) {
-      group.locked = true
-    }
-
-    runtime.interactions.cancelDrag()
-    runtime.pieces.syncAll()
-    refreshStatsNow()
-  }
-
-  function arrangePieces(mode: ArrangeLoosePiecesMode): void {
-    const runtime = runtimeRef.current
-
-    if (!runtime || !ready || roomTimer.paused) {
-      return
-    }
-
-    const connection = multiplayerRef.current
-
-    if (connection?.isConnected()) {
-      connection.send({ type: "groups:arrange", mode })
-      return
-    }
-
-    const movedPieceIds = arrangeLoosePieces(runtime.state, mode)
-
-    if (movedPieceIds.length === 0) {
-      return
-    }
-
-    runtime.interactions.cancelDrag()
-    runtime.pieces.syncPieces(movedPieceIds)
-    refreshStatsNow()
-  }
-
-  function zoomInView(): void {
-    runtimeRef.current?.camera.zoomIn()
-    refreshStatsNow()
-  }
-
-  function zoomOutView(): void {
-    runtimeRef.current?.camera.zoomOut()
-    refreshStatsNow()
-  }
-
-  function resetViewZoom(): void {
-    runtimeRef.current?.camera.resetView()
-    refreshStatsNow()
-  }
-
   return (
     <div ref={roomRef} className="jigsaw-room" style={roomStyle}>
       <div ref={mountRef} className="jigsaw-room__stage" />
@@ -1492,18 +1520,6 @@ export function JigsawRoomApp({ roomId }: JigsawRoomAppProps) {
           >
             +
           </button>
-          {/* <button */}
-          {/*   type="button" */}
-          {/*   onClick={shuffleUnsolved} */}
-          {/*   disabled={!ready || connectionStatus === "connected"} */}
-          {/*   title={ */}
-          {/*     connectionStatus === "connected" */}
-          {/*       ? "Shuffle is local-only for now" */}
-          {/*       : undefined */}
-          {/*   } */}
-          {/* > */}
-          {/*   {connectionStatus === "connected" ? "Shuffle off" : "Shuffle"} */}
-          {/* </button> */}
           <button
             type="button"
             onClick={() => {
