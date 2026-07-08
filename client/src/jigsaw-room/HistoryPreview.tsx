@@ -17,7 +17,7 @@ export function HistoryPreview({
   imageUrl,
   pieceCount,
   jigsawConfig,
-  maxWidth = 280,
+  maxWidth,
   className,
 }: {
   imageUrl: string
@@ -27,24 +27,50 @@ export function HistoryPreview({
   className?: string
 }) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
+  const wrapperRef = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => {
     const canvas = canvasRef.current
+    const wrapper = wrapperRef.current
 
-    if (!canvas) return
-
-    const ctx = canvas.getContext("2d")
-
-    if (!ctx) return
+    if (!canvas || !wrapper) return
 
     let cancelled = false
-    const img = new Image()
+    let img: HTMLImageElement | null = null
 
-    img.onload = () => {
+    function draw(): void {
       if (cancelled) return
 
-      const w = maxWidth
-      const h = Math.round(w * (img.naturalHeight / img.naturalWidth))
+      const canvas = canvasRef.current
+      const wrapper = wrapperRef.current
+
+      if (!canvas || !wrapper) return
+
+      const ctx = canvas.getContext("2d")
+
+      if (!ctx || !img) return
+
+      if (!img.complete || img.naturalWidth === 0) return
+
+      const availableW = wrapper.clientWidth
+      const availableH = wrapper.clientHeight
+      const imgAspect = img.naturalHeight / img.naturalWidth
+      let w: number
+      let h: number
+
+      if (maxWidth && maxWidth > 0) {
+        w = Math.min(maxWidth, availableW)
+        h = Math.round(w * imgAspect)
+      } else {
+        w = availableW
+        h = Math.min(Math.round(w * imgAspect), availableH)
+      }
+
+      if (w <= 0 || h <= 0) return
+
+      canvas.width = w
+      canvas.height = h
+
       const config =
         jigsawConfig ??
         createImageJigsawConfig(
@@ -60,9 +86,6 @@ export function HistoryPreview({
       const scaleX = w / board.width
       const scaleY = h / board.height
 
-      canvas.width = w
-      canvas.height = h
-
       ctx.clearRect(0, 0, w, h)
       ctx.drawImage(img, 0, 0, w, h)
 
@@ -77,7 +100,7 @@ export function HistoryPreview({
             (definition.correctY + definition.height - board.y) * scaleY,
             (definition.correctX + definition.width - board.x) * scaleX,
             (definition.correctY + definition.height - board.y) * scaleY,
-             0,
+            0,
             1,
             definition.edges.bottom,
             definition.height * scaleY
@@ -102,14 +125,29 @@ export function HistoryPreview({
       ctx.stroke()
     }
 
+    img = new Image()
+
+    img.onload = draw
+
+    const observer = new ResizeObserver(() => {
+      draw()
+    })
+
+    observer.observe(wrapper)
     img.src = imageUrl
 
     return () => {
       cancelled = true
+      img = null
+      observer.disconnect()
     }
   }, [imageUrl, jigsawConfig, maxWidth, pieceCount])
 
-  return <canvas ref={canvasRef} className={className} aria-hidden="true" />
+  return (
+    <div ref={wrapperRef} className="jigsaw-room__canvas-wrapper">
+      <canvas ref={canvasRef} className={className} aria-hidden="true" />
+    </div>
+  )
 }
 
 function drawEdge(
@@ -139,36 +177,15 @@ function drawEdge(
   for (let index = 1; index < shape.points.length; index += 3) {
     const control1 = edgePointToWorld(
       shape.points[index],
-      x1,
-      y1,
-      unitX,
-      unitY,
-      normalX,
-      normalY,
-      length,
-      perpendicularLength
+      x1, y1, unitX, unitY, normalX, normalY, length, perpendicularLength
     )
     const control2 = edgePointToWorld(
       shape.points[index + 1],
-      x1,
-      y1,
-      unitX,
-      unitY,
-      normalX,
-      normalY,
-      length,
-      perpendicularLength
+      x1, y1, unitX, unitY, normalX, normalY, length, perpendicularLength
     )
     const end = edgePointToWorld(
       shape.points[index + 2],
-      x1,
-      y1,
-      unitX,
-      unitY,
-      normalX,
-      normalY,
-      length,
-      perpendicularLength
+      x1, y1, unitX, unitY, normalX, normalY, length, perpendicularLength
     )
 
     ctx.bezierCurveTo(control1.x, control1.y, control2.x, control2.y, end.x, end.y)
@@ -177,14 +194,8 @@ function drawEdge(
 
 function edgePointToWorld(
   point: PieceEdgePoint,
-  x: number,
-  y: number,
-  unitX: number,
-  unitY: number,
-  normalX: number,
-  normalY: number,
-  length: number,
-  perpendicularLength: number
+  x: number, y: number, unitX: number, unitY: number,
+  normalX: number, normalY: number, length: number, perpendicularLength: number
 ): { x: number; y: number } {
   return {
     x: x + unitX * point.l * length + normalX * point.w * perpendicularLength,
