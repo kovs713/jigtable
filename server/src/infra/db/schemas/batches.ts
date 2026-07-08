@@ -1,6 +1,6 @@
 import { jsonb, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core"
 
-import type { ShuffleResult } from "@/shuffle"
+import type { CollageLayout } from "@/collage-layout-engine"
 
 export const PhotoBatchStatus = {
   Collecting: "collecting",
@@ -21,7 +21,7 @@ export const batchesSchema = pgTable("batches", {
   status: text("status")
     .default(PhotoBatchStatus.Collecting)
     .$type<PhotoBatchStatus>(),
-  layout: jsonb("layout").$type<ShuffleResult>(),
+  layout: jsonb("layout").$type<CollageLayout>(),
   outputKey: text("output_key"),
   outputFormat: text("output_format"),
   createdAt: timestamp("created_at").defaultNow(),

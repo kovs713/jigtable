@@ -2,12 +2,12 @@ import { serve, type BunRequest } from "bun"
 
 import { TelegramAuthService } from "@/auth"
 import { LIMITS } from "@/config"
-import { JigsawHistoryStore } from "@/jigsaw-room/history-store"
+import { JigsawHistoryStore } from "@/api/services/history-store"
 import {
   JigsawRoomManager,
   type JigsawSocketData,
-} from "@/jigsaw-room/room-manager"
-import { JigsawSessionStore } from "@/jigsaw-room/session-store"
+} from "@/api/services/room-manager"
+import { JigsawSessionStore } from "@/api/services/session-store"
 import { errorResponse } from "./errors"
 import { cors, errorBoundary } from "./middlewares"
 import { registerRoutes } from "./routes"

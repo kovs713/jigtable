@@ -1,9 +1,9 @@
 import sharp from "sharp"
 
+import type { CollageLayout } from "@/collage-layout-engine"
 import { LIMITS } from "@/config"
 import { mapConcurrent } from "@/features/promise-pool"
 import { s3Client } from "@/infra/storage"
-import type { ShuffleResult } from "@/shuffle"
 import { batchRenderObjectKey } from "./object-keys"
 
 export type RenderFormat = "png" | "jpg" | "jpeg"
@@ -21,7 +21,7 @@ export interface RenderResult {
 
 export async function renderLayout(
   batchId: string,
-  layout: ShuffleResult,
+  layout: CollageLayout,
   photos: RenderPhotoSource[],
   format: RenderFormat
 ): Promise<RenderResult> {

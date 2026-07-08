@@ -1,6 +1,3 @@
-import { LIMITS } from "@/config"
-import type { batchPhotosSchema } from "@/infra/db/schemas"
-import type { ShuffleItem, ShuffleResult } from "@/shuffle"
 import {
   array,
   number,
@@ -10,6 +7,9 @@ import {
   string,
 } from "@jigtable/shared"
 
+import type { CollageLayout, LayoutItem } from "@/collage-layout-engine"
+import { LIMITS } from "@/config"
+import type { batchPhotosSchema } from "@/infra/db/schemas"
 import { ApiError } from "../errors"
 import { parseApiSchema } from "../utils/request"
 
@@ -36,7 +36,7 @@ const LayoutSchema = object({
 export function normalizeLayout(
   raw: unknown,
   photos: PhotoRow[]
-): ShuffleResult {
+): CollageLayout {
   const value = parseApiSchema(LayoutSchema, unwrapLayout(raw), "layout")
   const photoById = new Map(photos.map((photo) => [photo.fileId, photo]))
   const canvas = value.canvas
@@ -55,7 +55,7 @@ export function normalizeLayout(
   }
 
   const seenIds = new Set<string>()
-  const items = value.items.map((rawItem, index): ShuffleItem => {
+  const items = value.items.map((rawItem, index): LayoutItem => {
     const id = rawItem.id
     const photo = photoById.get(id)
 
@@ -103,7 +103,7 @@ export function normalizeLayout(
   return { canvas, items }
 }
 
-function assertCanvasWithinLimits(canvas: ShuffleResult["canvas"]): void {
+function assertCanvasWithinLimits(canvas: CollageLayout["canvas"]): void {
   if (canvas.width > LIMITS.layout.maxCanvasWidth) {
     throw new ApiError(
       `canvas.width must be at most ${LIMITS.layout.maxCanvasWidth}`,

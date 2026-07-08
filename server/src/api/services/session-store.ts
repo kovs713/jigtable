@@ -1,7 +1,10 @@
 import { eq } from "drizzle-orm"
 
-import type { JigsawPlayer, JigsawSession } from "@jigtable/jigsaw-core"
-import { isRecord } from "@jigtable/shared"
+import type {
+  JigsawPlayer,
+  JigsawSession,
+} from "@jigtable/jigsaw-core/multiplayer/protocol"
+import { isRecord } from "@jigtable/shared/utils"
 
 import { db } from "@/infra/db"
 import { jigsawSessionsSchema } from "@/infra/db/schemas"

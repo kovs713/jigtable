@@ -4,15 +4,19 @@ import { join } from "node:path"
 
 const release = process.argv.includes("--release")
 const profile = release ? "release" : "debug"
-const manifestPath = join("native", "shuffle", "Cargo.toml")
+const manifestPath = join("native", "collage-layout-engine", "Cargo.toml")
 const source = join(
   "native",
-  "shuffle",
+  "collage-layout-engine",
   "target",
   profile,
-  nativeLibraryFileName("image_shuffle_native")
+  nativeLibraryFileName("collage_layout_engine_native")
 )
-const target = join("src", "shuffle", "image_shuffle_native.node")
+const target = join(
+  "src",
+  "collage-layout-engine",
+  "collage_layout_engine_native.node"
+)
 
 if (release) {
   await $`cargo build --manifest-path ${manifestPath} --release`

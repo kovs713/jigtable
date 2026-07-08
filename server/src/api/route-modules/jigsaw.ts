@@ -1,16 +1,21 @@
-import { LIMITS } from "@/config"
-import { clientJigsawRoomUrl } from "@/features/urls"
-import { renderLayout } from "@/features/render-layout"
-import { createJigsawSafeAssetRef } from "@/jigsaw-room/history-store"
-import type { CreateJigsawRoomInput } from "@/jigsaw-room/room-manager"
-import { toSessionResponse } from "@/jigsaw-room/session-store"
-import type { CreateJigsawRoomResponse } from "@jigtable/jigsaw-core"
-import { db } from "@/infra/db"
-import { batchesSchema, batchPhotosSchema, PhotoBatchStatus } from "@/infra/db/schemas"
 import { and, asc, eq } from "drizzle-orm"
-import { number, optional, string } from "@jigtable/shared"
 
-import { errorResponse, ApiError } from "../errors"
+import type { CreateJigsawRoomResponse } from "@jigtable/jigsaw-core/multiplayer/protocol"
+import { number, optional, string } from "@jigtable/shared/schemas"
+
+import { LIMITS } from "@/config"
+import { renderLayout } from "@/features/render-layout"
+import { clientJigsawRoomUrl } from "@/features/urls"
+import { db } from "@/infra/db"
+import {
+  batchesSchema,
+  batchPhotosSchema,
+  PhotoBatchStatus,
+} from "@/infra/db/schemas"
+import { createJigsawSafeAssetRef } from "@/api/services/history-store"
+import type { CreateJigsawRoomInput } from "@/api/services/room-manager"
+import { toSessionResponse } from "@/api/services/session-store"
+import { ApiError, errorResponse } from "../errors"
 import {
   readJigsawAuthToken,
   readOptionalAuthenticatedUser,
@@ -140,11 +145,9 @@ export function registerJigsawRoutes(router: Router): void {
       let roomImageUrl: string
       let sourceWidth: number | undefined
       let sourceHeight: number | undefined
-      let assetId = parseApiSchema(
-        optional(string()),
-        body?.assetId,
-        "assetId"
-      )?.trim() ?? "room-image"
+      let assetId =
+        parseApiSchema(optional(string()), body?.assetId, "assetId")?.trim() ??
+        "room-image"
 
       if (batchId && batchToken) {
         const [batch, photos] = await Promise.all([

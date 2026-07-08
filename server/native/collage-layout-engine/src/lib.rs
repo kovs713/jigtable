@@ -4,7 +4,7 @@ use napi::{Error, Result};
 use napi_derive::napi;
 
 #[napi(object)]
-pub struct ShuffleImageInput {
+pub struct ImageSource {
     pub id: String,
     pub src: String,
     pub width: f64,
@@ -12,13 +12,14 @@ pub struct ShuffleImageInput {
 }
 
 #[napi(object)]
-pub struct ShuffleInput {
-    pub images: Vec<ShuffleImageInput>,
+pub struct GenerateCollageLayoutInput {
+    pub images: Vec<ImageSource>,
     pub count: Option<f64>,
 }
 
 #[napi(object)]
-pub struct ShuffleOptions {
+#[derive(Default)]
+pub struct CollageLayoutOptions {
     pub gap: Option<f64>,
     pub target_aspect_ratio: Option<f64>,
     pub target_image_area: Option<f64>,
@@ -26,13 +27,13 @@ pub struct ShuffleOptions {
 }
 
 #[napi(object)]
-pub struct ShuffleCanvas {
+pub struct Canvas {
     pub width: f64,
     pub height: f64,
 }
 
 #[napi(object)]
-pub struct ShuffleItem {
+pub struct LayoutItem {
     pub id: String,
     pub src: String,
     pub x: f64,
@@ -43,9 +44,9 @@ pub struct ShuffleItem {
 }
 
 #[napi(object)]
-pub struct ShuffleResult {
-    pub canvas: ShuffleCanvas,
-    pub items: Vec<ShuffleItem>,
+pub struct CollageLayout {
+    pub canvas: Canvas,
+    pub items: Vec<LayoutItem>,
 }
 
 #[derive(Clone)]
@@ -77,11 +78,11 @@ struct PackedImage {
 const DEFAULT_GAP: f64 = 0.0;
 const DEFAULT_MAX_ASPECT_RATIO_DISTORTION: f64 = 1.5;
 
-#[napi(js_name = "shuffleImages")]
-pub fn shuffle_images(
-    input: ShuffleInput,
-    options: Option<ShuffleOptions>,
-) -> Result<ShuffleResult> {
+#[napi(js_name = "generateCollageLayout")]
+pub fn generate_collage_layout(
+    input: GenerateCollageLayoutInput,
+    options: Option<CollageLayoutOptions>,
+) -> Result<CollageLayout> {
     let images = input
         .images
         .into_iter()
@@ -90,13 +91,15 @@ pub fn shuffle_images(
 
     if let Some(count) = input.count {
         if count.round() as usize != images.len() {
-            return Err(Error::from_reason("Shuffle count must match images length"));
+            return Err(Error::from_reason(
+                "Collage image count must match images length",
+            ));
         }
     }
 
     if images.is_empty() {
-        return Ok(ShuffleResult {
-            canvas: ShuffleCanvas {
+        return Ok(CollageLayout {
+            canvas: Canvas {
                 width: 0.0,
                 height: 0.0,
             },
@@ -159,7 +162,7 @@ pub fn shuffle_images(
 
     let items = packed_images
         .into_iter()
-        .map(|image| ShuffleItem {
+        .map(|image| LayoutItem {
             id: image.image.id,
             src: image.image.src,
             x: image.x,
@@ -170,18 +173,7 @@ pub fn shuffle_images(
         })
         .collect();
 
-    Ok(ShuffleResult { canvas, items })
-}
-
-impl Default for ShuffleOptions {
-    fn default() -> Self {
-        Self {
-            gap: None,
-            target_aspect_ratio: None,
-            target_image_area: None,
-            max_aspect_ratio_distortion: None,
-        }
-    }
+    Ok(CollageLayout { canvas, items })
 }
 
 fn pack_images(
@@ -214,7 +206,7 @@ fn pack_images(
         .into_iter()
         .next()
         .map(|(_, images)| images)
-        .ok_or_else(|| Error::from_reason("Could not build shuffle layout"))
+        .ok_or_else(|| Error::from_reason("Could not build collage canvas layout"))
 }
 
 fn partition_rows(images: &[PackingImage], row_count: usize) -> Result<Vec<Vec<PackingImage>>> {
@@ -229,7 +221,7 @@ fn partition_rows(images: &[PackingImage], row_count: usize) -> Result<Vec<Vec<P
         while image_index < images.len() {
             let image = images
                 .get(image_index)
-                .ok_or_else(|| Error::from_reason("Could not build shuffle layout"))?;
+                .ok_or_else(|| Error::from_reason("Could not build collage layout"))?;
             let remaining_rows_after_this = row_count - row_index - 1;
             let remaining_images_after_this = images.len() - image_index - 1;
 
@@ -253,7 +245,7 @@ fn partition_rows(images: &[PackingImage], row_count: usize) -> Result<Vec<Vec<P
         }
 
         if row.is_empty() {
-            return Err(Error::from_reason("Could not build shuffle layout"));
+            return Err(Error::from_reason("Could not build collage layout"));
         }
 
         rows.push(row);
@@ -286,7 +278,7 @@ fn pack_rows(
         for (item_index, image) in row.iter().enumerate() {
             let width = *widths
                 .get(item_index)
-                .ok_or_else(|| Error::from_reason("Could not build shuffle layout"))?;
+                .ok_or_else(|| Error::from_reason("Could not build collage layout"))?;
 
             packed_images.push(PackedImage {
                 image: image.clone(),
@@ -329,7 +321,7 @@ fn calculate_canvas_width(rows: &[Vec<PackingImage>], target_area: f64, gap: f64
 fn score_layout(
     rows: &[Vec<PackingImage>],
     images: &[PackedImage],
-    canvas: &ShuffleCanvas,
+    canvas: &Canvas,
     target_aspect_ratio: f64,
     max_aspect_ratio_distortion: f64,
 ) -> Result<f64> {
@@ -356,7 +348,7 @@ fn collect_row_heights(rows: &[Vec<PackingImage>], images: &[PackedImage]) -> Re
     for row in rows {
         let image = images
             .get(image_index)
-            .ok_or_else(|| Error::from_reason("Could not build shuffle layout"))?;
+            .ok_or_else(|| Error::from_reason("Could not build collage layout"))?;
 
         heights.push(image.height);
         image_index += row.len();
@@ -376,12 +368,12 @@ fn max_packed_aspect_ratio_distortion(images: &[PackedImage]) -> f64 {
         .fold(0.0, f64::max)
 }
 
-fn create_packed_canvas(images: &[PackedImage]) -> Result<ShuffleCanvas> {
+fn create_packed_canvas(images: &[PackedImage]) -> Result<Canvas> {
     if images.is_empty() {
-        return Err(Error::from_reason("Could not build shuffle layout"));
+        return Err(Error::from_reason("Could not build collage layout"));
     }
 
-    Ok(ShuffleCanvas {
+    Ok(Canvas {
         width: images
             .iter()
             .map(|image| image.x + image.width)
@@ -400,7 +392,7 @@ where
     let weights = weights.into_iter().collect::<Vec<_>>();
 
     if total_size < weights.len() as f64 {
-        return Err(Error::from_reason("Could not build shuffle layout"));
+        return Err(Error::from_reason("Could not build collage layout"));
     }
 
     let total_weight = sum(weights.iter().copied());
@@ -454,13 +446,13 @@ fn compare_packing_images(left: &PackingImage, right: &PackingImage) -> Ordering
         .then_with(|| left.order.cmp(&right.order))
 }
 
-fn validate_image(image: ShuffleImageInput) -> Result<ValidatedImage> {
+fn validate_image(image: ImageSource) -> Result<ValidatedImage> {
     if image.id.is_empty() {
-        return Err(Error::from_reason("Shuffle image id is required"));
+        return Err(Error::from_reason("Collage image id is required"));
     }
 
     if image.src.is_empty() {
-        return Err(Error::from_reason("Shuffle image src is required"));
+        return Err(Error::from_reason("Collage image src is required"));
     }
 
     Ok(ValidatedImage {
@@ -472,13 +464,13 @@ fn validate_image(image: ShuffleImageInput) -> Result<ValidatedImage> {
 }
 
 fn normalize_positive_number(value: Option<f64>, fallback: Option<f64>, name: &str) -> Result<f64> {
-    let normalized = value
-        .or(fallback)
-        .ok_or_else(|| Error::from_reason(format!("Shuffle {name} must be a positive number")))?;
+    let normalized = value.or(fallback).ok_or_else(|| {
+        Error::from_reason(format!("Collage image {name} must be a positive number"))
+    })?;
 
     if !normalized.is_finite() || normalized <= 0.0 {
         return Err(Error::from_reason(format!(
-            "Shuffle {name} must be a positive number"
+            "Collage image {name} must be a positive number"
         )));
     }
 
@@ -490,7 +482,7 @@ fn normalize_non_negative_number(value: Option<f64>, fallback: f64, name: &str) 
 
     if !normalized.is_finite() || normalized < 0.0 {
         return Err(Error::from_reason(format!(
-            "Shuffle {name} must be a non-negative number"
+            "Collage image {name} must be a non-negative number"
         )));
     }
 
@@ -507,7 +499,7 @@ fn normalize_minimum_number(
 
     if !normalized.is_finite() || normalized < min {
         return Err(Error::from_reason(format!(
-            "Shuffle {name} must be at least {min}"
+            "Collage image {name} must be at least {min}"
         )));
     }
 

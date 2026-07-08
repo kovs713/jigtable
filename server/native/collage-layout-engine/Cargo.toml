@@ -1,5 +1,5 @@
 [package]
-name = "image_shuffle_native"
+name = "collage_layout_engine_native"
 version = "0.1.0"
 edition = "2021"
 

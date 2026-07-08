@@ -1,10 +1,26 @@
 import type { ServerWebSocket } from "bun"
-import type { ArrangeLoosePiecesMode } from "@jigtable/jigsaw-core"
 
+import {
+  createImageJigsawConfig,
+  JIGSAW_CONFIG_2000,
+} from "@jigtable/jigsaw-core/jigsaw/config"
+import { createJigsawState } from "@jigtable/jigsaw-core/jigsaw/generate-jigsaw"
+import { moveGroupToAnchor } from "@jigtable/jigsaw-core/jigsaw/groups"
+import type { ArrangeLoosePiecesMode } from "@jigtable/jigsaw-core/jigsaw/scatter"
+import {
+  arrangeLoosePieces,
+  scatterAllPieces,
+} from "@jigtable/jigsaw-core/jigsaw/scatter"
+import { snapDroppedGroup } from "@jigtable/jigsaw-core/jigsaw/snap"
 import type {
-  ClientToServerMessage,
   GroupId,
   GroupState,
+  JigsawState,
+  PieceId,
+  PieceState,
+} from "@jigtable/jigsaw-core/jigsaw/types"
+import type {
+  ClientToServerMessage,
   JigsawGroupLock,
   JigsawLock,
   JigsawPlayer,
@@ -12,20 +28,8 @@ import type {
   JigsawRoomSnapshot,
   JigsawRoomStats,
   JigsawRoomTimer,
-  JigsawState,
-  PieceId,
-  PieceState,
   ServerToClientMessage,
-} from "@jigtable/jigsaw-core"
-import {
-  arrangeLoosePieces,
-  createImageJigsawConfig,
-  createJigsawState,
-  JIGSAW_CONFIG_2000,
-  moveGroupToAnchor,
-  scatterAllPieces,
-  snapDroppedGroup,
-} from "@jigtable/jigsaw-core"
+} from "@jigtable/jigsaw-core/multiplayer/protocol"
 
 import { LIMITS } from "@/config"
 import type { JigsawSafeAssetRef } from "@/infra/db/schemas"
@@ -430,7 +434,10 @@ export class JigsawRoomManager {
     if (message.targetType === "group") {
       const group = room.state.groups[message.targetId]
 
-      if (group && group.pieceIds.every((id) => room.state.pieces[id]?.placed)) {
+      if (
+        group &&
+        group.pieceIds.every((id) => room.state.pieces[id]?.placed)
+      ) {
         send(socket, {
           type: "room:lock-rejected",
           targetType: message.targetType,
@@ -707,10 +714,7 @@ export class JigsawRoomManager {
     this.recordCompletionIfSolved(room)
   }
 
-  private arrangeGroups(
-    room: JigsawRoom,
-    mode: ArrangeLoosePiecesMode
-  ): void {
+  private arrangeGroups(room: JigsawRoom, mode: ArrangeLoosePiecesMode): void {
     if (room.timer.paused) {
       return
     }
@@ -1057,7 +1061,11 @@ function updatePlayerLocks(room: JigsawRoom, player: JigsawPlayer): void {
 
   for (const [key, lock] of room.toggleLocks) {
     if (lock.playerId === player.id) {
-      room.toggleLocks.set(key, { ...lock, playerName: player.name, playerColor: player.color })
+      room.toggleLocks.set(key, {
+        ...lock,
+        playerName: player.name,
+        playerColor: player.color,
+      })
     }
   }
 }

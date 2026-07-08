@@ -1,17 +1,17 @@
+import type { CollageLayout } from "@/collage-layout-engine"
 import { publicApiUrl } from "@/features/urls"
 import type { batchesSchema } from "@/infra/db/schemas"
-import type { ShuffleResult } from "@/shuffle"
 
 export interface ApiBatchLayout {
   batchId: string
   status: string | null
-  layout: ShuffleResult
+  layout: CollageLayout
   outputUrl: string | null
 }
 
 export function toApiBatchLayout(
   batch: typeof batchesSchema.$inferSelect,
-  layout: ShuffleResult
+  layout: CollageLayout
 ): ApiBatchLayout {
   return {
     batchId: batch.batchId,

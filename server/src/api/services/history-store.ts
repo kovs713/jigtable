@@ -1,7 +1,8 @@
 import { CryptoHasher } from "bun"
 import { and, desc, eq, inArray } from "drizzle-orm"
 
-import type { JigsawConfig, JigsawPlayer } from "@jigtable/jigsaw-core"
+import type { JigsawConfig } from "@jigtable/jigsaw-core/jigsaw/types"
+import type { JigsawPlayer } from "@jigtable/jigsaw-core/multiplayer/protocol"
 
 import { db } from "@/infra/db"
 import {

@@ -10,7 +10,10 @@ import {
   batchPhotosSchema,
   PhotoBatchStatus,
 } from "@/infra/db/schemas"
-import { shuffleImages, type ShuffleResult } from "@/shuffle"
+import {
+  generateCollageLayout,
+  type CollageLayout,
+} from "@/collage-layout-engine"
 
 const PREVIEW_MAX_SIDE = 1200
 
@@ -79,7 +82,7 @@ export async function handleCommit(ctx: BotContext): Promise<void> {
   //   return
   // }
 
-  const layout = shuffleImages({
+  const layout = generateCollageLayout({
     count: photos.length,
     images: photos.map((photo) => ({
       id: photo.fileId,
@@ -113,7 +116,7 @@ export async function handleCommit(ctx: BotContext): Promise<void> {
   clearActiveBatch(ctx)
 }
 
-function scaleLayout(layout: ShuffleResult, maxSide: number): ShuffleResult {
+function scaleLayout(layout: CollageLayout, maxSide: number): CollageLayout {
   const longestSide = Math.max(layout.canvas.width, layout.canvas.height)
   if (longestSide <= maxSide) return layout
 

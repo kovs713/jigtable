@@ -6,7 +6,7 @@ out
 dist
 *.tgz
 native/**/target
-src/shuffle/*.node
+src/collage-layout-engine/*.node
 
 # code coverage
 coverage
