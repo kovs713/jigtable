@@ -53,7 +53,6 @@ export function HistoryPreview({
       if (!img.complete || img.naturalWidth === 0) return
 
       const availableW = wrapper.clientWidth
-      const availableH = wrapper.clientHeight
       const imgAspect = img.naturalHeight / img.naturalWidth
       let w: number
       let h: number
@@ -63,7 +62,7 @@ export function HistoryPreview({
         h = Math.round(w * imgAspect)
       } else {
         w = availableW
-        h = Math.min(Math.round(w * imgAspect), availableH)
+        h = Math.round(w * imgAspect)
       }
 
       if (w <= 0 || h <= 0) return
