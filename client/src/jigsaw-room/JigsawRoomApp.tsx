@@ -14,12 +14,14 @@ import {
 } from "@jigtable/jigsaw-core/jigsaw/groups"
 import {
   arrangeLoosePieces,
-  type ArrangeLoosePiecesMode,
   scatterAllPieces,
+  type ArrangeLoosePiecesMode,
 } from "@jigtable/jigsaw-core/jigsaw/scatter"
 import type {
+  GroupId,
   JigsawState,
   JigsawStats,
+  PieceId,
 } from "@jigtable/jigsaw-core/jigsaw/types"
 import type {
   JigsawGroupLock,
@@ -110,6 +112,13 @@ const ARRANGE_MODES = [
 type JigsawSessionStatus =
   "local" | "restoring" | "saved" | "saving" | "offline" | "error"
 
+type InteractionChange = {
+  reason: "move" | "drop" | "snap" | "cancel-drop"
+  groupId: GroupId
+  affectedPieceIds?: PieceId[]
+  groupIdsBeforeSnap?: Map<PieceId, GroupId>
+}
+
 interface JigsawRoomAppProps {
   roomId?: string
 }
@@ -136,6 +145,99 @@ const EMPTY_STATS = {
   groupsCount: ACTIVE_JIGSAW_CONFIG.rows * ACTIVE_JIGSAW_CONFIG.cols,
   snapCount: 0,
 } satisfies JigsawStats
+
+function findLockForMergedPieces(
+  locks: Map<string, JigsawLock>,
+  affectedPieceIds: PieceId[],
+  oldGroupIds: Set<GroupId>
+): JigsawLock | null {
+  for (const oldGroupId of oldGroupIds) {
+    const groupLock = locks.get(`group:${oldGroupId}`)
+
+    if (groupLock) {
+      return groupLock
+    }
+  }
+
+  for (const pieceId of affectedPieceIds) {
+    const pieceLock = locks.get(`piece:${pieceId}`)
+
+    if (pieceLock) {
+      return pieceLock
+    }
+  }
+
+  return null
+}
+
+function retargetLocksAfterSnap(
+  state: JigsawState,
+  locks: Map<string, JigsawLock>,
+  affectedPieceIds: PieceId[],
+  groupIdsBeforeSnap: Map<PieceId, GroupId>
+): void {
+  if (affectedPieceIds.length === 0) {
+    return
+  }
+
+  const oldGroupIds = new Set<GroupId>()
+  const newGroupIds = new Set<GroupId>()
+  const renderablePieceIds: PieceId[] = []
+
+  for (const pieceId of affectedPieceIds) {
+    const oldGroupId = groupIdsBeforeSnap.get(pieceId)
+    const piece = state.pieces[pieceId]
+
+    if (oldGroupId) {
+      oldGroupIds.add(oldGroupId)
+    }
+
+    if (!piece) {
+      continue
+    }
+
+    if (!piece.placed) {
+      newGroupIds.add(piece.groupId)
+      renderablePieceIds.push(pieceId)
+    }
+  }
+
+  const lockToKeep = findLockForMergedPieces(
+    locks,
+    affectedPieceIds,
+    oldGroupIds
+  )
+
+  if (!lockToKeep) {
+    return
+  }
+
+  for (const oldGroupId of oldGroupIds) {
+    locks.delete(`group:${oldGroupId}`)
+  }
+
+  for (const pieceId of affectedPieceIds) {
+    locks.delete(`piece:${pieceId}`)
+  }
+
+  // Если snap был на итоговый canvas и все affected pieces placed,
+  // lock надо просто убрать, иначе ghost border останется.
+  if (renderablePieceIds.length === 0) {
+    return
+  }
+
+  if (newGroupIds.size !== 1) {
+    return
+  }
+
+  const [newGroupId] = [...newGroupIds]
+
+  locks.set(`group:${newGroupId}`, {
+    ...lockToKeep,
+    targetType: "group",
+    targetId: newGroupId,
+  })
+}
 
 export function JigsawRoomApp({ roomId }: JigsawRoomAppProps) {
   const initialSessionRef = useRef<JigsawSession | null>(null)
@@ -370,10 +472,7 @@ export function JigsawRoomApp({ roomId }: JigsawRoomAppProps) {
         )
         const camera = createCameraController(app, scene.world, state.config, {
           canStartPrimaryPan(event, world) {
-            if (
-              event.altKey &&
-              multiplayerRef.current?.isConnected()
-            ) {
+            if (event.altKey && multiplayerRef.current?.isConnected()) {
               return false
             }
 
@@ -401,9 +500,23 @@ export function JigsawRoomApp({ roomId }: JigsawRoomAppProps) {
 
         const pings = createPingController(app, scene.overlayLayer, camera)
 
-        const refreshStats = () => {
+        const syncDerivedRoomViews = (change?: InteractionChange) => {
+          if (
+            change?.reason === "snap" &&
+            change.affectedPieceIds &&
+            change.groupIdsBeforeSnap
+          ) {
+            retargetLocksAfterSnap(
+              state,
+              toggleLocksRef.current,
+              change.affectedPieceIds,
+              change.groupIdsBeforeSnap
+            )
+          }
+
           setStats(getJigsawStats(state, app.ticker.FPS || 0, camera.zoom))
           runtimeRef.current?.lockOverlays?.update(toggleLocksRef.current)
+          app.render()
         }
         const interactions = setupPieceInteractions({
           app,
@@ -435,10 +548,7 @@ export function JigsawRoomApp({ roomId }: JigsawRoomAppProps) {
                 const pieceKey = `piece:${pieceId}`
                 const pieceLock = toggleLocksRef.current.get(pieceKey)
 
-                if (
-                  pieceLock &&
-                  pieceLock.playerId !== playerRef.current.id
-                ) {
+                if (pieceLock && pieceLock.playerId !== playerRef.current.id) {
                   return false
                 }
               }
@@ -449,7 +559,7 @@ export function JigsawRoomApp({ roomId }: JigsawRoomAppProps) {
           isServerMode() {
             return multiplayerRef.current?.isConnected() ?? false
           },
-          onChange: refreshStats,
+          onChange: syncDerivedRoomViews,
           onToggleLock(pieceId) {
             const piece = state.pieces[pieceId]
 
@@ -624,7 +734,7 @@ export function JigsawRoomApp({ roomId }: JigsawRoomAppProps) {
 
         setReady(true)
         setRoomStatus("")
-        refreshStats()
+        syncDerivedRoomViews()
 
         const bootStats = getJigsawStats(
           state,

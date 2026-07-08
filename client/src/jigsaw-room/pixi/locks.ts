@@ -35,6 +35,23 @@ interface GroupOverlay {
   gfx: Graphics
   geometryKey: string
   color: number
+  pieceIds: PieceId[]
+}
+
+interface PieceOverlay {
+  gfx: Graphics
+  color: number
+}
+
+interface ActiveGroupOverlay {
+  groupId: string
+  pieceIds: PieceId[]
+  lock: JigsawLock
+}
+
+interface ResolvedGroupLock {
+  groupId: string
+  pieceIds: PieceId[]
 }
 
 interface VectorOutlineEdge {
@@ -70,117 +87,135 @@ export function createLockOverlayRenderer(
   lockLayer.addChild(container)
 
   const groupOverlays = new Map<string, GroupOverlay>()
-  const pieceGraphics = new Map<string, Graphics>()
+  const pieceOverlays = new Map<PieceId, PieceOverlay>()
+
+  // lock.targetId для group lock может стать старым после merge.
+  // Alias позволяет frontend renderer пережить смену groupId без отдельного ws-event.
+  const groupLockAliases = new Map<string, string>()
 
   function update(locks: Map<string, JigsawLock>): void {
-    const groupLocks = new Map<string, JigsawLock>()
-    const lockedGroupIds = new Set<string>()
+    const activeGroups = new Map<string, ActiveGroupOverlay>()
+    const activePieces = new Map<PieceId, JigsawLock>()
 
-    for (const [, lock] of locks) {
-      if (lock.targetType === "group") {
-        groupLocks.set(lock.targetId, lock)
-        lockedGroupIds.add(lock.targetId)
+    const addActiveGroup = (
+      groupId: string,
+      pieceIds: PieceId[],
+      lock: JigsawLock
+    ): void => {
+      const renderablePieceIds = normalizePieceIds(pieceIds).filter(
+        (id) => !state.pieces[id]?.placed
+      )
+
+      if (renderablePieceIds.length === 0) {
+        return
+      }
+
+      const existing = activeGroups.get(groupId)
+
+      if (!existing || shouldPreferLock(lock, existing.lock, groupId)) {
+        activeGroups.set(groupId, {
+          groupId,
+          pieceIds: renderablePieceIds,
+          lock,
+        })
       }
     }
 
-    const allPlaced = (pieceIds: PieceId[]) =>
-      pieceIds.length > 0 && pieceIds.every((id) => state.pieces[id]?.placed)
+    for (const [, lock] of locks) {
+      if (lock.targetType === "piece") {
+        const pieceId = lock.targetId as PieceId
+        const piece = state.pieces[pieceId]
 
-    // Existing group overlays:
-    // - destroy if lock disappeared
-    // - rebuild geometry only if group composition/relative geometry changed
-    // - otherwise only move gfx.position
+        if (!piece || piece.placed) {
+          continue
+        }
+
+        const groupId = piece.groupId
+        const groupPieceIds = getRenderableGroupPieceIds(state, groupId)
+
+        // Важный фикс: piece lock после merge должен стать group overlay.
+        // Иначе renderer будет продолжать рисовать бордер только вокруг старого single piece.
+        if (groupPieceIds.length > 1) {
+          addActiveGroup(groupId, groupPieceIds, lock)
+        } else {
+          activePieces.set(pieceId, lock)
+        }
+
+        continue
+      }
+
+      const resolvedGroup = resolveGroupLock(
+        state,
+        lock.targetId,
+        groupOverlays,
+        groupLockAliases
+      )
+
+      if (!resolvedGroup) {
+        groupLockAliases.delete(lock.targetId)
+        continue
+      }
+
+      groupLockAliases.set(lock.targetId, resolvedGroup.groupId)
+      addActiveGroup(resolvedGroup.groupId, resolvedGroup.pieceIds, lock)
+    }
+
+    // Если single piece lock уже попал в activeGroups после merge,
+    // отдельный piece overlay должен исчезнуть в этом же update.
+    for (const [pieceId] of activePieces) {
+      const piece = state.pieces[pieceId]
+
+      if (!piece || activeGroups.has(piece.groupId)) {
+        activePieces.delete(pieceId)
+      }
+    }
+
     for (const [groupId, overlay] of groupOverlays) {
-      const lock = groupLocks.get(groupId)
-      const pieceIds = getCurrentGroupPieceIds(state, groupId)
-
-      const shouldRender = !!lock && pieceIds.length > 0 && !allPlaced(pieceIds)
-
-      if (!shouldRender) {
-        groupContainer.removeChild(overlay.gfx)
-        overlay.gfx.destroy()
-        groupOverlays.delete(groupId)
+      if (activeGroups.has(groupId)) {
         continue
+      }
+
+      destroyGroupOverlay(groupContainer, groupOverlays, groupId, overlay)
+    }
+
+    for (const [pieceId, overlay] of pieceOverlays) {
+      const lock = activePieces.get(pieceId)
+      const piece = state.pieces[pieceId]
+
+      if (!lock || !piece || piece.placed) {
+        destroyPieceOverlay(pieceContainer, pieceOverlays, pieceId, overlay)
+        continue
+      }
+
+      updatePieceOverlay(overlay, state, pieceId, lock)
+    }
+
+    for (const [groupId, active] of activeGroups) {
+      let overlay = groupOverlays.get(groupId)
+
+      if (!overlay) {
+        overlay = {
+          gfx: new Graphics({ label: `lock-group-${groupId}` }),
+          geometryKey: "",
+          color: -1,
+          pieceIds: [],
+        }
+
+        groupOverlays.set(groupId, overlay)
+        groupContainer.addChild(overlay.gfx)
       }
 
       updateGroupOverlay(
         overlay,
         state,
-        pieceIds,
-        hexToGraphicsColor(lock.playerColor),
+        active.pieceIds,
+        hexToGraphicsColor(active.lock.playerColor),
         FILL_ALPHA
       )
     }
 
-    // Existing piece overlays.
-    // Для piece shape рисуется один раз, дальше только position update.
-    for (const [pieceId, gfx] of pieceGraphics) {
-      const piece = state.pieces[pieceId]
-      const inLockedGroup = lockedGroupIds.has(piece?.groupId ?? "")
-
-      const stillLocked =
-        !!piece &&
-        !inLockedGroup &&
-        !piece.placed &&
-        locks.has(`piece:${pieceId}`)
-
-      if (!stillLocked) {
-        pieceContainer.removeChild(gfx)
-        gfx.destroy()
-        pieceGraphics.delete(pieceId)
-        continue
-      }
-
-      const margin = getPieceMargin(state)
-      gfx.position.set(piece.x - margin, piece.y - margin)
-    }
-
-    // New group overlays.
-    for (const [groupId, lock] of groupLocks) {
-      if (groupOverlays.has(groupId)) {
-        continue
-      }
-
-      const pieceIds = getCurrentGroupPieceIds(state, groupId)
-
-      if (pieceIds.length === 0 || allPlaced(pieceIds)) {
-        continue
-      }
-
-      const gfx = new Graphics({ label: `lock-group-${groupId}` })
-
-      const overlay: GroupOverlay = {
-        gfx,
-        geometryKey: "",
-        color: -1,
-      }
-
-      updateGroupOverlay(
-        overlay,
-        state,
-        pieceIds,
-        hexToGraphicsColor(lock.playerColor),
-        FILL_ALPHA
-      )
-
-      groupOverlays.set(groupId, overlay)
-      groupContainer.addChild(gfx)
-    }
-
-    // New piece overlays.
-    for (const [, lock] of locks) {
-      if (lock.targetType !== "piece") {
-        continue
-      }
-
-      const pieceId = lock.targetId
-      const piece = state.pieces[pieceId]
-
-      if (!piece || piece.placed || lockedGroupIds.has(piece.groupId)) {
-        continue
-      }
-
-      if (pieceGraphics.has(pieceId)) {
+    for (const [pieceId, lock] of activePieces) {
+      if (pieceOverlays.has(pieceId)) {
         continue
       }
 
@@ -191,36 +226,219 @@ export function createLockOverlayRenderer(
         continue
       }
 
-      const margin = getPieceMargin(state)
       const color = hexToGraphicsColor(lock.playerColor)
       const gfx = new Graphics({ label: `lock-piece-${pieceId}` })
+      const overlay: PieceOverlay = { gfx, color }
 
-      drawPieceOutline(gfx, def, margin, color, FILL_ALPHA)
-      gfx.position.set(piece.x - margin, piece.y - margin)
+      drawPieceOutline(gfx, def, getPieceMargin(state), color, FILL_ALPHA)
+      updatePieceOverlayPosition(gfx, state, pieceId)
 
-      pieceGraphics.set(pieceId, gfx)
+      pieceOverlays.set(pieceId, overlay)
       pieceContainer.addChild(gfx)
     }
   }
 
   function destroy(): void {
-    for (const [, overlay] of groupOverlays) {
-      groupContainer.removeChild(overlay.gfx)
-      overlay.gfx.destroy()
+    for (const [groupId, overlay] of groupOverlays) {
+      destroyGroupOverlay(groupContainer, groupOverlays, groupId, overlay)
     }
-    groupOverlays.clear()
 
-    for (const [, gfx] of pieceGraphics) {
-      pieceContainer.removeChild(gfx)
-      gfx.destroy()
+    for (const [pieceId, overlay] of pieceOverlays) {
+      destroyPieceOverlay(pieceContainer, pieceOverlays, pieceId, overlay)
     }
-    pieceGraphics.clear()
 
+    groupLockAliases.clear()
     lockLayer.removeChild(container)
     container.destroy()
   }
 
   return { update, destroy }
+}
+
+function resolveGroupLock(
+  state: JigsawState,
+  lockTargetId: string,
+  groupOverlays: Map<string, GroupOverlay>,
+  groupLockAliases: Map<string, string>
+): ResolvedGroupLock | null {
+  const directPieceIds = getRenderableGroupPieceIds(state, lockTargetId)
+
+  if (directPieceIds.length > 0) {
+    return {
+      groupId: lockTargetId,
+      pieceIds: directPieceIds,
+    }
+  }
+
+  const aliasedGroupId = groupLockAliases.get(lockTargetId)
+
+  if (aliasedGroupId) {
+    const aliasedPieceIds = getRenderableGroupPieceIds(state, aliasedGroupId)
+
+    if (aliasedPieceIds.length > 0) {
+      return {
+        groupId: aliasedGroupId,
+        pieceIds: aliasedPieceIds,
+      }
+    }
+
+    const resolvedFromAliasOverlay = resolveGroupFromPieceIds(
+      state,
+      groupOverlays.get(aliasedGroupId)?.pieceIds ?? []
+    )
+
+    if (resolvedFromAliasOverlay) {
+      return resolvedFromAliasOverlay
+    }
+  }
+
+  return resolveGroupFromPieceIds(
+    state,
+    groupOverlays.get(lockTargetId)?.pieceIds ?? []
+  )
+}
+
+function resolveGroupFromPieceIds(
+  state: JigsawState,
+  pieceIds: PieceId[]
+): ResolvedGroupLock | null {
+  const groupIds = new Map<string, number>()
+
+  for (const pieceId of pieceIds) {
+    const piece = state.pieces[pieceId]
+
+    if (!piece || piece.placed) {
+      continue
+    }
+
+    groupIds.set(piece.groupId, (groupIds.get(piece.groupId) ?? 0) + 1)
+  }
+
+  let bestGroupId: string | null = null
+  let bestCount = 0
+
+  for (const [groupId, count] of groupIds) {
+    if (count > bestCount) {
+      bestGroupId = groupId
+      bestCount = count
+    }
+  }
+
+  if (!bestGroupId) {
+    return null
+  }
+
+  const resolvedPieceIds = getRenderableGroupPieceIds(state, bestGroupId)
+
+  if (resolvedPieceIds.length === 0) {
+    return null
+  }
+
+  return {
+    groupId: bestGroupId,
+    pieceIds: resolvedPieceIds,
+  }
+}
+
+function getRenderableGroupPieceIds(
+  state: JigsawState,
+  groupId: string
+): PieceId[] {
+  return getCurrentGroupPieceIds(state, groupId).filter(
+    (pieceId) => !state.pieces[pieceId]?.placed
+  )
+}
+
+function normalizePieceIds(pieceIds: PieceId[]): PieceId[] {
+  return [...new Set(pieceIds)].sort()
+}
+
+function shouldPreferLock(
+  next: JigsawLock,
+  current: JigsawLock,
+  groupId: string
+): boolean {
+  if (next.targetType === "group" && next.targetId === groupId) {
+    return true
+  }
+
+  if (current.targetType === "group" && current.targetId === groupId) {
+    return false
+  }
+
+  if (next.targetType === "group" && current.targetType !== "group") {
+    return true
+  }
+
+  return false
+}
+
+function destroyGroupOverlay(
+  groupContainer: Container,
+  groupOverlays: Map<string, GroupOverlay>,
+  groupId: string,
+  overlay: GroupOverlay
+): void {
+  groupContainer.removeChild(overlay.gfx)
+  overlay.gfx.destroy()
+  groupOverlays.delete(groupId)
+}
+
+function destroyPieceOverlay(
+  pieceContainer: Container,
+  pieceOverlays: Map<PieceId, PieceOverlay>,
+  pieceId: PieceId,
+  overlay: PieceOverlay
+): void {
+  pieceContainer.removeChild(overlay.gfx)
+  overlay.gfx.destroy()
+  pieceOverlays.delete(pieceId)
+}
+
+function updatePieceOverlay(
+  overlay: PieceOverlay,
+  state: JigsawState,
+  pieceId: PieceId,
+  lock: JigsawLock
+): void {
+  const color = hexToGraphicsColor(lock.playerColor)
+
+  if (overlay.color !== color) {
+    const def = state.definitions[pieceId]
+
+    overlay.gfx.clear()
+
+    if (def) {
+      drawPieceOutline(
+        overlay.gfx,
+        def,
+        getPieceMargin(state),
+        color,
+        FILL_ALPHA
+      )
+    }
+
+    overlay.color = color
+  }
+
+  updatePieceOverlayPosition(overlay.gfx, state, pieceId)
+}
+
+function updatePieceOverlayPosition(
+  gfx: Graphics,
+  state: JigsawState,
+  pieceId: PieceId
+): void {
+  const piece = state.pieces[pieceId]
+
+  if (!piece) {
+    gfx.visible = false
+    return
+  }
+
+  const margin = getPieceMargin(state)
+  gfx.visible = true
+  gfx.position.set(piece.x - margin, piece.y - margin)
 }
 
 function updateGroupOverlay(
@@ -230,6 +448,8 @@ function updateGroupOverlay(
   color: number,
   fillAlpha: number
 ): void {
+  overlay.pieceIds = normalizePieceIds(pieceIds)
+
   const bounds = getGroupBounds(state, pieceIds)
 
   if (!bounds) {

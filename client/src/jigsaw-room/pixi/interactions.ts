@@ -25,6 +25,17 @@ interface DragState {
   starts: ReturnType<typeof getGroupSnapshot>
 }
 
+function snapshotPieceGroupIds(state: JigsawState): Map<PieceId, GroupId> {
+  const result = new Map<PieceId, GroupId>()
+
+  for (const [pieceId, piece] of Object.entries(state.pieces)) {
+    if (!piece) continue
+    result.set(pieceId as PieceId, piece.groupId)
+  }
+
+  return result
+}
+
 export function setupPieceInteractions({
   app,
   state,
@@ -44,7 +55,12 @@ export function setupPieceInteractions({
   pieces: PieceViewSet
   canDragGroup?: (groupId: GroupId) => boolean
   isServerMode?: () => boolean
-  onChange?: () => void
+  onChange?: (change?: {
+    reason: "move" | "drop" | "snap" | "cancel-drop"
+    groupId: GroupId
+    affectedPieceIds?: PieceId[]
+    groupIdsBeforeSnap?: Map<PieceId, GroupId>
+  }) => void
   onGroupGrab?: (groupId: GroupId) => void
   onGroupMove?: (groupId: GroupId) => void
   onGroupDrop?: (groupId: GroupId) => void
@@ -156,9 +172,18 @@ export function setupPieceInteractions({
       return
     }
 
+    const groupIdsBeforeSnap = snapshotPieceGroupIds(state)
+
     const snap = snapDroppedGroup(state, stoppedDrag.groupId)
+
     pieces.syncPieces(snap.affectedPieceIds)
-    onChange?.()
+
+    onChange?.({
+      reason: "snap",
+      groupId: stoppedDrag.groupId,
+      affectedPieceIds: snap.affectedPieceIds,
+      groupIdsBeforeSnap,
+    })
   }
 
   function cancelDrag(options: { notifyDrop?: boolean } = {}): void {
