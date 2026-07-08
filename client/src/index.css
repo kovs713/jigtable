@@ -240,6 +240,10 @@
   html {
     @apply font-sans;
   }
+  ::selection {
+    background: var(--primary);
+    color: var(--background);
+  }
 }
 
 .border {
