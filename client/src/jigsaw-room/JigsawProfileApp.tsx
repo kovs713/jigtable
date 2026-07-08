@@ -204,7 +204,7 @@ export function JigsawProfileApp() {
           <div className="jigsaw-room__profile-hero-side">
             <div className="jigsaw-room__profile-actions">
               <a
-                href="/jigsaw"
+                href="/create"
                 className="jigsaw-room__btn jigsaw-room__btn--outline"
               >
                 Create room
@@ -262,7 +262,7 @@ export function JigsawProfileApp() {
               {history.map((item) => (
                 <a
                   key={item.roomId}
-                  href={`/jigsaw/view/${encodeURIComponent(item.roomId)}`}
+                  href={`/profile/history/${encodeURIComponent(item.roomId)}`}
                   className="jigsaw-room__history-card"
                 >
                   <div className="jigsaw-room__history-card-header">

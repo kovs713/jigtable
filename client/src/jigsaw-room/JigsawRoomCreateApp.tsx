@@ -395,7 +395,7 @@ export function JigsawRoomCreateApp() {
       window.history.replaceState(
         null,
         "",
-        `/jigsaw/new?roomId=${encodeURIComponent(payload.roomId)}`
+        `/create?roomId=${encodeURIComponent(payload.roomId)}`
       )
     } catch (error) {
       setStatus(
@@ -665,7 +665,7 @@ export function JigsawRoomCreateApp() {
                 {copied ? "✓ Copied!" : "Copy link"}
               </Button>
               <Button asChild size="sm">
-                <a href={`/jigsaw/${createdRoom.roomId}`}>Open room</a>
+                <a href={`/rooms/${createdRoom.roomId}`}>Open room</a>
               </Button>
             </div>
           </div>

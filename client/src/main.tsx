@@ -20,7 +20,7 @@ const JigsawViewApp = lazy(() => import("./jigsaw-room/JigsawViewApp.tsx"))
 export function RootApp() {
   const { pathname } = window.location
 
-  if (pathname === "/jigsaw/new") {
+  if (pathname === "/create") {
     return <JigsawRoomCreateApp />
   }
 
@@ -28,20 +28,16 @@ export function RootApp() {
     return <JigsawProfileApp />
   }
 
-  if (pathname.startsWith("/jigsaw/view/")) {
-    const roomId = decodeURIComponent(pathname.slice("/jigsaw/view/".length))
+  if (pathname.startsWith("/profile/history")) {
+    const roomId = decodeURIComponent(pathname.slice("/profile/history".length))
 
     return <JigsawViewApp roomId={roomId} />
   }
 
-  if (pathname.startsWith("/jigsaw/")) {
-    const roomId = decodeURIComponent(pathname.slice("/jigsaw/".length))
+  if (pathname.startsWith("/rooms/")) {
+    const roomId = decodeURIComponent(pathname.slice("/rooms/".length))
 
     return <JigsawRoomApp roomId={roomId} />
-  }
-
-  if (pathname === "/jigsaw") {
-    return <JigsawRoomCreateApp />
   }
 
   return <App />

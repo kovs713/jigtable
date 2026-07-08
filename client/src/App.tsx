@@ -1331,14 +1331,14 @@ export function App() {
   }
 
   function jigsawCreateFromBatch(): string {
-    if (!remoteBatch) return "/jigsaw"
+    if (!remoteBatch) return "/create"
     const params = new URLSearchParams({
       batchId: remoteBatch.batchId,
       batchToken: remoteBatch.token,
       sourceWidth: String(layout.canvas.width),
       sourceHeight: String(layout.canvas.height),
     })
-    return `/jigsaw/new?${params}`
+    return `/create?${params}`
   }
 
   async function downloadImage(): Promise<void> {
