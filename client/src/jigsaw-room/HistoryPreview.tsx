@@ -77,8 +77,8 @@ export function HistoryPreview({
             (definition.correctY + definition.height - board.y) * scaleY,
             (definition.correctX + definition.width - board.x) * scaleX,
             (definition.correctY + definition.height - board.y) * scaleY,
-            0,
-            scaleY,
+             0,
+            1,
             definition.edges.bottom,
             definition.height * scaleY
           )
@@ -91,7 +91,7 @@ export function HistoryPreview({
             (definition.correctY - board.y) * scaleY,
             (definition.correctX + definition.width - board.x) * scaleX,
             (definition.correctY + definition.height - board.y) * scaleY,
-            -scaleX,
+            1,
             0,
             definition.edges.right,
             definition.width * scaleX
