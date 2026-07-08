@@ -1,8 +1,10 @@
 import type { ServerWebSocket } from "bun"
 
-import type { Services } from "./types"
-import { parseWsJson, wsErrorBoundary } from "./middlewares"
+import { isRecord } from "@jigtable/shared"
+
 import { sendWsError } from "./errors"
+import { parseWsJson, wsErrorBoundary } from "./middlewares"
+import type { Services } from "./types"
 
 export type WsData = {
   socketId: string
@@ -168,8 +170,4 @@ export function createWsRouter(options: {
     message,
     close,
   }
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null
 }

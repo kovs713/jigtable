@@ -4,6 +4,7 @@ import type {
   JigsawSession,
   ServerToClientMessage,
 } from "@jigtable/jigsaw-core/multiplayer/protocol"
+import { isRecord } from "@jigtable/shared"
 
 import { API_BASE_URL, JIGSAW_WS_ENABLED, JIGSAW_WS_URL } from "@/config"
 
@@ -331,10 +332,6 @@ function createId(prefix: string): string {
 
 function readApiError(value: unknown): string | null {
   return isRecord(value) && typeof value.error === "string" ? value.error : null
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null
 }
 
 function createDisabledClient(): JigsawMultiplayerClient {

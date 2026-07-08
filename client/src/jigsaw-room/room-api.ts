@@ -1,10 +1,11 @@
+import type { JigsawConfig } from "@jigtable/jigsaw-core"
 import type {
   CreateJigsawRoomResponse,
   JigsawRoomSnapshot,
 } from "@jigtable/jigsaw-core/multiplayer/protocol"
+import { isRecord } from "@jigtable/shared"
 
 import { API_BASE_URL } from "@/config"
-import type { JigsawConfig } from "@jigtable/jigsaw-core"
 
 export interface CreateJigsawRoomInput {
   imageUrl: string
@@ -129,8 +130,4 @@ export async function readJsonResponse<T>(response: Response): Promise<T> {
   }
 
   return payload as T
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null
 }

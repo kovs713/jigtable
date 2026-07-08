@@ -1,6 +1,7 @@
 import { eq } from "drizzle-orm"
 
 import type { JigsawPlayer, JigsawSession } from "@jigtable/jigsaw-core"
+import { isRecord } from "@jigtable/shared"
 
 import { db } from "@/infra/db"
 import { jigsawSessionsSchema } from "@/infra/db/schemas"
@@ -284,8 +285,4 @@ function sessionKey(token: string): string {
 
 function createId(prefix: string): string {
   return `${prefix}_${crypto.randomUUID().replace(/-/g, "")}`
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null
 }

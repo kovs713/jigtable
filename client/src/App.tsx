@@ -1,5 +1,7 @@
 import * as React from "react"
 
+import { isRecord } from "@jigtable/shared"
+
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Separator } from "@/components/ui/separator"
@@ -265,7 +267,9 @@ export function App() {
     futureRef.current.length = 0
   }
 
-  function recordLayoutChange(next: CanvasLayout | ((prev: CanvasLayout) => CanvasLayout)) {
+  function recordLayoutChange(
+    next: CanvasLayout | ((prev: CanvasLayout) => CanvasLayout)
+  ) {
     pushHistory()
     setLayout(next)
   }
@@ -1576,7 +1580,7 @@ export function App() {
         </aside>
 
         {/* canvas */}
-        <section className="relative flex min-h-0 items-center justify-center overflow-hidden bg-muted/30 bg-[linear-gradient(45deg,var(--border)_25%,transparent_25%,transparent_75%,var(--border)_75,var(--border)),linear-gradient(45deg,var(--border)_25%,transparent_25%,transparent_75%,var(--border)_75,var(--border))] bg-[length:20px_20px] bg-[position:0_0,10px_10px]">
+        <section className="relative flex min-h-0 items-center justify-center overflow-hidden bg-muted/30 bg-[linear-gradient(45deg,var(--border)_25%,transparent_25%,transparent_75%,var(--border)_75,var(--border)),linear-gradient(45deg,var(--border)_25%,transparent_25%,transparent_75%,var(--border)_75,var(--border))] bg-size-[20px_20px] bg-position-[0_0,10px_10px]">
           <div className="thin-scrollbar h-full w-full overflow-auto p-8">
             <div
               className="canvas-grid group relative origin-top-left shadow-xl"
@@ -1626,7 +1630,7 @@ export function App() {
                     }}
                   >
                     {showCanvasMarkers || isLinked ? (
-                      <span className="pointer-events-none absolute top-1 left-1 z-20 grid h-5 min-w-6 place-items-center bg-[var(--image-marker)] px-1 font-mono text-[10px] font-bold text-[var(--image-marker-foreground)] shadow-sm">
+                      <span className="pointer-events-none absolute top-1 left-1 z-20 grid h-5 min-w-6 place-items-center bg-(--image-marker) px-1 font-mono text-[10px] font-bold text-(--image-marker-foreground) shadow-sm">
                         {getImageMarkerCode(index)}
                       </span>
                     ) : null}
@@ -1652,7 +1656,7 @@ export function App() {
                     </div>
                     <span
                       className={cn(
-                        "pointer-events-none absolute inset-0 z-10 border-2 border-[var(--image-marker)] opacity-0 transition-opacity",
+                        "pointer-events-none absolute inset-0 z-10 border-2 border-(--image-marker) opacity-0 transition-opacity",
                         (isSelected || isLinked) && "opacity-100"
                       )}
                     />
@@ -2732,10 +2736,6 @@ function isEditableTarget(target: EventTarget | null): boolean {
     target instanceof HTMLElement &&
     Boolean(target.closest("input,textarea,select"))
   )
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null
 }
 
 function clamp(value: number, min: number, max: number): number {

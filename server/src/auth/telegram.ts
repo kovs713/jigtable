@@ -5,6 +5,7 @@ import { createHmac, randomBytes, timingSafeEqual } from "node:crypto"
 import { colorFromSeed } from "@/features/color-from-seed"
 import { db } from "@/infra/db"
 import { authSessionsSchema, usersSchema } from "@/infra/db/schemas"
+import { isRecord } from "@jigtable/shared"
 import {
   isWhitelistedTelegramUserId,
   requireWhitelistedTelegramUserId,
@@ -450,8 +451,4 @@ function normalizeColor(value: string | undefined): string | null {
   const color = value?.trim().toLowerCase()
 
   return color && /^#[0-9a-f]{6}$/.test(color) ? color : null
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null
 }

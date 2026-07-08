@@ -1,5 +1,7 @@
-import { API_BASE_URL, TELEGRAM_BOT_USERNAME } from "@/config"
 import type { JigsawConfig } from "@jigtable/jigsaw-core"
+import { isRecord } from "@jigtable/shared"
+
+import { API_BASE_URL, TELEGRAM_BOT_USERNAME } from "@/config"
 
 const AUTH_SESSION_STORAGE_KEY = "jigsaw-room-auth-v2"
 const LEGACY_AUTH_SESSION_STORAGE_KEY = "jigsaw-room-auth"
@@ -328,9 +330,7 @@ function readStoredAuthToken(): string | null {
 
   const value = JSON.parse(raw)
 
-  return isRecord(value) && typeof value.token === "string"
-    ? value.token
-    : null
+  return isRecord(value) && typeof value.token === "string" ? value.token : null
 }
 
 function normalizeTelegramBotUsername(value: unknown): string {
@@ -355,8 +355,4 @@ function normalizeTelegramBotUsername(value: unknown): string {
 
 function isTelegramBotUsername(value: string): boolean {
   return /^[a-zA-Z][a-zA-Z0-9_]{4,31}$/.test(value) && /bot$/i.test(value)
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null
 }
