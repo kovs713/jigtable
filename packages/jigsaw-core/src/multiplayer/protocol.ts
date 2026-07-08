@@ -135,6 +135,13 @@ export type ServerToClientMessage =
       lockedBy: { userId: string; name: string; color: string }
     }
   | {
+      type: "room:lock-rejected"
+      targetType: "piece" | "group"
+      targetId: string
+      reason: "already_placed"
+      lockedBy: null
+    }
+  | {
       type: "group:moved"
       groupId: GroupId
       playerId: string

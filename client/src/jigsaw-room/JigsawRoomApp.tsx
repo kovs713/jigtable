@@ -403,6 +403,7 @@ export function JigsawRoomApp({ roomId }: JigsawRoomAppProps) {
 
         const refreshStats = () => {
           setStats(getJigsawStats(state, app.ticker.FPS || 0, camera.zoom))
+          runtimeRef.current?.lockOverlays?.update(toggleLocksRef.current)
         }
         const interactions = setupPieceInteractions({
           app,
@@ -452,7 +453,7 @@ export function JigsawRoomApp({ roomId }: JigsawRoomAppProps) {
           onToggleLock(pieceId) {
             const piece = state.pieces[pieceId]
 
-            if (!piece) {
+            if (!piece || piece.placed) {
               return
             }
 
@@ -481,6 +482,8 @@ export function JigsawRoomApp({ roomId }: JigsawRoomAppProps) {
           },
           onGroupMove(groupId) {
             const connection = multiplayerRef.current
+
+            runtimeRef.current?.lockOverlays?.update(toggleLocksRef.current)
 
             if (!connection?.isConnected()) {
               return

@@ -412,6 +412,36 @@ export class JigsawRoomManager {
       return
     }
 
+    if (message.targetType === "piece") {
+      const piece = room.state.pieces[message.targetId]
+
+      if (piece?.placed) {
+        send(socket, {
+          type: "room:lock-rejected",
+          targetType: message.targetType,
+          targetId: message.targetId,
+          reason: "already_placed",
+          lockedBy: null,
+        })
+        return
+      }
+    }
+
+    if (message.targetType === "group") {
+      const group = room.state.groups[message.targetId]
+
+      if (group && group.pieceIds.every((id) => room.state.pieces[id]?.placed)) {
+        send(socket, {
+          type: "room:lock-rejected",
+          targetType: message.targetType,
+          targetId: message.targetId,
+          reason: "already_placed",
+          lockedBy: null,
+        })
+        return
+      }
+    }
+
     const key = `${message.targetType}:${message.targetId}`
     const existingLock = room.toggleLocks.get(key)
 

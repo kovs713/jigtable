@@ -1,7 +1,6 @@
 import { Container, Graphics } from "pixi.js"
 
 import type {
-  GroupId,
   JigsawState,
   PieceId,
 } from "@jigtable/jigsaw-core/jigsaw/types"
@@ -36,96 +35,111 @@ export function createLockOverlayRenderer(
   const pieceGraphics = new Map<string, Graphics>()
 
   function update(locks: Map<string, JigsawLock>): void {
-    const seenGroups = new Set<string>()
-    const seenPieces = new Set<string>()
+    const lockedGroupIds = new Set<string>()
 
     for (const [, lock] of locks) {
       if (lock.targetType === "group") {
-        seenGroups.add(lock.targetId)
-        renderGroupLock(lock.targetId as GroupId, lock)
+        lockedGroupIds.add(lock.targetId)
+      }
+    }
+
+    const allPlaced = (pieceIds: string[]) =>
+      pieceIds.every((id) => state.pieces[id]?.placed)
+
+    for (const [groupId, gfx] of groupGraphics) {
+      const shouldRender =
+        lockedGroupIds.has(groupId) &&
+        !allPlaced(state.groups[groupId]?.pieceIds ?? [])
+
+      if (!shouldRender) {
+        groupContainer.removeChild(gfx)
+        gfx.destroy()
+        groupGraphics.delete(groupId)
+      } else {
+        const lock = locks.get(`group:${groupId}`)!
+        gfx.clear()
+        drawGroupOutline(
+          gfx,
+          state,
+          state.groups[groupId]?.pieceIds ?? [],
+          hexToGraphicsColor(lock.playerColor),
+          FILL_ALPHA
+        )
+      }
+    }
+
+    for (const [pieceId, gfx] of pieceGraphics) {
+      const piece = state.pieces[pieceId]
+      const inLockedGroup =
+        lockedGroupIds.has(piece?.groupId ?? "")
+      const stillLocked =
+        !inLockedGroup &&
+        !piece?.placed &&
+        locks.has(`piece:${pieceId}`)
+
+      if (!stillLocked) {
+        pieceContainer.removeChild(gfx)
+        gfx.destroy()
+        pieceGraphics.delete(pieceId)
+      } else {
+        const margin = getPieceMargin(state)
+        gfx.position.set(piece.x - margin, piece.y - margin)
+      }
+    }
+
+    for (const [, lock] of locks) {
+      if (lock.targetType === "group") {
+        const gid = lock.targetId
+        const pieceIds = state.groups[gid]?.pieceIds ?? []
+
+        if (groupGraphics.has(gid) || allPlaced(pieceIds)) {
+          continue
+        }
+
+        const gfx = new Graphics({ label: `lock-group-${gid}` })
+        drawGroupOutline(
+          gfx,
+          state,
+          pieceIds,
+          hexToGraphicsColor(lock.playerColor),
+          FILL_ALPHA
+        )
+        groupGraphics.set(gid, gfx)
+        groupContainer.addChild(gfx)
       }
     }
 
     for (const [, lock] of locks) {
       if (lock.targetType === "piece") {
-        const piece = state.pieces[lock.targetId]
+        const pid = lock.targetId
+        const piece = state.pieces[pid]
 
-        if (piece && seenGroups.has(piece.groupId)) {
+        if (!piece || piece.placed || lockedGroupIds.has(piece.groupId)) {
           continue
         }
 
-        seenPieces.add(lock.targetId)
-        renderPieceLock(lock.targetId as PieceId, lock)
+        if (pieceGraphics.has(pid)) {
+          continue
+        }
+
+        const def = state.definitions[pid]
+        const view = pieces.byId.get(pid)
+
+        if (!def || !view) {
+          continue
+        }
+
+        const margin = getPieceMargin(state)
+        const w = Math.ceil(def.width + margin * 2)
+        const h = Math.ceil(def.height + margin * 2)
+        const color = hexToGraphicsColor(lock.playerColor)
+        const gfx = new Graphics({ label: `lock-piece-${pid}` })
+        drawPieceOutline(gfx, def, margin, w, h, color, FILL_ALPHA)
+        gfx.position.set(piece.x - margin, piece.y - margin)
+        pieceGraphics.set(pid, gfx)
+        pieceContainer.addChild(gfx)
       }
     }
-
-    for (const [groupId, gfx] of groupGraphics) {
-      if (!seenGroups.has(groupId)) {
-        groupContainer.removeChild(gfx)
-        gfx.destroy()
-        groupGraphics.delete(groupId)
-      }
-    }
-
-    for (const [pieceId, gfx] of pieceGraphics) {
-      if (!seenPieces.has(pieceId)) {
-        pieceContainer.removeChild(gfx)
-        gfx.destroy()
-        pieceGraphics.delete(pieceId)
-      }
-    }
-  }
-
-  function renderPieceLock(pieceId: PieceId, lock: JigsawLock): void {
-    const piece = state.pieces[pieceId]
-    const def = state.definitions[pieceId]
-    const view = pieces.byId.get(pieceId)
-
-    if (!piece || !def || !view) {
-      return
-    }
-
-    const margin = getPieceMargin(state)
-    const w = Math.ceil(def.width + margin * 2)
-    const h = Math.ceil(def.height + margin * 2)
-    const color = hexToGraphicsColor(lock.playerColor)
-
-    const existing = pieceGraphics.get(pieceId)
-
-    if (existing) {
-      existing.clear()
-      drawPieceOutline(existing, def, margin, w, h, color, FILL_ALPHA)
-      existing.position.set(piece.x - margin, piece.y - margin)
-      return
-    }
-
-    const gfx = new Graphics({ label: `lock-piece-${pieceId}` })
-    drawPieceOutline(gfx, def, margin, w, h, color, FILL_ALPHA)
-    gfx.position.set(piece.x - margin, piece.y - margin)
-    pieceGraphics.set(pieceId, gfx)
-    pieceContainer.addChild(gfx)
-  }
-
-  function renderGroupLock(groupId: GroupId, lock: JigsawLock): void {
-    const group = state.groups[groupId]
-
-    if (!group || group.pieceIds.length === 0) {
-      return
-    }
-
-    const color = hexToGraphicsColor(lock.playerColor)
-    const existing = groupGraphics.get(groupId)
-
-    if (existing) {
-      existing.clear()
-      drawGroupOutline(existing, state, group.pieceIds, color, FILL_ALPHA)
-      return
-    }
-
-    const gfx = new Graphics({ label: `lock-group-${groupId}` })
-    drawGroupOutline(gfx, state, group.pieceIds, color, FILL_ALPHA)
-    groupGraphics.set(groupId, gfx)
-    groupContainer.addChild(gfx)
   }
 
   function destroy(): void {
@@ -180,50 +194,10 @@ function drawPieceShapePath(
   const h = def.height
 
   gfx.moveTo(x, y)
-  addEdgeGraphics(
-    gfx,
-    x,
-    y,
-    x + w,
-    y,
-    0,
-    -1,
-    def.edges.top,
-    h
-  )
-  addEdgeGraphics(
-    gfx,
-    x + w,
-    y,
-    x + w,
-    y + h,
-    1,
-    0,
-    def.edges.right,
-    w
-  )
-  addEdgeGraphics(
-    gfx,
-    x + w,
-    y + h,
-    x,
-    y + h,
-    0,
-    1,
-    def.edges.bottom,
-    h
-  )
-  addEdgeGraphics(
-    gfx,
-    x,
-    y + h,
-    x,
-    y,
-    -1,
-    0,
-    def.edges.left,
-    w
-  )
+  addEdgeGraphics(gfx, x, y, x + w, y, 0, -1, def.edges.top, h)
+  addEdgeGraphics(gfx, x + w, y, x + w, y + h, 1, 0, def.edges.right, w)
+  addEdgeGraphics(gfx, x + w, y + h, x, y + h, 0, 1, def.edges.bottom, h)
+  addEdgeGraphics(gfx, x, y + h, x, y, -1, 0, def.edges.left, w)
   gfx.closePath()
 }
 
@@ -250,48 +224,19 @@ function addEdgeGraphics(
   const unitY = deltaY / length
 
   for (let index = 1; index < shape.points.length; index += 3) {
-    const control1 = edgePointToWorld(
+    const c1 = edgePointToWorld(
       shape.points[index],
-      x1,
-      y1,
-      unitX,
-      unitY,
-      normalX,
-      normalY,
-      length,
-      perpendicularLength
+      x1, y1, unitX, unitY, normalX, normalY, length, perpendicularLength
     )
-    const control2 = edgePointToWorld(
+    const c2 = edgePointToWorld(
       shape.points[index + 1],
-      x1,
-      y1,
-      unitX,
-      unitY,
-      normalX,
-      normalY,
-      length,
-      perpendicularLength
+      x1, y1, unitX, unitY, normalX, normalY, length, perpendicularLength
     )
     const end = edgePointToWorld(
       shape.points[index + 2],
-      x1,
-      y1,
-      unitX,
-      unitY,
-      normalX,
-      normalY,
-      length,
-      perpendicularLength
+      x1, y1, unitX, unitY, normalX, normalY, length, perpendicularLength
     )
-
-    gfx.bezierCurveTo(
-      control1.x,
-      control1.y,
-      control2.x,
-      control2.y,
-      end.x,
-      end.y
-    )
+    gfx.bezierCurveTo(c1.x, c1.y, c2.x, c2.y, end.x, end.y)
   }
 }
 
@@ -384,39 +329,9 @@ function createPiecePathLocal(
   const height = def.height
 
   path.moveTo(x, y)
-  addEdgeLocal(
-    path,
-    x,
-    y,
-    x + width,
-    y,
-    0,
-    -1,
-    def.edges.top,
-    height
-  )
-  addEdgeLocal(
-    path,
-    x + width,
-    y,
-    x + width,
-    y + height,
-    1,
-    0,
-    def.edges.right,
-    width
-  )
-  addEdgeLocal(
-    path,
-    x + width,
-    y + height,
-    x,
-    y + height,
-    0,
-    1,
-    def.edges.bottom,
-    height
-  )
+  addEdgeLocal(path, x, y, x + width, y, 0, -1, def.edges.top, height)
+  addEdgeLocal(path, x + width, y, x + width, y + height, 1, 0, def.edges.right, width)
+  addEdgeLocal(path, x + width, y + height, x, y + height, 0, 1, def.edges.bottom, height)
   addEdgeLocal(path, x, y + height, x, y, -1, 0, def.edges.left, width)
   path.closePath()
 
@@ -446,41 +361,16 @@ function addEdgeLocal(
   const unitY = deltaY / length
 
   for (let index = 1; index < shape.points.length; index += 3) {
-    const control1 = edgePointToWorld(
-      shape.points[index],
-      x1,
-      y1,
-      unitX,
-      unitY,
-      normalX,
-      normalY,
-      length,
-      perpendicularLength
+    const c1 = edgePointToWorld(
+      shape.points[index], x1, y1, unitX, unitY, normalX, normalY, length, perpendicularLength
     )
-    const control2 = edgePointToWorld(
-      shape.points[index + 1],
-      x1,
-      y1,
-      unitX,
-      unitY,
-      normalX,
-      normalY,
-      length,
-      perpendicularLength
+    const c2 = edgePointToWorld(
+      shape.points[index + 1], x1, y1, unitX, unitY, normalX, normalY, length, perpendicularLength
     )
     const end = edgePointToWorld(
-      shape.points[index + 2],
-      x1,
-      y1,
-      unitX,
-      unitY,
-      normalX,
-      normalY,
-      length,
-      perpendicularLength
+      shape.points[index + 2], x1, y1, unitX, unitY, normalX, normalY, length, perpendicularLength
     )
-
-    path.bezierCurveTo(control1.x, control1.y, control2.x, control2.y, end.x, end.y)
+    path.bezierCurveTo(c1.x, c1.y, c2.x, c2.y, end.x, end.y)
   }
 }
 
@@ -575,7 +465,6 @@ function simplifyContour(
 
   for (let i = 1; i < points.length - 1; i++) {
     const dist = perpendicularDistance(points[i], first, last)
-
     if (dist > maxDist) {
       maxDist = dist
       maxIdx = i
@@ -585,7 +474,6 @@ function simplifyContour(
   if (maxDist > epsilon) {
     const left = simplifyContour(points.slice(0, maxIdx + 1), epsilon)
     const right = simplifyContour(points.slice(maxIdx), epsilon)
-
     return [...left.slice(0, -1), ...right]
   }
 
@@ -620,14 +508,10 @@ function perpendicularDistance(
 
 function edgePointToWorld(
   point: import("@jigtable/jigsaw-core/jigsaw/types").PieceEdgePoint,
-  x: number,
-  y: number,
-  unitX: number,
-  unitY: number,
-  normalX: number,
-  normalY: number,
-  length: number,
-  perpendicularLength: number
+  x: number, y: number,
+  unitX: number, unitY: number,
+  normalX: number, normalY: number,
+  length: number, perpendicularLength: number
 ): { x: number; y: number } {
   return {
     x: x + unitX * point.l * length + normalX * point.w * perpendicularLength,
@@ -646,6 +530,5 @@ function getPieceMargin(state: JigsawState): number {
 
 function hexToGraphicsColor(hex: string): number {
   const parsed = Number.parseInt(hex.replace("#", ""), 16)
-
   return Number.isNaN(parsed) ? 0xffffff : parsed
 }
