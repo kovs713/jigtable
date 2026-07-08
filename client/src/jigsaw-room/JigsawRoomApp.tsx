@@ -96,7 +96,7 @@ const LIGHT_ROOM_BACKGROUND = "#f2efe4"
 const DARK_ROOM_BACKGROUND = "#151a20"
 const LIGHT_ROOM_PIECE_HIGHLIGHT = "#00b8d9"
 const DARK_ROOM_PIECE_HIGHLIGHT = "#f7ff4d"
-const IMAGE_BRIGHTNESS_THRESHOLD = 0.52
+const DARK_BACKGROUND_MIN_IMAGE_LUMINANCE = 0.45
 const ROOM_BACKGROUND_STORAGE_PREFIX = "jigsaw-room-background:"
 const ARRANGE_MODES = [
   { mode: "perimeter", label: "All sides" },
@@ -343,9 +343,8 @@ export function JigsawRoomApp({ roomId }: JigsawRoomAppProps) {
   )
   const [timerNow, setTimerNow] = useState(() => Date.now())
   const [stats, setStats] = useState<JigsawStats>(EMPTY_STATS)
-  const [roomBackgroundColor, setRoomBackgroundColor] = useState(
-    LIGHT_ROOM_BACKGROUND
-  )
+  const [roomBackgroundColor, setRoomBackgroundColor] =
+    useState(DARK_ROOM_BACKGROUND)
   const elapsedMs = getTimerElapsedMs(roomTimer, timerNow)
   const solved =
     stats.totalPieces > 0 && stats.placedPieces >= stats.totalPieces
@@ -1747,7 +1746,7 @@ function getAutoRoomBackground(averageLuminance: number | null): string {
     return LIGHT_ROOM_BACKGROUND
   }
 
-  return averageLuminance >= IMAGE_BRIGHTNESS_THRESHOLD
+  return averageLuminance >= DARK_BACKGROUND_MIN_IMAGE_LUMINANCE
     ? DARK_ROOM_BACKGROUND
     : LIGHT_ROOM_BACKGROUND
 }
