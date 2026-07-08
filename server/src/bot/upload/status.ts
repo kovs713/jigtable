@@ -72,7 +72,7 @@ export function renderUploadKeyboard(
 ): InlineKeyboardButton[][] {
   const active = getActiveImages(session)
   const hasImages = active.length > 0
-  const canBuild = active.length >= 2
+  // const canBuild = active.length > 0
 
   return [
     [
@@ -82,7 +82,7 @@ export function renderUploadKeyboard(
       },
       {
         text: "собрать",
-        callback_data: canBuild ? "upload:build" : "viewer:noop",
+        callback_data: hasImages ? "upload:build" : "viewer:noop",
       },
     ],
     [
