@@ -55,6 +55,31 @@
   text-transform: uppercase;
 }
 
+.jigsaw-room__profile-headline {
+  display: flex;
+  align-items: end;
+  gap: 18px;
+}
+
+.jigsaw-room__profile-avatar {
+  display: grid;
+  place-items: center;
+  width: 72px;
+  height: 72px;
+  min-width: 72px;
+  border: 0.5px solid var(--jigsaw-panel-border);
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.jigsaw-room__profile-avatar--fallback {
+  background: var(--jigsaw-panel-strong);
+  font-size: 1.6rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
 .jigsaw-room__profile-hero h1 {
   max-width: 8ch;
   margin: 0;

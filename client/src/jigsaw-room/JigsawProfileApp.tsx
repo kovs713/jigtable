@@ -180,7 +180,21 @@ export function JigsawProfileApp() {
       <section className="jigsaw-room__profile-shell corner-brackets">
         <div className="jigsaw-room__profile-hero">
           <p className="jigsaw-room__profile-kicker">Player ledger</p>
-          <h1>{authSession?.user.displayName ?? "Guest profile"}</h1>
+
+          <div className="jigsaw-room__profile-headline">
+            {authSession?.user.photoUrl ? (
+              <img
+                className="jigsaw-room__profile-avatar"
+                src={authSession.user.photoUrl}
+                alt=""
+              />
+            ) : (
+              <div className="jigsaw-room__profile-avatar jigsaw-room__profile-avatar--fallback">
+                {getInitials(authSession?.user.displayName)}
+              </div>
+            )}
+            <h1>{authSession?.user.displayName ?? "Guest profile"}</h1>
+          </div>
           <span className="jigsaw-room__profile-status" aria-live="polite">
             {status}
           </span>
@@ -313,6 +327,14 @@ function createProfileStats(history: JigsawHistoryItem[]) {
 
 function readErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : "Profile unavailable"
+}
+
+function getInitials(name: string | null | undefined): string {
+  if (!name) return "?"
+  const parts = name.trim().split(/\s+/)
+  return parts.length === 1
+    ? parts[0].slice(0, 2).toUpperCase()
+    : (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
 }
 
 export default JigsawProfileApp
