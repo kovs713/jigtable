@@ -179,50 +179,54 @@ export function JigsawProfileApp() {
     <main className="jigsaw-room jigsaw-room--profile">
       <section className="jigsaw-room__profile-shell corner-brackets">
         <div className="jigsaw-room__profile-hero">
-          <p className="jigsaw-room__profile-kicker">Player ledger</p>
+          <div className="jigsaw-room__profile-hero-info">
+            <p className="jigsaw-room__profile-kicker">Player ledger</p>
 
-          <div className="jigsaw-room__profile-headline">
-            {authSession?.user.photoUrl ? (
-              <img
-                className="jigsaw-room__profile-avatar"
-                src={authSession.user.photoUrl}
-                alt=""
-              />
-            ) : (
-              <div className="jigsaw-room__profile-avatar jigsaw-room__profile-avatar--fallback">
-                {getInitials(authSession?.user.displayName)}
-              </div>
-            )}
-            <h1>{authSession?.user.displayName ?? "Guest profile"}</h1>
-          </div>
-          <span className="jigsaw-room__profile-status" aria-live="polite">
-            {status}
-          </span>
-
-          <div className="jigsaw-room__profile-actions">
-            <a
-              href="/jigsaw"
-              className="jigsaw-room__btn jigsaw-room__btn--outline"
-            >
-              Create room
-            </a>
-            <button
-              type="button"
-              className="jigsaw-room__btn jigsaw-room__btn--primary"
-              disabled={loading}
-              onClick={loginWithTelegram}
-            >
-              {loading
-                ? "Loading..."
-                : authSession
-                  ? "Relink Telegram"
-                  : "Telegram login"}
-            </button>
+            <div className="jigsaw-room__profile-headline">
+              {authSession?.user.photoUrl ? (
+                <img
+                  className="jigsaw-room__profile-avatar"
+                  src={authSession.user.photoUrl}
+                  alt=""
+                />
+              ) : (
+                <div className="jigsaw-room__profile-avatar jigsaw-room__profile-avatar--fallback">
+                  {getInitials(authSession?.user.displayName)}
+                </div>
+              )}
+              <h1>{authSession?.user.displayName ?? "Guest profile"}</h1>
+            </div>
+            <span className="jigsaw-room__profile-status" aria-live="polite">
+              {status}
+            </span>
           </div>
 
-          {widgetVisible ? (
-            <div ref={widgetRef} className="jigsaw-room__telegram-widget" />
-          ) : null}
+          <div className="jigsaw-room__profile-hero-side">
+            <div className="jigsaw-room__profile-actions">
+              <a
+                href="/jigsaw"
+                className="jigsaw-room__btn jigsaw-room__btn--outline"
+              >
+                Create room
+              </a>
+              <button
+                type="button"
+                className="jigsaw-room__btn jigsaw-room__btn--primary"
+                disabled={loading}
+                onClick={loginWithTelegram}
+              >
+                {loading
+                  ? "Loading..."
+                  : authSession
+                    ? "Relink Telegram"
+                    : "Telegram login"}
+              </button>
+            </div>
+
+            {widgetVisible ? (
+              <div ref={widgetRef} className="jigsaw-room__telegram-widget" />
+            ) : null}
+          </div>
         </div>
 
         <dl className="jigsaw-room__profile-scoreboard">

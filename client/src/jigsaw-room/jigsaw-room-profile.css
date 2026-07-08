@@ -8,10 +8,11 @@
   position: relative;
   z-index: 1;
   display: grid;
-  grid-template-columns: minmax(280px, 0.78fr) minmax(0, 1.22fr);
-  grid-template-rows: auto 1fr;
+  /* 1 колонка на всю ширину, 3 строки: Hero, Stats, History */
+  grid-template-columns: 1fr;
+  grid-template-rows: auto auto 1fr;
   gap: 0;
-  width: min(1180px, 100%);
+  width: min(1280px, 100%); /* Чуть расширили с 1180 до 1280 */
   height: min(760px, 100%);
   margin: auto;
   overflow: hidden;
@@ -23,15 +24,15 @@
     saturate(var(--panel-saturate));
 }
 
-/* Hero Section */
+/* Hero Section - Горизонтальный лейаут */
 .jigsaw-room__profile-hero {
-  grid-row: 1 / 3;
-  display: grid;
-  align-content: end;
-  gap: 16px;
-  min-height: 360px;
-  padding: 28px;
-  border-right: 0.5px solid var(--jigsaw-panel-border);
+  grid-row: auto; /* Сбрасываем растягивание */
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 32px;
+  padding: 32px 36px;
+  border-bottom: 0.5px solid var(--jigsaw-panel-border);
   background:
     linear-gradient(
       155deg,
@@ -46,6 +47,19 @@
     var(--jigsaw-panel-strong);
 }
 
+.jigsaw-room__profile-hero-info {
+  display: grid;
+  gap: 16px;
+  min-width: 0; /* Важно для flex, чтобы текст мог сжиматься */
+}
+
+.jigsaw-room__profile-hero-side {
+  display: grid;
+  gap: 16px;
+  justify-items: end;
+  flex-shrink: 0;
+}
+
 .jigsaw-room__profile-kicker {
   margin: 0;
   color: var(--jigsaw-panel-muted);
@@ -55,38 +69,19 @@
   text-transform: uppercase;
 }
 
-.jigsaw-room__profile-headline {
-  display: flex;
-  align-items: end;
-  gap: 18px;
-}
-
-.jigsaw-room__profile-avatar {
-  display: grid;
-  place-items: center;
-  width: 72px;
-  height: 72px;
-  min-width: 72px;
-  border: 0.5px solid var(--jigsaw-panel-border);
-  object-fit: cover;
-  flex-shrink: 0;
-}
-
-.jigsaw-room__profile-avatar--fallback {
-  background: var(--jigsaw-panel-strong);
-  font-size: 1.6rem;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.02em;
-}
-
 .jigsaw-room__profile-hero h1 {
-  max-width: 8ch;
+  /* Убрали max-width: 8ch, теперь никнейм может быть хоть 30 символов */
+  max-width: 100%;
   margin: 0;
-  font-size: clamp(3rem, 8vw, 7.2rem);
-  line-height: 0.78;
-  letter-spacing: -0.1em;
+  font-size: clamp(
+    2.5rem,
+    6vw,
+    6.5rem
+  ); /* Чуть уменьшен clamp для адаптивности */
+  line-height: 0.82;
+  letter-spacing: -0.08em;
   text-transform: uppercase;
+  overflow-wrap: anywhere; /* Подстраховка для сверхдлинных ников без пробелов */
 }
 
 .jigsaw-room__profile-status {
@@ -103,7 +98,7 @@
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-  margin-top: 8px;
+  justify-content: flex-end;
 }
 
 .jigsaw-room__btn {
@@ -159,16 +154,15 @@
 }
 
 .jigsaw-room__telegram-widget {
-  margin-top: 8px;
   min-height: 40px;
 }
 
-/* Scoreboard */
+/* Scoreboard - теперь на всю ширину */
 .jigsaw-room__profile-scoreboard {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  grid-column: 2;
-  grid-row: 1;
+  grid-column: 1; /* Сбросили на 1 колонку */
+  grid-row: auto;
   margin: 0;
   border-bottom: 0.5px solid var(--jigsaw-panel-border);
   background: var(--jigsaw-panel-strong);
@@ -177,7 +171,7 @@
 .jigsaw-room__profile-scoreboard div {
   display: grid;
   gap: 8px;
-  padding: 20px 18px;
+  padding: 20px 36px; /* Увеличили боковые отступы под новый широкий лейаут */
   border-right: 0.5px solid var(--jigsaw-panel-border);
   transition: background-color 0.2s;
 }
@@ -207,10 +201,10 @@
   letter-spacing: -0.06em;
 }
 
-/* History Panel */
+/* History Panel - Превращаем в сетку карточек (дашборд) */
 .jigsaw-room__history-panel {
-  grid-column: 2;
-  grid-row: 2;
+  grid-column: 1;
+  grid-row: 3;
   min-height: 0;
   overflow: auto;
   scrollbar-width: thin;
@@ -237,7 +231,7 @@
   justify-content: space-between;
   align-items: center;
   gap: 16px;
-  padding: 16px 18px;
+  padding: 16px 36px;
   border-bottom: 0.5px solid var(--jigsaw-panel-border);
   background: color-mix(in oklch, var(--jigsaw-panel), transparent 5%);
   backdrop-filter: blur(var(--panel-blur)) saturate(var(--panel-saturate));
@@ -262,14 +256,18 @@
   text-transform: uppercase;
 }
 
+/* Сетка карточек истории: 2-3 колонки в зависимости от ширины */
 .jigsaw-room__history-list {
   display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+  gap: 0;
 }
 
 .jigsaw-room__history-card {
   display: grid;
   gap: 16px;
-  padding: 18px;
+  padding: 24px;
+  border-right: 0.5px solid var(--jigsaw-panel-border);
   border-bottom: 0.5px solid var(--jigsaw-panel-border);
   background:
     linear-gradient(
@@ -361,7 +359,7 @@
 }
 
 .jigsaw-room__history-empty {
-  padding: 32px 18px;
+  padding: 32px 36px;
 }
 
 .jigsaw-room__history-empty p {
@@ -379,29 +377,31 @@
   }
 
   .jigsaw-room__profile-shell {
-    grid-template-columns: 1fr;
-    grid-template-rows: auto auto 1fr;
     height: 100%;
   }
 
   .jigsaw-room__profile-hero {
-    grid-row: auto;
-    min-height: 240px;
-    border-right: 0;
-    border-bottom: 0.5px solid var(--jigsaw-panel-border);
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 24px;
+    padding: 24px;
   }
 
-  .jigsaw-room__profile-hero h1 {
-    max-width: 10ch;
+  .jigsaw-room__profile-hero-side {
+    justify-items: start;
+    width: 100%;
   }
 
-  .jigsaw-room__profile-scoreboard,
-  .jigsaw-room__history-panel {
-    grid-column: 1;
+  .jigsaw-room__profile-actions {
+    justify-content: flex-start;
   }
 
   .jigsaw-room__profile-scoreboard {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .jigsaw-room__profile-scoreboard div {
+    padding: 20px 18px;
   }
 
   .jigsaw-room__profile-scoreboard div:nth-child(2n) {
@@ -411,5 +411,14 @@
   .jigsaw-room__profile-scoreboard div:last-child {
     grid-column: 1 / -1;
     border-top: 0.5px solid var(--jigsaw-panel-border);
+  }
+
+  /* На мобилках карточки истории становятся в 1 колонку */
+  .jigsaw-room__history-list {
+    grid-template-columns: 1fr;
+  }
+
+  .jigsaw-room__history-card {
+    border-right: 0;
   }
 }
