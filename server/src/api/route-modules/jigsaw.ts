@@ -104,6 +104,14 @@ export function registerJigsawRoutes(router: Router): void {
         session.player
       )
 
+      if (session.userId) {
+        await context.services.auth
+          .updateProfile(session.userId, { displayName: session.player.name })
+          .catch((error) =>
+            console.error("Failed to update user displayName", error)
+          )
+      }
+
       return Response.json(toSessionResponse(session))
     },
   })

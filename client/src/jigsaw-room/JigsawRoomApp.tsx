@@ -783,6 +783,13 @@ export function JigsawRoomApp({ roomId }: JigsawRoomAppProps) {
       })
 
       applyJigsawSession(session)
+
+      if (authSession) {
+        const refreshed = await fetchAuthMe(authSession.token)
+
+        setAuthSession(refreshed)
+      }
+
       setSessionStatus("saved")
     } catch (error) {
       setSessionStatus("error")

@@ -122,6 +122,38 @@ export class TelegramAuthService {
       .where(eq(authSessionsSchema.tokenHash, SHA256.hash(token, "hex")))
   }
 
+  async updateProfile(
+    userId: string,
+    input: { displayName?: string; color?: string }
+  ): Promise<AuthenticatedUser> {
+    const now = new Date()
+    const setValues: Record<string, unknown> = { updatedAt: now }
+
+    if (input.displayName !== undefined) {
+      setValues.displayName = normalizeName(input.displayName) ?? "Player"
+    }
+
+    if (input.color !== undefined) {
+      const color = normalizeColor(input.color)
+
+      if (color) {
+        setValues.color = color
+      }
+    }
+
+    const [updated] = await db
+      .update(usersSchema)
+      .set(setValues as any)
+      .where(eq(usersSchema.id, userId))
+      .returning()
+
+    if (!updated) {
+      throw new Error("User not found")
+    }
+
+    return toAuthenticatedUser(updated)
+  }
+
   async loginDev(telegramId?: string): Promise<AuthSessionResult> {
     const devTelegramId = telegramId?.trim() || `dev_${Date.now()}`
     const now = new Date()
