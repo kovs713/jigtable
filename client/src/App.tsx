@@ -2204,23 +2204,24 @@ function SliderField({
   onChange: (value: number) => void
 }) {
   return (
-    <label className="grid gap-2">
-      <span className="flex items-center justify-between gap-3">
+    <div className="grid gap-2">
+      <div className="flex items-center justify-between gap-3">
         <span className="font-mono text-[10px] tracking-wider text-muted-foreground uppercase">
           {label}
         </span>
-        <span className="font-mono text-[10px] text-muted-foreground">
+        <output className="font-mono text-[10px] text-muted-foreground">
           {valueLabel}
-        </span>
-      </span>
+        </output>
+      </div>
+
       <Slider
-        aria-label={label}
+        ariaLabel={label}
         max={max}
         min={min}
-        value={[value]}
-        onValueChange={([nextValue]) => onChange(nextValue ?? value)}
+        value={value}
+        onChange={onChange}
       />
-    </label>
+    </div>
   )
 }
 

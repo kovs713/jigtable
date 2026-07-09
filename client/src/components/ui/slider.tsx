@@ -1,137 +1,171 @@
 import * as React from "react"
 
-import { cn } from "@/lib/utils"
+function cx(...classes: Array<string | false | null | undefined>) {
+  return classes.filter(Boolean).join(" ")
+}
 
 export interface SliderProps {
-  value?: number[]
-  defaultValue?: number[]
+  value: number
   min?: number
   max?: number
   step?: number
   disabled?: boolean
   className?: string
-  onValueChange?: (value: number[]) => void
-  "aria-label"?: string
-  "aria-labelledby"?: string
-  thumbLabels?: string[]
+  ariaLabel: string
+  onChange: (value: number) => void
 }
 
-function Slider({
+export function Slider({
   value,
-  defaultValue,
   min = 0,
   max = 100,
   step = 1,
   disabled = false,
   className,
-  onValueChange,
-  "aria-label": ariaLabel,
-  "aria-labelledby": ariaLabelledby,
-  thumbLabels,
+  ariaLabel,
+  onChange,
 }: SliderProps) {
-  const values = React.useMemo(
-    () => value ?? defaultValue ?? [min],
-    [value, defaultValue, min],
-  )
   const trackRef = React.useRef<HTMLDivElement>(null)
   const draggingRef = React.useRef(false)
+  const rectRef = React.useRef<DOMRect | null>(null)
+
+  const range = max - min || 1
+  const percent = ((value - min) / range) * 100
 
   const clamp = React.useCallback(
-    (n: number) => {
-      const stepped = Math.round((n - min) / step) * step + min
+    (nextValue: number) => {
+      const stepped = Math.round((nextValue - min) / step) * step + min
       return Math.min(max, Math.max(min, stepped))
     },
-    [min, max, step],
+    [min, max, step]
   )
 
-  const setThumb = React.useCallback(
-    (index: number, next: number) => {
-      const nextValues = values.slice()
-      nextValues[index] = clamp(next)
-      onValueChange?.(nextValues)
+  const commit = React.useCallback(
+    (nextValue: number) => {
+      onChange(clamp(nextValue))
     },
-    [values, clamp, onValueChange],
+    [clamp, onChange]
   )
 
   const valueFromClientX = React.useCallback(
-    (clientX: number, index: number) => {
-      const el = trackRef.current
-      if (!el) return values[index]
-      const rect = el.getBoundingClientRect()
+    (clientX: number) => {
+      const rect = rectRef.current
+
+      if (!rect) {
+        return value
+      }
+
       const ratio = (clientX - rect.left) / rect.width
-      return clamp(min + ratio * (max - min))
+      return min + ratio * range
     },
-    [values, clamp, min, max],
+    [value, min, range]
   )
 
-  const handlePointerDown = (index: number) => (e: React.PointerEvent) => {
+  const handlePointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
     if (disabled) return
+
+    const track = trackRef.current
+
+    if (!track) {
+      return
+    }
+
     draggingRef.current = true
-    e.currentTarget.setPointerCapture(e.pointerId)
-    setThumb(index, valueFromClientX(e.clientX, index))
+    rectRef.current = track.getBoundingClientRect()
+
+    event.currentTarget.setPointerCapture(event.pointerId)
+    event.preventDefault()
+
+    commit(valueFromClientX(event.clientX))
   }
 
-  const handlePointerMove = (index: number) => (e: React.PointerEvent) => {
+  const handlePointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
     if (!draggingRef.current || disabled) return
-    setThumb(index, valueFromClientX(e.clientX, index))
+
+    commit(valueFromClientX(event.clientX))
   }
 
-  const stopDrag = (e: React.PointerEvent) => {
+  const stopDrag = (event: React.PointerEvent<HTMLDivElement>) => {
     if (!draggingRef.current) return
+
     draggingRef.current = false
-    e.currentTarget.releasePointerCapture?.(e.pointerId)
+    rectRef.current = null
+
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId)
+    }
+  }
+
+  const handleKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    if (disabled) return
+
+    if (event.key === "ArrowLeft" || event.key === "ArrowDown") {
+      event.preventDefault()
+      commit(value - step)
+      return
+    }
+
+    if (event.key === "ArrowRight" || event.key === "ArrowUp") {
+      event.preventDefault()
+      commit(value + step)
+      return
+    }
+
+    if (event.key === "Home") {
+      event.preventDefault()
+      commit(min)
+      return
+    }
+
+    if (event.key === "End") {
+      event.preventDefault()
+      commit(max)
+    }
   }
 
   return (
     <div
       data-slot="slider"
       data-disabled={disabled ? "" : undefined}
-      className={cn(
+      className={cx(
         "relative flex w-full touch-none items-center select-none data-disabled:opacity-50",
-        className,
+        className
       )}
     >
       <div
         ref={trackRef}
         data-slot="slider-track"
-        className="relative grow overflow-hidden rounded-none bg-input/90 h-2 w-full"
+        className="relative h-2 w-full grow overflow-hidden rounded-none bg-input/90"
       >
         <div
           data-slot="slider-range"
           className="absolute h-full bg-primary select-none"
-          style={{
-            width: `${(((values[0] ?? min) - min) / (max - min)) * 100}%`,
-          }}
+          style={{ width: `${percent}%` }}
         />
       </div>
-      {values.map((v, index) => (
-        <div
-          key={index}
-          data-slot="slider-thumb"
-          role="slider"
-          tabIndex={disabled ? undefined : 0}
-          aria-label={thumbLabels?.[index] ?? ariaLabel}
-          aria-labelledby={ariaLabelledby}
-          aria-valuemin={min}
-          aria-valuemax={max}
-          aria-valuenow={v}
-          aria-disabled={disabled || undefined}
-          className="block h-4 w-6 shrink-0 cursor-pointer touch-none rounded-none bg-white shadow-md ring-1 ring-black/10 transition-[color,box-shadow,background-color] select-none not-dark:bg-clip-padding hover:ring-4 hover:ring-ring/30 focus-visible:ring-4 focus-visible:ring-ring/30 focus-visible:outline-hidden disabled:pointer-events-none disabled:opacity-50"
-          style={{
-            position: "absolute",
-            left: `${((v - min) / (max - min)) * 100}%`,
-            transform: "translateX(-50%)",
-            top: "50%",
-            marginTop: "-0.5rem",
-          }}
-          onPointerDown={handlePointerDown(index)}
-          onPointerMove={handlePointerMove(index)}
-          onPointerUp={stopDrag}
-          onPointerCancel={stopDrag}
-        />
-      ))}
+
+      <div
+        data-slot="slider-thumb"
+        role="slider"
+        tabIndex={disabled ? undefined : 0}
+        aria-label={ariaLabel}
+        aria-valuemin={min}
+        aria-valuemax={max}
+        aria-valuenow={value}
+        aria-disabled={disabled || undefined}
+        className="absolute block h-4 w-6 shrink-0 cursor-pointer touch-none rounded-none bg-white shadow-md ring-1 ring-black/10 transition-[color,box-shadow,background-color] select-none hover:ring-4 hover:ring-ring/30 focus-visible:ring-4 focus-visible:ring-ring/30 focus-visible:outline-hidden disabled:pointer-events-none disabled:opacity-50"
+        style={{
+          left: `${percent}%`,
+          transform: "translateX(-50%)",
+          top: "50%",
+          marginTop: "-0.5rem",
+        }}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={stopDrag}
+        onPointerCancel={stopDrag}
+        onKeyDown={handleKeyDown}
+      />
     </div>
   )
 }
-
-export { Slider }

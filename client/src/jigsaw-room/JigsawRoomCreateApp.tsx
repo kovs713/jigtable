@@ -610,13 +610,13 @@ export function JigsawRoomCreateApp() {
               })}
             </div>
             <Slider
-              aria-label="Pieces"
+              ariaLabel="Pieces"
               className="jigsaw-room__slider"
               max={2_000}
               min={48}
               step={1}
-              value={[pieceCount]}
-              onValueChange={([value]) => setPieceCount(value ?? 48)}
+              value={pieceCount}
+              onChange={setPieceCount}
             />
           </label>
 
