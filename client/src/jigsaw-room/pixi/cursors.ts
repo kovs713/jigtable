@@ -179,7 +179,7 @@ function createCursorView(
     resolution: app.renderer.resolution,
     style: {
       fill: color,
-      fontFamily: "Satoshi Variable, system-ui, sans-serif",
+      fontFamily: "Satoshi, system-ui, sans-serif",
       fontSize: 14,
       fontWeight: "700",
     },

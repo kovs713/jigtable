@@ -217,7 +217,7 @@ export function createPingController(
       resolution: app.renderer.resolution,
       style: {
         fill: lightColor,
-        fontFamily: "Satoshi Variable, system-ui, sans-serif",
+        fontFamily: "Satoshi, system-ui, sans-serif",
         fontSize: 12,
         fontWeight: "700",
         stroke: TEXT_STROKE,
