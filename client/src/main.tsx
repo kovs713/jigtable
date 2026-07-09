@@ -1,12 +1,14 @@
+import { SpeedInsights } from "@vercel/speed-insights/react"
 import { lazy, StrictMode, Suspense } from "react"
 import { createRoot } from "react-dom/client"
-import { SpeedInsights } from "@vercel/speed-insights/react"
 
 import { ThemeProvider } from "@/components/theme-provider.tsx"
 import { ErrorBoundary } from "./error-boundary"
+import { matchRoute } from "./routes"
 
 import "./index.css"
 
+const PrivacyPage = lazy(() => import("./PrivacyPage.tsx"))
 const App = lazy(() => import("./App.tsx"))
 const JigsawProfileApp = lazy(
   () => import("./jigsaw-room/JigsawProfileApp.tsx")
@@ -18,31 +20,27 @@ const JigsawRoomCreateApp = lazy(
 const JigsawViewApp = lazy(() => import("./jigsaw-room/JigsawViewApp.tsx"))
 
 export function RootApp() {
-  const { pathname } = window.location
+  const route = matchRoute(window.location.pathname)
 
-  if (pathname === "/rooms/new") {
-    return <JigsawRoomCreateApp />
+  switch (route.name) {
+    case "privacy":
+      return <PrivacyPage />
+
+    case "room.create":
+      return <JigsawRoomCreateApp />
+
+    case "profile":
+      return <JigsawProfileApp />
+
+    case "profile.history.item":
+      return <JigsawViewApp roomId={route.roomId} />
+
+    case "room.solve":
+      return <JigsawRoomApp roomId={route.roomId} />
+
+    case "home":
+      return <App />
   }
-
-  if (pathname === "/profile") {
-    return <JigsawProfileApp />
-  }
-
-  if (pathname.startsWith("/profile/history/")) {
-    const roomId = decodeURIComponent(
-      pathname.slice("/profile/history/".length)
-    )
-
-    return <JigsawViewApp roomId={roomId} />
-  }
-
-  if (pathname.startsWith("/rooms/")) {
-    const roomId = decodeURIComponent(pathname.slice("/rooms/".length))
-
-    return <JigsawRoomApp roomId={roomId} />
-  }
-
-  return <App />
 }
 
 function RouteLoading() {
