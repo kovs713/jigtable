@@ -1,0 +1,447 @@
+.privacy-page {
+  --privacy-background: var(--color-background, var(--background));
+  --privacy-foreground: var(--color-foreground, var(--foreground));
+  --privacy-card-foreground: var(
+    --color-card-foreground,
+    var(--card-foreground)
+  );
+  --privacy-muted-foreground: var(
+    --color-muted-foreground,
+    var(--muted-foreground)
+  );
+  --privacy-primary: var(--color-primary, var(--primary));
+  --privacy-primary-foreground: var(
+    --color-primary-foreground,
+    var(--primary-foreground)
+  );
+  --privacy-border: var(--color-border, var(--border));
+  --privacy-accent: var(--color-accent, var(--accent));
+
+  --privacy-mobile-nav-offset: 6rem;
+
+  display: grid;
+  height: 100svh;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  overflow: hidden;
+  background: var(--privacy-background);
+  color: var(--privacy-foreground);
+}
+
+.privacy-page__header {
+  display: grid;
+  gap: 0.5rem 1rem;
+  border-bottom: 1px solid var(--privacy-border);
+  padding: 0.75rem 1rem;
+  color: var(--privacy-card-foreground);
+  box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+}
+
+.privacy-page__brand {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.privacy-page__logo {
+  display: flex;
+  width: 2rem;
+  height: 2rem;
+  align-items: center;
+  justify-content: center;
+  background: var(--privacy-primary);
+  color: var(--privacy-primary-foreground);
+  font-weight: 700;
+}
+
+.privacy-page__brand-content {
+  min-width: 0;
+}
+
+.privacy-page__brand-title {
+  font-size: 0.875rem;
+  font-weight: 600;
+  letter-spacing: -0.025em;
+}
+
+.privacy-page__brand-subtitle {
+  margin: 0;
+  overflow: hidden;
+  color: var(--privacy-muted-foreground);
+  font-family:
+    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
+    "Courier New", monospace;
+  font-size: 0.75rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.privacy-page__back-link {
+  display: inline-flex;
+  width: fit-content;
+  align-items: center;
+  gap: 0.5rem;
+  border: 1px solid var(--privacy-border);
+  padding: 0.375rem 0.75rem;
+  color: var(--privacy-muted-foreground);
+  font-family:
+    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
+    "Courier New", monospace;
+  font-size: 0.75rem;
+  text-decoration: none;
+  transition:
+    color 150ms ease,
+    border-color 150ms ease;
+}
+
+.privacy-page__back-link:hover {
+  color: var(--privacy-foreground);
+}
+
+.privacy-page__body {
+  display: grid;
+  min-height: 0;
+  grid-template-columns: 1fr;
+  overflow: hidden;
+}
+
+.privacy-page__sidebar {
+  display: none;
+}
+
+.privacy-page__sidebar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--privacy-border);
+  padding: 0.5rem 1rem;
+}
+
+.privacy-page__sidebar-title {
+  margin: 0;
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.privacy-page__sidebar-badge {
+  margin: 0;
+  color: var(--privacy-muted-foreground);
+  font-family:
+    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
+    "Courier New", monospace;
+  font-size: 0.625rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.privacy-page__toc {
+  min-height: 0;
+  flex: 1;
+  overflow: auto;
+  padding: 0.5rem;
+}
+
+.privacy-page__toc-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.privacy-page__toc-link {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.375rem 0.5rem;
+  color: var(--privacy-muted-foreground);
+  font-size: 0.75rem;
+  text-decoration: none;
+  transition:
+    color 150ms ease,
+    background-color 150ms ease;
+}
+
+.privacy-page__toc-link:hover {
+  background: var(--privacy-accent);
+  color: var(--privacy-foreground);
+}
+
+.privacy-page__toc-link--active {
+  background: var(--privacy-accent);
+  color: var(--privacy-foreground);
+  font-weight: 500;
+}
+
+.privacy-page__toc-index {
+  color: color-mix(in srgb, var(--privacy-muted-foreground) 60%, transparent);
+  font-family:
+    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
+    "Courier New", monospace;
+  font-size: 0.625rem;
+  transition: color 150ms ease;
+}
+
+.privacy-page__toc-link:hover .privacy-page__toc-index,
+.privacy-page__toc-link--active .privacy-page__toc-index {
+  color: var(--privacy-foreground);
+}
+
+.privacy-page__content {
+  min-height: 0;
+  overflow: auto;
+  scroll-behavior: smooth;
+  scroll-behavior: var(--privacy-mobile-nav-offset);
+  padding: 1rem;
+}
+
+.privacy-page__mobile-nav {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 0.5rem;
+  margin: -1rem -1rem 1rem;
+  overflow-x: auto;
+  border-bottom: 1px solid var(--privacy-border);
+  padding: 0.75rem 1rem;
+  background: color-mix(in srgb, var(--privacy-background) 90%, transparent);
+  backdrop-filter: blur(12px);
+}
+
+.privacy-page__mobile-link {
+  flex: 0 0 auto;
+  border: 1px solid var(--privacy-border);
+  padding: 0.25rem 0.625rem;
+  color: var(--privacy-muted-foreground);
+  font-family:
+    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
+    "Courier New", monospace;
+  font-size: 0.6875rem;
+  text-decoration: none;
+  transition:
+    color 150ms ease,
+    border-color 150ms ease,
+    background-color 150ms ease;
+}
+
+.privacy-page__mobile-link:hover {
+  color: var(--privacy-foreground);
+}
+
+.privacy-page__mobile-link--active {
+  border-color: var(--privacy-primary);
+  background: color-mix(in srgb, var(--privacy-primary) 10%, transparent);
+  color: var(--privacy-foreground);
+}
+
+.privacy-page__article {
+  max-width: 48rem;
+  margin-right: auto;
+  margin-left: auto;
+  border: 1px solid var(--privacy-border);
+  padding: 1.25rem;
+}
+
+.privacy-page__article-header {
+  margin-bottom: 2rem;
+  border-bottom: 1px solid var(--privacy-border);
+  padding-bottom: 1rem;
+}
+
+.privacy-page__meta {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--privacy-muted-foreground);
+  font-family:
+    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
+    "Courier New", monospace;
+  font-size: 0.625rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.privacy-page__meta-dot {
+  width: 0.25rem;
+  height: 0.25rem;
+  background: var(--privacy-primary);
+}
+
+.privacy-page__title {
+  margin: 0.5rem 0 0;
+  color: var(--privacy-foreground);
+  font-size: 1.25rem;
+  font-weight: 600;
+  letter-spacing: -0.025em;
+}
+
+.privacy-page__sections {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+  font-size: 1rem;
+  line-height: 1.75rem;
+}
+
+.privacy-page__section {
+  scroll-margin-top: var(--privacy-mobile-nav-offset);
+}
+
+.privacy-page__section-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.privacy-page__section-index {
+  color: color-mix(in srgb, var(--privacy-muted-foreground) 60%, transparent);
+  font-family:
+    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
+    "Courier New", monospace;
+  font-size: 0.625rem;
+  letter-spacing: 0.05em;
+}
+
+.privacy-page__section-title {
+  margin: 0;
+  color: var(--privacy-foreground);
+  font-size: 1rem;
+  font-weight: 600;
+  letter-spacing: -0.025em;
+}
+
+.privacy-page__muted {
+  margin: 0;
+  color: var(--privacy-muted-foreground);
+}
+
+.privacy-page__paragraph {
+  margin-top: 1rem;
+}
+
+.privacy-page__list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.privacy-page__list-item {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.privacy-page__list-marker {
+  flex-shrink: 0;
+  width: 0.25rem;
+  height: 0.25rem;
+  margin-top: 0.625rem;
+  background: var(--privacy-primary);
+}
+
+.privacy-page__text-link {
+  color: var(--privacy-foreground);
+  text-decoration-line: underline;
+  text-decoration-color: var(--privacy-primary);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 2px;
+  transition: color 150ms ease;
+}
+
+.privacy-page__text-link:hover {
+  color: var(--privacy-primary);
+}
+
+.privacy-page__footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-top: 1px solid var(--privacy-border);
+  padding: 0.375rem 1rem;
+  color: var(--privacy-muted-foreground);
+  font-size: 0.75rem;
+}
+
+.privacy-page__footer-label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.privacy-page__footer-dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  background: var(--privacy-primary);
+}
+
+.privacy-page__footer-text {
+  font-family:
+    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
+    "Courier New", monospace;
+}
+
+.privacy-page__updated {
+  display: none;
+  font-family:
+    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
+    "Courier New", monospace;
+}
+
+@media (min-width: 768px) {
+  .privacy-page__header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    padding-right: 1.5rem;
+    padding-left: 1.5rem;
+  }
+
+  .privacy-page__content {
+    padding: 1.5rem;
+  }
+
+  .privacy-page__article {
+    padding: 2rem;
+  }
+
+  .privacy-page__title {
+    font-size: 1.5rem;
+  }
+
+  .privacy-page__section-title {
+    font-size: 1.125rem;
+  }
+
+  .privacy-page__updated {
+    display: inline;
+  }
+}
+
+@media (min-width: 1024px) {
+  .privacy-page {
+    --privacy-mobile-nav-offset: 1rem;
+  }
+
+  .privacy-page__body {
+    grid-template-columns: 15rem minmax(0, 1fr);
+  }
+
+  .privacy-page__sidebar {
+    display: flex;
+    min-height: 0;
+    flex-direction: column;
+    overflow: hidden;
+    border-right: 1px solid var(--privacy-border);
+    color: var(--privacy-card-foreground);
+  }
+
+  .privacy-page__mobile-nav {
+    display: none;
+  }
+}
