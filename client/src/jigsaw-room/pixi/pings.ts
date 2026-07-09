@@ -1,5 +1,12 @@
 import type { Application } from "pixi.js"
-import { Container, Graphics, Sprite, Text, Texture } from "pixi.js"
+import {
+  CanvasSource,
+  Container,
+  Graphics,
+  Sprite,
+  Text,
+  Texture,
+} from "pixi.js"
 
 import type { CameraController } from "./camera"
 
@@ -7,15 +14,8 @@ const PING_DURATION_MS = 1050
 const PING_COOLDOWN_MS = 500
 const PING_SOUND_COOLDOWN_MS = 250
 
-const PING_MAX_RADIUS = 64
+const PING_MAX_RADIUS = 24
 const PING_MASK_TEXTURE_SIZE = PING_MAX_RADIUS * 2
-
-const STATIC_RING_SCALE = 1
-const EXPANDING_RING_START_SCALE = 0.14
-const EXPANDING_RING_END_SCALE = 1
-const INNER_GLOW_BASE_SCALE = 0.44
-const CORE_GLOW_BASE_SCALE = 0.31
-const MARK_BASE_SCALE = 1
 
 const STATIC_RING_ALPHA = 0.2
 const EXPANDING_RING_ALPHA = 0.95
@@ -394,79 +394,11 @@ export function createPingController(
   }
 }
 
-function updatePingVisuals(ping: PingView, elapsed: number): void {
-  // Static outer ring: большой мутный ринг уже стоит на максимальном радиусе.
-  // Он не расширяется, только держится слабым фоном и тухнет в конце.
-  const staticRingAlpha = timeline(elapsed, [
-    { at: 0, value: STATIC_RING_ALPHA },
-    { at: 800, value: STATIC_RING_ALPHA },
-    { at: 980, value: 0.08 },
-    { at: PING_DURATION_MS, value: 0 },
-  ])
-
-  ping.staticOuterRing.scale.set(STATIC_RING_SCALE)
-  ping.staticOuterRing.alpha = staticRingAlpha
-
-  // Expanding ring: единственный активный круг, четкий и чуть жирнее static ring.
-  const expandingRingT = clamp01(elapsed / 520)
-  const expandingRingScale = lerp(
-    EXPANDING_RING_START_SCALE,
-    EXPANDING_RING_END_SCALE,
-    easeOutCubic(expandingRingT)
-  )
-  const expandingRingAlpha = timeline(elapsed, [
-    { at: 0, value: EXPANDING_RING_ALPHA },
-    { at: 380, value: 0.9 },
-    { at: 620, value: 0.72 },
-    { at: 760, value: 0 },
-    { at: PING_DURATION_MS, value: 0 },
-  ])
-
-  ping.expandingRing.scale.set(expandingRingScale)
-  ping.expandingRing.alpha = expandingRingAlpha
-
-  // Center disc: небольшое плотное пятно под знаком, почти без радиального движения.
-  const innerAlpha = timeline(elapsed, [
-    { at: 0, value: CENTER_DISC_ALPHA },
-    { at: 760, value: CENTER_DISC_ALPHA },
-    { at: 960, value: 0.1 },
-    { at: PING_DURATION_MS, value: 0 },
-  ])
-
-  ping.innerGlow.scale.set(INNER_GLOW_BASE_SCALE)
-  ping.innerGlow.alpha = innerAlpha
-
-  const coreAlpha = timeline(elapsed, [
-    { at: 0, value: CORE_DISC_ALPHA },
-    { at: 740, value: CORE_DISC_ALPHA },
-    { at: 940, value: 0.18 },
-    { at: PING_DURATION_MS, value: 0 },
-  ])
-
-  ping.coreGlow.scale.set(CORE_GLOW_BASE_SCALE)
-  ping.coreGlow.alpha = coreAlpha
-
-  // Exclamation mark: четкий, без блюра и без fade-in. Тухнет только в конце.
-  ping.exclamationMark.scale.set(MARK_BASE_SCALE)
-  ping.exclamationMark.alpha = timeline(elapsed, [
-    { at: 0, value: 1 },
-    { at: 900, value: 1 },
-    { at: PING_DURATION_MS, value: 0 },
-  ])
-
-  const labelAlpha = timeline(elapsed, [
-    { at: 0, value: 1 },
-    { at: 900, value: 1 },
-    { at: PING_DURATION_MS, value: 0 },
-  ])
-
-  ping.label.alpha = labelAlpha
-}
-
 function createPingSprite(texture: Texture, tint: number): Sprite {
   const sprite = new Sprite(texture)
   sprite.anchor.set(0.5)
   sprite.tint = tint
+  sprite.roundPixels = false
   return sprite
 }
 
@@ -474,76 +406,91 @@ function getPingTextures(): PingTextures {
   if (pingTextures) return pingTextures
 
   pingTextures = {
-    staticOuterRing: createSoftStaticRingTexture(),
-    expandingRing: createSharpRingTexture(),
-    innerGlow: createRadialGlowTexture([
-      { offset: 0, alpha: 0.72 },
-      { offset: 0.38, alpha: 0.46 },
-      { offset: 0.72, alpha: 0.12 },
-      { offset: 1, alpha: 0 },
-    ]),
-    coreGlow: createRadialGlowTexture([
-      { offset: 0, alpha: 0.9 },
-      { offset: 0.5, alpha: 0.52 },
-      { offset: 0.82, alpha: 0.1 },
-      { offset: 1, alpha: 0 },
-    ]),
-    exclamationMark: createExclamationMarkTexture(),
+    staticOuterRing: createHudRingTexture(),
+    expandingRing: createSharpHudRingTexture(),
+    innerGlow: createSubtleCoreTexture(),
+    coreGlow: createSubtleCoreTexture(),
+    exclamationMark: createHudExclamationTexture(),
   }
 
   return pingTextures
 }
 
-function createSoftStaticRingTexture(): Texture {
+function createHudRingTexture(): Texture {
   return createCanvasTexture(PING_MASK_TEXTURE_SIZE, (ctx, size) => {
     const center = size / 2
-    const radius = size * 0.445
+    const radius = size * 0.44
 
-    ctx.lineCap = "round"
+    ctx.lineCap = "butt"
+    ctx.lineJoin = "round"
 
-    // Мутная внешняя рамка: несколько концентрических stroke-слоев вместо жесткой линии.
+    // main ring
     ctx.beginPath()
     ctx.arc(center, center, radius, 0, Math.PI * 2)
-    ctx.strokeStyle = "rgba(255,255,255,0.12)"
-    ctx.lineWidth = 13
+    ctx.strokeStyle = "rgba(255,255,255,0.9)"
+    ctx.lineWidth = 2.25
     ctx.stroke()
 
+    // second inside ring
     ctx.beginPath()
-    ctx.arc(center, center, radius, 0, Math.PI * 2)
-    ctx.strokeStyle = "rgba(255,255,255,0.24)"
-    ctx.lineWidth = 7
+    ctx.arc(center, center, radius - 5, 0, Math.PI * 2)
+    ctx.strokeStyle = "rgba(255,255,255,0.32)"
+    ctx.lineWidth = 1
     ctx.stroke()
 
+    ctx.strokeStyle = "rgba(255,255,255,0.6)"
+    ctx.lineWidth = 2
+    ctx.lineCap = "butt"
+
+    const r = radius + 1
+    const len = 8
+
+    // top
     ctx.beginPath()
-    ctx.arc(center, center, radius, 0, Math.PI * 2)
-    ctx.strokeStyle = "rgba(255,255,255,0.5)"
-    ctx.lineWidth = 3
+    ctx.moveTo(center - len / 2, center - r)
+    ctx.lineTo(center + len / 2, center - r)
+    ctx.stroke()
+
+    // right
+    ctx.beginPath()
+    ctx.moveTo(center + r, center - len / 2)
+    ctx.lineTo(center + r, center + len / 2)
+    ctx.stroke()
+
+    // bottom
+    ctx.beginPath()
+    ctx.moveTo(center - len / 2, center + r)
+    ctx.lineTo(center + len / 2, center + r)
+    ctx.stroke()
+
+    // left
+    ctx.beginPath()
+    ctx.moveTo(center - r, center - len / 2)
+    ctx.lineTo(center - r, center + len / 2)
     ctx.stroke()
   })
 }
 
-function createSharpRingTexture(): Texture {
+function createSharpHudRingTexture(): Texture {
   return createCanvasTexture(PING_MASK_TEXTURE_SIZE, (ctx, size) => {
     const center = size / 2
     const radius = size * 0.445
 
-    ctx.beginPath()
-    ctx.arc(center, center, radius, 0, Math.PI * 2)
+    ctx.lineCap = "butt"
+    ctx.lineJoin = "round"
     ctx.strokeStyle = "rgba(255,255,255,1)"
-    ctx.lineWidth = 9
+    ctx.lineWidth = 3
+
+    ctx.beginPath()
+    ctx.arc(center, center, radius, 0, Math.PI * 2)
     ctx.stroke()
   })
 }
 
-interface RadialStop {
-  offset: number
-  alpha: number
-}
-
-function createRadialGlowTexture(stops: RadialStop[]): Texture {
+function createSubtleCoreTexture(): Texture {
   return createCanvasTexture(PING_MASK_TEXTURE_SIZE, (ctx, size) => {
     const center = size / 2
-    const radius = size / 2
+    const radius = size * 0.22
 
     const gradient = ctx.createRadialGradient(
       center,
@@ -551,86 +498,115 @@ function createRadialGlowTexture(stops: RadialStop[]): Texture {
       0,
       center,
       center,
-      radius
+      radius * 1.6
     )
-
-    for (const stop of stops) {
-      gradient.addColorStop(
-        stop.offset,
-        `rgba(255,255,255,${clamp01(stop.alpha)})`
-      )
-    }
+    gradient.addColorStop(0, "rgba(255,255,255,0.65)")
+    gradient.addColorStop(0.6, "rgba(255,255,255,0.18)")
+    gradient.addColorStop(1, "rgba(255,255,255,0)")
 
     ctx.fillStyle = gradient
     ctx.fillRect(0, 0, size, size)
   })
 }
 
-function createExclamationMarkTexture(): Texture {
-  return createCanvasTexture(64, (ctx, size) => {
+function createHudExclamationTexture(): Texture {
+  return createCanvasTexture(52, (ctx, size) => {
     const center = size / 2
-    const barWidth = 9
-    const barHeight = 25
-    const barX = center - barWidth / 2
-    const barY = 13
-    const dotRadius = 4.6
-    const dotY = 46
+    const w = 6.5
+    const h = 22
+    const y = 11
 
-    ctx.lineJoin = "round"
-    ctx.lineCap = "round"
-    ctx.strokeStyle = "rgba(0,0,0,0.98)"
-    ctx.lineWidth = 2
+    ctx.lineJoin = "miter"
+    ctx.lineCap = "butt"
+    ctx.strokeStyle = "rgba(0,0,0,0.95)"
     ctx.fillStyle = "rgba(255,255,255,1)"
+    ctx.lineWidth = 1.5
 
-    drawRoundedRectPath(ctx, barX, barY, barWidth, barHeight, barWidth / 2)
+    // vertical line
+    ctx.beginPath()
+    ctx.rect(center - w / 2, y, w, h)
     ctx.fill()
     ctx.stroke()
 
+    // dot
     ctx.beginPath()
-    ctx.arc(center, dotY, dotRadius, 0, Math.PI * 2)
+    ctx.arc(center, y + h + 9, 3.2, 0, Math.PI * 2)
     ctx.fill()
     ctx.stroke()
   })
 }
 
-function drawRoundedRectPath(
-  ctx: CanvasRenderingContext2D,
-  x: number,
-  y: number,
-  width: number,
-  height: number,
-  radius: number
-): void {
-  const r = Math.min(radius, width / 2, height / 2)
+function updatePingVisuals(ping: PingView, elapsed: number): void {
+  const staticAlpha = timeline(elapsed, [
+    { at: 0, value: 0.65 },
+    { at: 520, value: 0.55 },
+    { at: 1050, value: 0.12 },
+  ])
+  ping.staticOuterRing.scale.set(1)
+  ping.staticOuterRing.alpha = staticAlpha
 
-  ctx.beginPath()
-  ctx.moveTo(x + r, y)
-  ctx.lineTo(x + width - r, y)
-  ctx.quadraticCurveTo(x + width, y, x + width, y + r)
-  ctx.lineTo(x + width, y + height - r)
-  ctx.quadraticCurveTo(x + width, y + height, x + width - r, y + height)
-  ctx.lineTo(x + r, y + height)
-  ctx.quadraticCurveTo(x, y + height, x, y + height - r)
-  ctx.lineTo(x, y + r)
-  ctx.quadraticCurveTo(x, y, x + r, y)
-  ctx.closePath()
+  // expanding ring
+  const expandT = clamp01(elapsed / 420)
+  const expandScale = lerp(0.18, 1.08, easeOutCubic(expandT))
+  const expandAlpha = timeline(elapsed, [
+    { at: 0, value: 0.9 },
+    { at: 280, value: 0.75 },
+    { at: 620, value: 0 },
+  ])
+
+  ping.expandingRing.scale.set(expandScale)
+  ping.expandingRing.alpha = expandAlpha
+
+  // core subtle
+  const coreAlpha = timeline(elapsed, [
+    { at: 0, value: 0.55 },
+    { at: 680, value: 0.48 },
+    { at: 980, value: 0.08 },
+  ])
+  ping.innerGlow.scale.set(0.38)
+  ping.innerGlow.alpha = coreAlpha * 0.8
+  ping.coreGlow.scale.set(0.26)
+  ping.coreGlow.alpha = coreAlpha * 0.9
+
+  // exclamation + label
+  const markAlpha = timeline(elapsed, [
+    { at: 0, value: 1 },
+    { at: 920, value: 1 },
+    { at: PING_DURATION_MS, value: 0.1 },
+  ])
+  ping.exclamationMark.scale.set(0.65)
+  ping.exclamationMark.alpha = markAlpha
+  ping.label.alpha = markAlpha
 }
 
 function createCanvasTexture(
   size: number,
   draw: (ctx: CanvasRenderingContext2D, size: number) => void
 ): Texture {
-  const canvas = document.createElement("canvas")
-  canvas.width = size
-  canvas.height = size
+  const resolution =
+    typeof window === "undefined"
+      ? 3
+      : Math.min(Math.max(window.devicePixelRatio || 1, 3), 4)
 
-  const ctx = canvas.getContext("2d")
-  if (!ctx) throw new Error("2D canvas context is not available")
+  const source = new CanvasSource({
+    width: size,
+    height: size,
+    resolution,
+    scaleMode: "linear",
+    autoGenerateMipmaps: true,
+  })
 
+  const ctx = source.context2D
+  ctx.setTransform(resolution, 0, 0, resolution, 0, 0)
+  ctx.imageSmoothingEnabled = true
+  ctx.imageSmoothingQuality = "high"
   ctx.clearRect(0, 0, size, size)
+
   draw(ctx, size)
 
-  return Texture.from(canvas)
+  source.update()
+
+  return new Texture({ source })
 }
 
 function colorToNumber(color: string): number | null {
