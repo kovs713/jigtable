@@ -46,7 +46,7 @@ export default function PrivacyPage() {
               jigtable privacy policy
             </div>
             <p className="privacy-page__brand-subtitle">
-              tg bot and multiplayer jigsaw web app
+              telegram bot and multiplayer jigsaw web app
             </p>
           </div>
         </div>
@@ -146,7 +146,8 @@ export default function PrivacyPage() {
                 <SectionHeader index="02" title="data i process" />
                 <ul className="privacy-page__list">
                   <ListItem>
-                    tg user ID, username, first name, and related tg login data.
+                    telegram user ID, username, first name, and related telegram
+                    login data.
                   </ListItem>
                   <ListItem>
                     images sent to the bot or uploaded through the web editor.
@@ -197,9 +198,9 @@ export default function PrivacyPage() {
               >
                 <SectionHeader index="05" title="third-party services" />
                 <p className="privacy-page__muted">
-                  jigtable uses tg for bot interaction and authentication. the
-                  web editor may also process basic technical data such as IP
-                  address, browser information, and request logs.
+                  jigtable uses telegram for bot interaction and authentication.
+                  the web editor may also process basic technical data such as
+                  IP address, browser information, and request logs.
                 </p>
               </section>
 
