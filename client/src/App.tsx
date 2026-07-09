@@ -1955,7 +1955,7 @@ export function App() {
 
           {/* info / help section */}
           <section className="flex-1 p-4">
-            <h3 className="mb-2 text-sm font-medium">shortcuts</h3>
+            <h2 className="mb-2 text-sm font-medium">shortcuts</h2>
             <div className="space-y-2 text-xs text-muted-foreground">
               <p className="flex items-center justify-between">
                 <span>Move selected</span>
@@ -2214,6 +2214,7 @@ function SliderField({
         </span>
       </span>
       <Slider
+        aria-label={label}
         max={max}
         min={min}
         value={[value]}

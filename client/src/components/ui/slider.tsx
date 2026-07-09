@@ -11,6 +11,9 @@ export interface SliderProps {
   disabled?: boolean
   className?: string
   onValueChange?: (value: number[]) => void
+  "aria-label"?: string
+  "aria-labelledby"?: string
+  thumbLabels?: string[]
 }
 
 function Slider({
@@ -22,6 +25,9 @@ function Slider({
   disabled = false,
   className,
   onValueChange,
+  "aria-label": ariaLabel,
+  "aria-labelledby": ariaLabelledby,
+  thumbLabels,
 }: SliderProps) {
   const values = React.useMemo(
     () => value ?? defaultValue ?? [min],
@@ -103,6 +109,9 @@ function Slider({
           key={index}
           data-slot="slider-thumb"
           role="slider"
+          tabIndex={disabled ? undefined : 0}
+          aria-label={thumbLabels?.[index] ?? ariaLabel}
+          aria-labelledby={ariaLabelledby}
           aria-valuemin={min}
           aria-valuemax={max}
           aria-valuenow={v}

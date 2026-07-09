@@ -610,6 +610,7 @@ export function JigsawRoomCreateApp() {
               })}
             </div>
             <Slider
+              aria-label="Pieces"
               className="jigsaw-room__slider"
               max={2_000}
               min={48}
