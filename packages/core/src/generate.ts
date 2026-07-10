@@ -1,15 +1,15 @@
 import type {
   GroupState,
+  JigsawConfig,
+  JigsawState,
   NeighborDirection,
   NeighborRelation,
+  PieceDefinition,
   PieceEdge,
   PieceEdges,
   PieceEdgeShape,
-  PieceDefinition,
   PieceId,
   PieceState,
-  JigsawConfig,
-  JigsawState,
 } from "./types"
 
 export function createJigsawState(config: JigsawConfig): JigsawState {

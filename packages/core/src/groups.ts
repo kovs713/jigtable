@@ -1,4 +1,4 @@
-import type { GroupId, PieceId, JigsawState } from "./types"
+import type { GroupId, JigsawState, PieceId } from "./types"
 
 export interface GroupAnchor {
   groupId: GroupId

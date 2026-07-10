@@ -3,8 +3,8 @@ import { translateGroup } from "./groups"
 import type {
   GroupId,
   GroupState,
-  PieceId,
   JigsawState,
+  PieceId,
   WorldRect,
 } from "./types"
 
@@ -79,8 +79,17 @@ export function arrangeLoosePieces(
     return []
   }
 
-  shuffle(arrangedGroups, createSeededRandom(state.config.seed + modeSeed(mode)))
-  const slots = createArrangeSlots(board, arrangedGroups, boundsByGroup, gap, mode)
+  shuffle(
+    arrangedGroups,
+    createSeededRandom(state.config.seed + modeSeed(mode))
+  )
+  const slots = createArrangeSlots(
+    board,
+    arrangedGroups,
+    boundsByGroup,
+    gap,
+    mode
+  )
   const affectedPieceIds: PieceId[] = []
 
   for (let index = 0; index < arrangedGroups.length; index++) {

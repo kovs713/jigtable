@@ -13,7 +13,7 @@
   },
   "dependencies": {
     "@fontsource-variable/cascadia-code": "^5.2.2",
-    "@jigtable/jigsaw-core": "workspace:*",
+    "@jigtable/core": "workspace:*",
     "@jigtable/shared": "workspace:*",
     "@tailwindcss/vite": "^4.3.2",
     "@vercel/speed-insights": "^2.0.0",

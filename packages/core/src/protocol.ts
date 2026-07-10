@@ -1,12 +1,12 @@
+import type { ArrangeLoosePiecesMode } from "./scatter"
 import type {
   GroupId,
   GroupState,
-  PieceId,
-  PieceState,
   JigsawConfig,
   JigsawState,
-} from "../jigsaw/types"
-import type { ArrangeLoosePiecesMode } from "../jigsaw/scatter"
+  PieceId,
+  PieceState,
+} from "./types"
 
 export interface JigsawPlayer {
   id: string
@@ -104,7 +104,11 @@ export type ClientToServerMessage =
   | { type: "group:drop"; groupId: GroupId; x: number; y: number }
   | { type: "group:release"; groupId: GroupId }
   | { type: "groups:arrange"; mode: ArrangeLoosePiecesMode }
-  | { type: "room:lock-toggle"; targetType: "piece" | "group"; targetId: string }
+  | {
+      type: "room:lock-toggle"
+      targetType: "piece" | "group"
+      targetId: string
+    }
   | { type: "cursor:move"; x: number; y: number }
   | { type: "cursor:hide" }
   | { type: "session:pause" }
