@@ -1,4 +1,8 @@
 api.jigtable.ru {
   encode zstd gzip
+
+  @metrics path /metrics
+  respond @metrics 404
+
   reverse_proxy server:3000
 }
