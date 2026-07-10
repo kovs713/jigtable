@@ -46,9 +46,12 @@ jobs:
       - name: Typecheck
         working-directory: server
         run: bun run typecheck
-      - name: Test collage layout engine
+      - name: Test API
         working-directory: server
-        run: bun run test:collage-layout-engine
+        run: bun run test:api
+      - name: Test composition layout engine
+        working-directory: server
+        run: bun run test:composition-layout-engine
       - name: Setup Docker Buildx
         uses: docker/setup-buildx-action@v3
       - name: Build server image

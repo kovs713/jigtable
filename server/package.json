@@ -6,14 +6,15 @@
   "scripts": {
     "dev": "bun run native:build && bun --watch src/main.ts",
     "start": "bun run native:build && bun src/main.ts",
-    "native:build": "bun run scripts/build-collage-layout-engine-native.ts --release",
-    "native:check": "cargo check --manifest-path native/collage-layout-engine/Cargo.toml",
-    "db:push": "bunx --bun drizzle-kit push",
+    "native:build": "bun run scripts/build-composition-layout-engine-native.ts --release",
+    "native:check": "cargo check --manifest-path native/composition-layout-engine/Cargo.toml",
+    "db:push": "bunx --bun drizzle-kit push  --config=drizzle.config.ts",
     "db:generate": "bunx --bun drizzle-kit generate --config=drizzle.config.ts",
     "db:migrate": "bunx --bun drizzle-kit migrate --config=drizzle.config.ts",
     "format": "prettier --write \"**/*.{ts,tsx,json,md}\"",
     "typecheck": "bunx tsc --noEmit",
-    "test:collage-layout-engine": "bun run native:build && bun test src/collage-layout-engine/index.test.ts"
+    "test:api": "bun test src/api",
+    "test:composition-layout-engine": "bun run native:build && bun test src/native/composition-layout-engine/index.test.ts"
   },
   "dependencies": {
     "@grammyjs/menu": "^1.3.1",

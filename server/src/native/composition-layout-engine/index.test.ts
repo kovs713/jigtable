@@ -1,21 +1,21 @@
 import { describe, expect, test } from "bun:test"
 
 import {
-  generateCollageLayout,
-  type ImageSource,
-  type LayoutItem,
+  generateCompositionLayout,
+  type SourceImage,
+  type CompositionLayoutItem,
 } from "./index"
 
 describe("generateImageLayout", () => {
   test("returns empty layout for empty input", () => {
-    expect(generateCollageLayout({ images: [] })).toEqual({
+    expect(generateCompositionLayout({ images: [] })).toEqual({
       canvas: { width: 0, height: 0 },
       items: [],
     })
   })
 
   test("places all images inside a compact canvas", () => {
-    const result = generateCollageLayout({
+    const result = generateCompositionLayout({
       images: [
         { id: "1", src: "s3://photo-1", width: 1200, height: 800 },
         { id: "2", src: "s3://photo-2", width: 800, height: 1200 },
@@ -42,7 +42,7 @@ describe("generateImageLayout", () => {
   })
 
   test("does not overlap images without gap", () => {
-    const result = generateCollageLayout(
+    const result = generateCompositionLayout(
       {
         images: [
           { id: "1", src: "s3://photo-1", width: 1200, height: 800 },
@@ -75,13 +75,13 @@ describe("generateImageLayout", () => {
   })
 
   test("does not crush sparse final row across the canvas", () => {
-    const images: ImageSource[] = Array.from({ length: 20 }, (_, index) => ({
+    const images: SourceImage[] = Array.from({ length: 20 }, (_, index) => ({
       id: String(index + 1),
       src: `s3://photo-${index + 1}`,
       width: 900,
       height: index < 18 ? 1600 : 1800,
     }))
-    const result = generateCollageLayout({ images }, { gap: 0 })
+    const result = generateCompositionLayout({ images }, { gap: 0 })
     const tailItems = result.items.slice(-2)
 
     expect(totalItemArea(result.items)).toBe(
@@ -97,17 +97,17 @@ describe("generateImageLayout", () => {
   })
 
   test("uses target canvas aspect ratio as a bounded layout guide", () => {
-    const images: ImageSource[] = Array.from({ length: 9 }, (_, index) => ({
+    const images: SourceImage[] = Array.from({ length: 9 }, (_, index) => ({
       id: String(index + 1),
       src: `s3://photo-${index + 1}`,
       width: 1000,
       height: 1000,
     }))
-    const baseResult = generateCollageLayout(
+    const baseResult = generateCompositionLayout(
       { images },
       { gap: 0, targetImageArea: 10_000 }
     )
-    const wideResult = generateCollageLayout(
+    const wideResult = generateCompositionLayout(
       { images },
       { gap: 0, targetAspectRatio: 16 / 9, targetImageArea: 10_000 }
     )
@@ -124,7 +124,7 @@ describe("generateImageLayout", () => {
   })
 
   test("keeps output items in input order", () => {
-    const result = generateCollageLayout({
+    const result = generateCompositionLayout({
       images: [
         { id: "wide", src: "s3://wide", width: 1600, height: 900 },
         { id: "square", src: "s3://square", width: 1000, height: 1000 },
@@ -141,21 +141,21 @@ describe("generateImageLayout", () => {
 
   test("validates explicit image count", () => {
     expect(() =>
-      generateCollageLayout({
-        count: 2,
+      generateCompositionLayout({
+        imageCount: 2,
         images: [{ id: "1", src: "s3://photo-1", width: 1200, height: 800 }],
       })
-    ).toThrow("Collage image count must match images length")
+    ).toThrow("Composition image count must match images length")
   })
 })
 
-function totalItemArea(items: LayoutItem[]): number {
+function totalItemArea(items: CompositionLayoutItem[]): number {
   return items.reduce((total, item) => total + item.width * item.height, 0)
 }
 
 function maxAspectRatioDistortion(
-  images: ImageSource[],
-  items: LayoutItem[]
+  images: SourceImage[],
+  items: CompositionLayoutItem[]
 ): number {
   const sourceImages = new Map(images.map((image) => [image.id, image]))
 
@@ -178,7 +178,10 @@ function maxAspectRatioDistortion(
   )
 }
 
-function hasOverlap(left: LayoutItem, right: LayoutItem): boolean {
+function hasOverlap(
+  left: CompositionLayoutItem,
+  right: CompositionLayoutItem
+): boolean {
   return !(
     left.x + left.width <= right.x ||
     right.x + right.width <= left.x ||

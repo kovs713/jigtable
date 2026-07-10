@@ -7,7 +7,7 @@ FROM base AS deps
 COPY package.json bun.lock ./
 COPY client/package.json client/package.json
 COPY server/package.json server/package.json
-COPY packages/jigsaw-core/package.json packages/jigsaw-core/package.json
+COPY packages/core/package.json packages/core/package.json
 COPY packages/shared/package.json packages/shared/package.json
 RUN bun install --frozen-lockfile
 

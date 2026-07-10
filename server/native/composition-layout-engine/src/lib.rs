@@ -4,7 +4,7 @@ use napi::{Error, Result};
 use napi_derive::napi;
 
 #[napi(object)]
-pub struct ImageSource {
+pub struct SourceImage {
     pub id: String,
     pub src: String,
     pub width: f64,
@@ -12,14 +12,14 @@ pub struct ImageSource {
 }
 
 #[napi(object)]
-pub struct GenerateCollageLayoutInput {
-    pub images: Vec<ImageSource>,
-    pub count: Option<f64>,
+pub struct GenerateCompositionLayoutInput {
+    pub images: Vec<SourceImage>,
+    pub image_count: Option<f64>,
 }
 
 #[napi(object)]
 #[derive(Default)]
-pub struct CollageLayoutOptions {
+pub struct CompositionLayoutOptions {
     pub gap: Option<f64>,
     pub target_aspect_ratio: Option<f64>,
     pub target_image_area: Option<f64>,
@@ -27,13 +27,13 @@ pub struct CollageLayoutOptions {
 }
 
 #[napi(object)]
-pub struct Canvas {
+pub struct CanvasLayout {
     pub width: f64,
     pub height: f64,
 }
 
 #[napi(object)]
-pub struct LayoutItem {
+pub struct CompositionLayoutItem {
     pub id: String,
     pub src: String,
     pub x: f64,
@@ -44,9 +44,9 @@ pub struct LayoutItem {
 }
 
 #[napi(object)]
-pub struct CollageLayout {
-    pub canvas: Canvas,
-    pub items: Vec<LayoutItem>,
+pub struct CompositionLayout {
+    pub canvas: CanvasLayout,
+    pub items: Vec<CompositionLayoutItem>,
 }
 
 #[derive(Clone)]
@@ -78,28 +78,28 @@ struct PackedImage {
 const DEFAULT_GAP: f64 = 0.0;
 const DEFAULT_MAX_ASPECT_RATIO_DISTORTION: f64 = 1.5;
 
-#[napi(js_name = "generateCollageLayout")]
-pub fn generate_collage_layout(
-    input: GenerateCollageLayoutInput,
-    options: Option<CollageLayoutOptions>,
-) -> Result<CollageLayout> {
+#[napi(js_name = "generateCompositionLayout")]
+pub fn generate_composition_layout(
+    input: GenerateCompositionLayoutInput,
+    options: Option<CompositionLayoutOptions>,
+) -> Result<CompositionLayout> {
     let images = input
         .images
         .into_iter()
         .map(validate_image)
         .collect::<Result<Vec<_>>>()?;
 
-    if let Some(count) = input.count {
+    if let Some(count) = input.image_count {
         if count.round() as usize != images.len() {
             return Err(Error::from_reason(
-                "Collage image count must match images length",
+                "Composition image count must match images length",
             ));
         }
     }
 
     if images.is_empty() {
-        return Ok(CollageLayout {
-            canvas: Canvas {
+        return Ok(CompositionLayout {
+            canvas: CanvasLayout {
                 width: 0.0,
                 height: 0.0,
             },
@@ -162,7 +162,7 @@ pub fn generate_collage_layout(
 
     let items = packed_images
         .into_iter()
-        .map(|image| LayoutItem {
+        .map(|image| CompositionLayoutItem {
             id: image.image.id,
             src: image.image.src,
             x: image.x,
@@ -173,7 +173,7 @@ pub fn generate_collage_layout(
         })
         .collect();
 
-    Ok(CollageLayout { canvas, items })
+    Ok(CompositionLayout { canvas, items })
 }
 
 fn pack_images(
@@ -206,7 +206,7 @@ fn pack_images(
         .into_iter()
         .next()
         .map(|(_, images)| images)
-        .ok_or_else(|| Error::from_reason("Could not build collage canvas layout"))
+        .ok_or_else(|| Error::from_reason("Could not build composition canvas layout"))
 }
 
 fn partition_rows(images: &[PackingImage], row_count: usize) -> Result<Vec<Vec<PackingImage>>> {
@@ -221,7 +221,7 @@ fn partition_rows(images: &[PackingImage], row_count: usize) -> Result<Vec<Vec<P
         while image_index < images.len() {
             let image = images
                 .get(image_index)
-                .ok_or_else(|| Error::from_reason("Could not build collage layout"))?;
+                .ok_or_else(|| Error::from_reason("Could not build composition layout"))?;
             let remaining_rows_after_this = row_count - row_index - 1;
             let remaining_images_after_this = images.len() - image_index - 1;
 
@@ -245,7 +245,7 @@ fn partition_rows(images: &[PackingImage], row_count: usize) -> Result<Vec<Vec<P
         }
 
         if row.is_empty() {
-            return Err(Error::from_reason("Could not build collage layout"));
+            return Err(Error::from_reason("Could not build composition layout"));
         }
 
         rows.push(row);
@@ -278,7 +278,7 @@ fn pack_rows(
         for (item_index, image) in row.iter().enumerate() {
             let width = *widths
                 .get(item_index)
-                .ok_or_else(|| Error::from_reason("Could not build collage layout"))?;
+                .ok_or_else(|| Error::from_reason("Could not build composition layout"))?;
 
             packed_images.push(PackedImage {
                 image: image.clone(),
@@ -321,7 +321,7 @@ fn calculate_canvas_width(rows: &[Vec<PackingImage>], target_area: f64, gap: f64
 fn score_layout(
     rows: &[Vec<PackingImage>],
     images: &[PackedImage],
-    canvas: &Canvas,
+    canvas: &CanvasLayout,
     target_aspect_ratio: f64,
     max_aspect_ratio_distortion: f64,
 ) -> Result<f64> {
@@ -348,7 +348,7 @@ fn collect_row_heights(rows: &[Vec<PackingImage>], images: &[PackedImage]) -> Re
     for row in rows {
         let image = images
             .get(image_index)
-            .ok_or_else(|| Error::from_reason("Could not build collage layout"))?;
+            .ok_or_else(|| Error::from_reason("Could not build composition layout"))?;
 
         heights.push(image.height);
         image_index += row.len();
@@ -368,12 +368,12 @@ fn max_packed_aspect_ratio_distortion(images: &[PackedImage]) -> f64 {
         .fold(0.0, f64::max)
 }
 
-fn create_packed_canvas(images: &[PackedImage]) -> Result<Canvas> {
+fn create_packed_canvas(images: &[PackedImage]) -> Result<CanvasLayout> {
     if images.is_empty() {
-        return Err(Error::from_reason("Could not build collage layout"));
+        return Err(Error::from_reason("Could not build composition layout"));
     }
 
-    Ok(Canvas {
+    Ok(CanvasLayout {
         width: images
             .iter()
             .map(|image| image.x + image.width)
@@ -392,7 +392,7 @@ where
     let weights = weights.into_iter().collect::<Vec<_>>();
 
     if total_size < weights.len() as f64 {
-        return Err(Error::from_reason("Could not build collage layout"));
+        return Err(Error::from_reason("Could not build composition layout"));
     }
 
     let total_weight = sum(weights.iter().copied());
@@ -446,13 +446,13 @@ fn compare_packing_images(left: &PackingImage, right: &PackingImage) -> Ordering
         .then_with(|| left.order.cmp(&right.order))
 }
 
-fn validate_image(image: ImageSource) -> Result<ValidatedImage> {
+fn validate_image(image: SourceImage) -> Result<ValidatedImage> {
     if image.id.is_empty() {
-        return Err(Error::from_reason("Collage image id is required"));
+        return Err(Error::from_reason("Composition image id is required"));
     }
 
     if image.src.is_empty() {
-        return Err(Error::from_reason("Collage image src is required"));
+        return Err(Error::from_reason("Composition image src is required"));
     }
 
     Ok(ValidatedImage {
@@ -465,12 +465,12 @@ fn validate_image(image: ImageSource) -> Result<ValidatedImage> {
 
 fn normalize_positive_number(value: Option<f64>, fallback: Option<f64>, name: &str) -> Result<f64> {
     let normalized = value.or(fallback).ok_or_else(|| {
-        Error::from_reason(format!("Collage image {name} must be a positive number"))
+        Error::from_reason(format!("Composition image {name} must be a positive number"))
     })?;
 
     if !normalized.is_finite() || normalized <= 0.0 {
         return Err(Error::from_reason(format!(
-            "Collage image {name} must be a positive number"
+            "Composition image {name} must be a positive number"
         )));
     }
 
@@ -482,7 +482,7 @@ fn normalize_non_negative_number(value: Option<f64>, fallback: f64, name: &str) 
 
     if !normalized.is_finite() || normalized < 0.0 {
         return Err(Error::from_reason(format!(
-            "Collage image {name} must be a non-negative number"
+            "Composition image {name} must be a non-negative number"
         )));
     }
 
@@ -499,7 +499,7 @@ fn normalize_minimum_number(
 
     if !normalized.is_finite() || normalized < min {
         return Err(Error::from_reason(format!(
-            "Collage image {name} must be at least {min}"
+            "Composition image {name} must be at least {min}"
         )));
     }
 

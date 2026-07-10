@@ -1,5 +1,5 @@
 [package]
-name = "collage_layout_engine_native"
+name = "composition_layout_engine_native"
 version = "0.1.0"
 edition = "2021"
 

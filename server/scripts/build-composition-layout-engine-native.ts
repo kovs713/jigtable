@@ -4,18 +4,19 @@ import { join } from "node:path"
 
 const release = process.argv.includes("--release")
 const profile = release ? "release" : "debug"
-const manifestPath = join("native", "collage-layout-engine", "Cargo.toml")
+const manifestPath = join("native", "composition-layout-engine", "Cargo.toml")
 const source = join(
   "native",
-  "collage-layout-engine",
+  "composition-layout-engine",
   "target",
   profile,
-  nativeLibraryFileName("collage_layout_engine_native")
+  nativeLibraryFileName("composition_layout_engine_native")
 )
 const target = join(
   "src",
-  "collage-layout-engine",
-  "collage_layout_engine_native.node"
+  "native",
+  "composition-layout-engine",
+  "composition_layout_engine_native.node"
 )
 
 if (release) {
