@@ -7,7 +7,7 @@ import type {
 } from "react"
 import { forwardRef, useCallback, useEffect, useRef, useState } from "react"
 
-import { isRecord } from "@jigtable/shared"
+import { isRecord } from "@jigtable/shared/utils"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -33,8 +33,13 @@ import {
   saveLocalAuthSession,
   type AuthSession,
 } from "@/jigsaw-room/multiplayer/auth"
-import { fetchUserBatches, type UserBatchItem } from "@/jigsaw-room/room-api"
+import {
+  fetchUserCompositions,
+  type UserCompositionItem,
+} from "@/jigsaw-room/room-api"
 import { cn } from "@/lib/utils"
+
+import "./app.css"
 
 type CanvasLayout = {
   canvas: {
@@ -55,17 +60,17 @@ type CanvasItem = {
   zIndex?: number
 }
 
-type ApiBatchLayout = {
-  batchId: string
+type ApiCompositionLayout = {
+  compositionId: string
   status: string | null
   layout: CanvasLayout
-  outputUrl: string | null
+  jigsawImageUrl: string | null
 }
 
-type RemoteBatch = {
-  batchId: string
+type RemoteComposition = {
+  compositionId: string
   token: string
-  outputUrl: string | null
+  jigsawImageUrl: string | null
 }
 
 type AspectRatioPreset = {
@@ -244,13 +249,12 @@ export function App() {
   const [originalCanvas, setOriginalCanvas] = useState<CanvasLayout["canvas"]>(
     EMPTY_LAYOUT.canvas
   )
-  const [remoteBatch, setRemoteBatch] = useState<RemoteBatch | null>(() =>
-    getInitialRemoteBatch()
-  )
-  const [batches, setBatches] = useState<UserBatchItem[]>([])
-  const [selectedBatch, setSelectedBatch] = useState<{
-    batchId: string
-    batchToken: string
+  const [remoteComposition, setRemoteComposition] =
+    useState<RemoteComposition | null>(() => getInitialRemoteComposition())
+  const [compositions, setCompositions] = useState<UserCompositionItem[]>([])
+  const [selectedComposition, setSelectedComposition] = useState<{
+    compositionId: string
+    compositionToken: string
   } | null>(null)
   const [authSession, setAuthSession] = useState<AuthSession | null>(() =>
     readLocalAuthSession()
@@ -354,24 +358,24 @@ export function App() {
     [layout.items]
   )
 
-  const applyBatchLayout = useCallback(
-    (payload: ApiBatchLayout, token: string) => {
+  const applyCompositionLayout = useCallback(
+    (payload: ApiCompositionLayout, token: string) => {
       const layout = normalizeCanvasLayout(payload.layout)
       const firstItemId = layout.items[0]?.id ?? ""
 
       setLayout(layout)
       setSelectedIds(firstItemId ? [firstItemId] : [])
-      setRemoteBatch({
-        batchId: payload.batchId,
+      setRemoteComposition({
+        compositionId: payload.compositionId,
         token,
-        outputUrl: payload.outputUrl,
+        jigsawImageUrl: payload.jigsawImageUrl,
       })
     },
     []
   )
 
   const saveRemoteLayout = useCallback(async () => {
-    if (!remoteBatch) {
+    if (!remoteComposition) {
       setStatus("Open the link from the bot")
       return
     }
@@ -384,22 +388,22 @@ export function App() {
     setStatus("Saving edits...")
 
     try {
-      const payload = await requestBatchLayout(
-        remoteBatch,
+      const payload = await requestCompositionLayout(
+        remoteComposition,
         authSession.token,
         "PATCH",
         { layout }
       )
 
-      applyBatchLayout(payload, remoteBatch.token)
+      applyCompositionLayout(payload, remoteComposition.token)
       setStatus("Edits saved")
     } catch (error) {
       setStatus(error instanceof Error ? error.message : "Failed to save edits")
     }
-  }, [authSession, layout, remoteBatch, applyBatchLayout])
+  }, [authSession, layout, remoteComposition, applyCompositionLayout])
 
-  const applyRemoteBatch = useCallback(
-    async (batch: RemoteBatch) => {
+  const applyRemoteComposition = useCallback(
+    async (composition: RemoteComposition) => {
       if (!authSession) {
         setStatus("tg login required")
         return
@@ -408,21 +412,24 @@ export function App() {
       setStatus("Loading images...")
 
       try {
-        const payload = await fetchBatchLayout(batch, authSession.token)
+        const payload = await fetchCompositionLayout(
+          composition,
+          authSession.token
+        )
         const layout = normalizeCanvasLayout(payload.layout)
 
         setOriginalCanvas(layout.canvas)
         setLayout(layout)
         selectOnlyItem(layout.items[0]?.id ?? "")
-        setRemoteBatch({
-          batchId: payload.batchId,
-          token: batch.token,
-          outputUrl: payload.outputUrl,
+        setRemoteComposition({
+          compositionId: payload.compositionId,
+          token: composition.token,
+          jigsawImageUrl: payload.jigsawImageUrl,
         })
         window.history.replaceState(
           null,
           "",
-          `?batchId=${encodeURIComponent(payload.batchId)}&token=${encodeURIComponent(batch.token)}`
+          `?compositionId=${encodeURIComponent(payload.compositionId)}&token=${encodeURIComponent(composition.token)}`
         )
         setStatus("Ready to edit")
       } catch (error) {
@@ -537,25 +544,25 @@ export function App() {
 
     let disposed = false
 
-    void fetchUserBatches(authSession.token)
+    void fetchUserCompositions(authSession.token)
       .then((items) => {
         if (disposed) {
           return
         }
 
-        setBatches(items)
+        setCompositions(items)
 
-        if (!remoteBatch && !selectedBatch && items[0]) {
+        if (!remoteComposition && !selectedComposition && items[0]) {
           const first = items[0]
 
-          setSelectedBatch({
-            batchId: first.batchId,
-            batchToken: first.batchToken,
+          setSelectedComposition({
+            compositionId: first.compositionId,
+            compositionToken: first.compositionToken,
           })
-          void applyRemoteBatch({
-            batchId: first.batchId,
-            token: first.batchToken,
-            outputUrl: null,
+          void applyRemoteComposition({
+            compositionId: first.compositionId,
+            token: first.compositionToken,
+            jigsawImageUrl: null,
           })
         }
       })
@@ -568,7 +575,12 @@ export function App() {
     return () => {
       disposed = true
     }
-  }, [authSession, applyRemoteBatch, remoteBatch, selectedBatch])
+  }, [
+    authSession,
+    applyRemoteComposition,
+    remoteComposition,
+    selectedComposition,
+  ])
 
   useEffect(() => {
     const host = telegramWidgetRef.current
@@ -606,7 +618,7 @@ export function App() {
   }, [telegramWidgetVisible])
 
   useEffect(() => {
-    if (didLoadRemoteRef.current || !remoteBatch) {
+    if (didLoadRemoteRef.current || !remoteComposition) {
       return
     }
 
@@ -618,17 +630,17 @@ export function App() {
     didLoadRemoteRef.current = true
     queueMicrotask(() => setStatus("Loading images..."))
 
-    void fetchBatchLayout(remoteBatch, authSession.token)
+    void fetchCompositionLayout(remoteComposition, authSession.token)
       .then((payload) => {
         const layout = normalizeCanvasLayout(payload.layout)
 
         setOriginalCanvas(layout.canvas)
         setLayout(layout)
         selectOnlyItem(layout.items[0]?.id ?? "")
-        setRemoteBatch({
-          batchId: payload.batchId,
-          token: remoteBatch.token,
-          outputUrl: payload.outputUrl,
+        setRemoteComposition({
+          compositionId: payload.compositionId,
+          token: remoteComposition.token,
+          jigsawImageUrl: payload.jigsawImageUrl,
         })
         setStatus("Ready to edit")
       })
@@ -638,7 +650,7 @@ export function App() {
           error instanceof Error ? error.message : "Failed to load images"
         )
       })
-  }, [authSession, remoteBatch])
+  }, [authSession, remoteComposition])
 
   useEffect(() => {
     const handlePointerMove = (event: globalThis.PointerEvent) => {
@@ -1286,25 +1298,25 @@ export function App() {
   }
 
   async function loadLayoutFromCode() {
-    const batch = parseRemoteBatchInput(loadCode)
+    const composition = parseRemoteCompositionInput(loadCode)
 
-    if (!batch) {
-      setStatus("Paste bot edit link or batchId token")
+    if (!composition) {
+      setStatus("Paste bot edit link or compositionId token")
       return
     }
 
-    await applyRemoteBatch(batch)
+    await applyRemoteComposition(composition)
   }
 
-  function selectBuild(batch: UserBatchItem) {
-    setSelectedBatch({
-      batchId: batch.batchId,
-      batchToken: batch.batchToken,
+  function selectComposition(composition: UserCompositionItem) {
+    setSelectedComposition({
+      compositionId: composition.compositionId,
+      compositionToken: composition.compositionToken,
     })
-    void applyRemoteBatch({
-      batchId: batch.batchId,
-      token: batch.batchToken,
-      outputUrl: null,
+    void applyRemoteComposition({
+      compositionId: composition.compositionId,
+      token: composition.compositionToken,
+      jigsawImageUrl: null,
     })
   }
 
@@ -1328,11 +1340,11 @@ export function App() {
     }))
   }
 
-  function jigsawCreateFromBatch(): string {
-    if (!remoteBatch) return "/rooms/new"
+  function jigsawCreateFromComposition(): string {
+    if (!remoteComposition) return "/rooms/new"
     const params = new URLSearchParams({
-      batchId: remoteBatch.batchId,
-      batchToken: remoteBatch.token,
+      compositionId: remoteComposition.compositionId,
+      compositionToken: remoteComposition.token,
       sourceWidth: String(layout.canvas.width),
       sourceHeight: String(layout.canvas.height),
     })
@@ -1340,8 +1352,8 @@ export function App() {
   }
 
   async function downloadImage(): Promise<void> {
-    if (!remoteBatch) {
-      setStatus("No batch loaded")
+    if (!remoteComposition) {
+      setStatus("No composition loaded")
       return
     }
 
@@ -1354,7 +1366,7 @@ export function App() {
 
     try {
       const response = await fetch(
-        `${API_BASE_URL}/api/batches/${remoteBatch.batchId}/render?token=${encodeURIComponent(remoteBatch.token)}`,
+        `${API_BASE_URL}/api/compositions/${remoteComposition.compositionId}/render?token=${encodeURIComponent(remoteComposition.token)}`,
         {
           method: "POST",
           headers: {
@@ -1364,10 +1376,15 @@ export function App() {
           body: JSON.stringify({ format: "png", layout }),
         }
       )
-      const payload = await readJsonResponse<{ outputUrl: string }>(response)
+      const payload = await readJsonResponse<{ jigsawImageUrl: string }>(
+        response
+      )
 
-      setRemoteBatch({ ...remoteBatch, outputUrl: payload.outputUrl })
-      window.open(payload.outputUrl, "_blank")
+      setRemoteComposition({
+        ...remoteComposition,
+        jigsawImageUrl: payload.jigsawImageUrl,
+      })
+      window.open(payload.jigsawImageUrl, "_blank")
       setStatus("Image ready")
     } catch (error) {
       setStatus(
@@ -1377,11 +1394,11 @@ export function App() {
   }
 
   return (
-    <main className="grid h-svh grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden bg-background text-foreground">
+    <main className="jigsaw-editor">
       {hoverLinkItemId && hoverLinkLine ? (
         <svg
           aria-hidden="true"
-          className="pointer-events-none fixed inset-0 z-2000 h-svh w-svw"
+          className="jigsaw-editor__link-line"
           style={getImageMarkerStyle(hoverLinkLine.itemIndex)}
         >
           <path
@@ -1398,16 +1415,12 @@ export function App() {
       ) : null}
 
       {/* header */}
-      <header className="glass corner-brackets grid gap-x-4 gap-y-2 border-b px-6 py-3 text-card-foreground shadow-sm md:flex md:flex-wrap md:items-center">
-        <div className="flex items-center gap-3">
-          <div className="flex size-8 items-center justify-center bg-primary font-bold text-primary-foreground">
-            J
-          </div>
+      <header className="editor-header glass corner-brackets">
+        <div className="editor-header__brand">
+          <div className="editor-header__logo">J</div>
           <div>
-            <h1 className="text-sm font-semibold tracking-tight">
-              jigsaw editor
-            </h1>
-            <p className="font-mono text-xs text-muted-foreground">
+            <h1 className="editor-header__title">jigsaw editor</h1>
+            <p className="editor-header__meta">
               {layout.items.length
                 ? `${layout.items.length} images loaded`
                 : "Waiting for images"}
@@ -1417,44 +1430,52 @@ export function App() {
 
         <Separator
           orientation="vertical"
-          className="mx-2 hidden h-8 md:block"
+          className="editor-header__separator"
         />
 
-        <div className="flex w-full items-center justify-between gap-4 md:ml-auto md:flex-1">
+        <div className="editor-header__content">
           <div>
             <Button asChild size="sm" disabled={!authSession}>
               <a href="/profile">/profile</a>
             </Button>
           </div>
-          <div className="flex flex-wrap items-center justify-end gap-2">
-            {batches.length ? (
+          <div className="editor-header__actions">
+            {compositions.length ? (
               <Select
-                value={selectedBatch?.batchId ?? ""}
+                value={selectedComposition?.compositionId ?? ""}
                 disabled={!authSession}
                 onValueChange={(value) => {
-                  const batch = batches.find((item) => item.batchId === value)
+                  const composition = compositions.find(
+                    (item) => item.compositionId === value
+                  )
 
-                  if (batch) {
-                    selectBuild(batch)
+                  if (composition) {
+                    selectComposition(composition)
                   }
                 }}
               >
-                <SelectTrigger className="h-9 w-full font-mono text-sm sm:w-56">
+                <SelectTrigger className="editor-header__select">
                   <SelectValue placeholder="select build">
-                    {selectedBatch
-                      ? formatBatchTitle(
-                          batches.find(
-                            (item) => item.batchId === selectedBatch.batchId
+                    {selectedComposition
+                      ? formatCompositionTitle(
+                          compositions.find(
+                            (item) =>
+                              item.compositionId ===
+                              selectedComposition.compositionId
                           ) ?? null
                         )
                       : "Select build"}
                   </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
-                  {batches.map((batch, index) => (
-                    <SelectItem key={batch.batchId} value={batch.batchId}>
-                      {String(index + 1).padStart(2, "0")} · {batch.imageCount}{" "}
-                      images · {formatBatchMeta(batch)}
+                  {compositions.map((composition, index) => (
+                    <SelectItem
+                      key={composition.compositionId}
+                      value={composition.compositionId}
+                    >
+                      {String(index + 1).padStart(2, "0")} ·{" "}
+                      {composition.imageCount} images ·{" "}
+                      {formatCompositionMeta(composition)}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -1462,7 +1483,7 @@ export function App() {
             ) : null}
 
             <Input
-              className="h-9 font-mono text-sm sm:w-52"
+              className="editor-header__input"
               placeholder="paste bot link or code"
               type="text"
               value={loadCode}
@@ -1474,7 +1495,7 @@ export function App() {
               }}
             />
             <Button
-              className="h-9"
+              className="editor-header__control"
               disabled={!authSession}
               size="sm"
               variant="secondary"
@@ -1484,7 +1505,7 @@ export function App() {
             </Button>
 
             <Button
-              className="h-9"
+              className="editor-header__control"
               disabled={authLoading}
               size="sm"
               variant={authSession ? "outline" : "default"}
@@ -1498,24 +1519,28 @@ export function App() {
             </Button>
             <span
               className={cn(
-                "max-w-48 truncate text-xs text-muted-foreground",
-                !authSession?.user.displayName && "font-mono"
+                "editor-header__auth-status",
+                !authSession?.user.displayName &&
+                  "editor-header__auth-status--mono"
               )}
             >
               {authSession?.user.displayName ?? authStatus}
             </span>
             {telegramWidgetVisible ? (
-              <div ref={telegramWidgetRef} className="min-h-8" />
+              <div
+                ref={telegramWidgetRef}
+                className="editor-header__telegram-widget"
+              />
             ) : null}
 
             <Separator
               orientation="vertical"
-              className="mx-2 hidden h-8 md:block"
+              className="editor-header__separator"
             />
 
             <Button
-              className="h-9"
-              disabled={!remoteBatch || !authSession}
+              className="editor-header__control"
+              disabled={!remoteComposition || !authSession}
               size="sm"
               variant="outline"
               onClick={saveRemoteLayout}
@@ -1523,13 +1548,13 @@ export function App() {
               save edits
             </Button>
 
-            {remoteBatch ? (
+            {remoteComposition ? (
               <Button asChild size="sm">
-                <a href={jigsawCreateFromBatch()}>create room</a>
+                <a href={jigsawCreateFromComposition()}>create room</a>
               </Button>
             ) : null}
 
-            {remoteBatch ? (
+            {remoteComposition ? (
               <Button
                 disabled={!authSession}
                 size="sm"
@@ -1543,11 +1568,11 @@ export function App() {
         </div>
       </header>
 
-      <div className="grid min-h-0 grid-cols-1 overflow-hidden lg:grid-cols-[280px_minmax(0,1fr)_320px]">
+      <div className="editor-workspace">
         {/* left sidebar layers */}
-        <aside className="glass-sidebar corner-brackets flex min-h-0 flex-col overflow-hidden border-r text-card-foreground">
+        <aside className="layers-panel glass-sidebar corner-brackets">
           <PanelHeader title="layers" meta="Drag to reorder" />
-          <div className="thin-scrollbar flex-1 space-y-1 overflow-auto p-2">
+          <div className="layers-panel__list thin-scrollbar">
             {layerListEntries.map(({ item, itemIndex, layerIndex }) => {
               const isSelected = selectedIdSet.has(item.id)
               const isLinked = hoverLinkItemId === item.id
@@ -1565,11 +1590,9 @@ export function App() {
                   draggable
                   ref={setLayerRowRef(item.id)}
                   className={cn(
-                    "group relative flex flex-col gap-1 border p-2 text-sm transition-all",
-                    draggedLayerId === item.id && "opacity-50",
-                    isSelected || isLinked
-                      ? "border-primary/50 bg-primary/5 shadow-sm"
-                      : "border-transparent hover:border-border hover:bg-accent/50"
+                    "layer-row",
+                    draggedLayerId === item.id && "layer-row--dragging",
+                    (isSelected || isLinked) && "layer-row--active"
                   )}
                   style={getImageMarkerStyle(itemIndex)}
                   onDragEnd={endLayerDrag}
@@ -1583,30 +1606,32 @@ export function App() {
                   {dropPlacement ? (
                     <span
                       className={cn(
-                        "pointer-events-none absolute right-2 left-2 z-10 h-0.5 bg-primary",
-                        dropPlacement === "above" ? "-top-1" : "-bottom-1"
+                        "layer-row__drop-indicator",
+                        dropPlacement === "above"
+                          ? "layer-row__drop-indicator--above"
+                          : "layer-row__drop-indicator--below"
                       )}
                     />
                   ) : null}
                   <button
-                    className="flex min-w-0 items-center gap-2 text-left"
+                    className="layer-row__summary"
                     type="button"
                     onClick={(event) =>
                       selectItem(item.id, getSelectionMode(event))
                     }
                   >
-                    <span className="grid h-6 min-w-6 place-items-center bg-primary/10 px-1 font-mono text-[10px] font-bold text-primary">
+                    <span className="layer-row__marker">
                       {getImageMarkerCode(itemIndex)}
                     </span>
-                    <span className="min-w-0 flex-1 truncate font-mono text-xs text-muted-foreground">
+                    <span className="layer-row__label">
                       layer {layerIndex + 1} / {layout.items.length}
                     </span>
-                    <span className="font-mono text-[10px] text-muted-foreground opacity-70">
+                    <span className="layer-row__dimensions">
                       {item.width}x{item.height}
                     </span>
                   </button>
 
-                  <div className="grid grid-cols-4 gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+                  <div className="layer-row__actions">
                     <LayerActionButton
                       aria-label={`Move ${imageLabel} to top layer`}
                       disabled={isTopLayer}
@@ -1702,7 +1727,7 @@ export function App() {
               )
             })}
             {!layout.items.length ? (
-              <p className="p-4 text-center text-sm text-muted-foreground">
+              <p className="layers-panel__empty">
                 Open the link from the bot after sending and committing images.
               </p>
             ) : null}
@@ -1710,129 +1735,138 @@ export function App() {
         </aside>
 
         {/* canvas */}
-        <section className="relative flex min-h-0 items-center justify-center overflow-hidden bg-muted/30 bg-[linear-gradient(45deg,var(--border)_25%,transparent_25%,transparent_75%,var(--border)_75,var(--border)),linear-gradient(45deg,var(--border)_25%,transparent_25%,transparent_75%,var(--border)_75,var(--border))] bg-size-[20px_20px] bg-position-[0_0,10px_10px]">
-          <div className="thin-scrollbar h-full w-full overflow-auto p-8">
+        <section className="canvas-stage">
+          <div className="canvas-stage__scroll thin-scrollbar">
             <div
-              className="canvas-grid group relative origin-top-left shadow-xl"
+              className="canvas-frame group"
               style={{
                 width: layout.canvas.width * viewportScale,
                 height: layout.canvas.height * viewportScale,
                 ...getCanvasMarkerStyle(),
               }}
-              onPointerDown={(event) => {
-                if (isPrimaryPointer(event)) {
-                  clearSelection()
-                }
-              }}
             >
-              <div className="pointer-events-none absolute inset-0 z-2000">
+              <div
+                className="canvas-frame__resize-layer"
+                data-resize-target="canvas"
+              >
                 <ResizeHandles
                   active={false}
                   labelPrefix="Canvas"
+                  variant="canvas"
                   onPointerDown={(event, edge) =>
                     startCanvasResize(event, edge)
                   }
                 />
               </div>
 
-              {layout.items.map((item, index) => {
-                const isSelected = selectedIdSet.has(item.id)
-                const isLinked = hoverLinkItemId === item.id
+              <div
+                className="canvas-board canvas-grid"
+                onPointerDown={(event) => {
+                  if (isPrimaryPointer(event)) {
+                    clearSelection()
+                  }
+                }}
+              >
+                {layout.items.map((item, index) => {
+                  const isSelected = selectedIdSet.has(item.id)
+                  const isLinked = hoverLinkItemId === item.id
 
-                return (
-                  <article
-                    key={item.id}
-                    ref={setCanvasItemRef(item.id)}
-                    className="group absolute touch-none bg-muted"
-                    style={{
-                      left: item.x * viewportScale,
-                      top: item.y * viewportScale,
-                      width: item.width * viewportScale,
-                      height: item.height * viewportScale,
-                      zIndex: (layerIndexById.get(item.id) ?? index) + 1,
-                      ...getImageMarkerStyle(index),
-                    }}
-                    onPointerEnter={() => setHoverLinkItemId(item.id)}
-                    onPointerLeave={() => setHoverLinkItemId("")}
-                    onPointerDown={(event) => {
-                      setHoverLinkItemId(item.id)
-                      startMove(event, item)
-                    }}
-                  >
-                    {showCanvasMarkers || isLinked ? (
-                      <span className="pointer-events-none absolute top-1 left-1 z-20 grid h-5 min-w-6 place-items-center bg-(--image-marker) px-1 font-mono text-[10px] font-bold text-(--image-marker-foreground) shadow-sm">
-                        {getImageMarkerCode(index)}
-                      </span>
-                    ) : null}
-                    <div className="absolute inset-0 overflow-hidden">
-                      <div className="absolute inset-0 grid place-items-center bg-muted/50 px-3 text-center text-muted-foreground">
-                        <span className="font-mono text-[10px] tracking-[0.18em] uppercase opacity-50">
+                  return (
+                    <article
+                      key={item.id}
+                      ref={setCanvasItemRef(item.id)}
+                      className="canvas-item group"
+                      style={{
+                        left: item.x * viewportScale,
+                        top: item.y * viewportScale,
+                        width: item.width * viewportScale,
+                        height: item.height * viewportScale,
+                        zIndex: (layerIndexById.get(item.id) ?? index) + 1,
+                        ...getImageMarkerStyle(index),
+                      }}
+                      onPointerEnter={() => setHoverLinkItemId(item.id)}
+                      onPointerLeave={() => setHoverLinkItemId("")}
+                      onPointerDown={(event) => {
+                        setHoverLinkItemId(item.id)
+                        startMove(event, item)
+                      }}
+                    >
+                      {showCanvasMarkers || isLinked ? (
+                        <span className="canvas-item__marker">
                           {getImageMarkerCode(index)}
                         </span>
+                      ) : null}
+                      <div className="canvas-item__media">
+                        <div className="canvas-item__placeholder">
+                          <span className="canvas-item__placeholder-code">
+                            {getImageMarkerCode(index)}
+                          </span>
+                        </div>
+                        <img
+                          alt={getImageAriaLabel(index)}
+                          className="canvas-item__image"
+                          crossOrigin="anonymous"
+                          draggable={false}
+                          src={item.src}
+                          onError={(event) => {
+                            event.currentTarget.style.display = "none"
+                          }}
+                          onLoad={(event) => {
+                            event.currentTarget.style.display = "block"
+                          }}
+                        />
                       </div>
-                      <img
-                        alt={getImageAriaLabel(index)}
-                        className="relative h-full w-full object-fill select-none"
-                        crossOrigin="anonymous"
-                        draggable={false}
-                        src={item.src}
-                        onError={(event) => {
-                          event.currentTarget.style.display = "none"
-                        }}
-                        onLoad={(event) => {
-                          event.currentTarget.style.display = "block"
-                        }}
+                      <span
+                        className={cn(
+                          "canvas-item__outline",
+                          (isSelected || isLinked) &&
+                            "canvas-item__outline--visible"
+                        )}
+                      />
+                    </article>
+                  )
+                })}
+
+                {layout.items.map((item, index) => {
+                  const isSelected = selectedIdSet.has(item.id)
+                  const isLinked = hoverLinkItemId === item.id
+
+                  return (
+                    <div
+                      key={`${item.id}-handles`}
+                      className="canvas-item__handles"
+                      style={{
+                        left: item.x * viewportScale,
+                        top: item.y * viewportScale,
+                        width: item.width * viewportScale,
+                        height: item.height * viewportScale,
+                        zIndex: isSelected ? 1500 : isLinked ? 1100 : 1000,
+                        ...getImageMarkerStyle(index),
+                      }}
+                    >
+                      <ResizeHandles
+                        active={isSelected || isLinked}
+                        labelPrefix={getImageAriaLabel(index)}
+                        selected={isSelected}
+                        onPointerDown={(event, edge) =>
+                          startItemResize(event, item, edge)
+                        }
                       />
                     </div>
-                    <span
-                      className={cn(
-                        "pointer-events-none absolute inset-0 z-10 border-2 border-(--image-marker) opacity-0 transition-opacity",
-                        (isSelected || isLinked) && "opacity-100"
-                      )}
-                    />
-                  </article>
-                )
-              })}
-
-              {layout.items.map((item, index) => {
-                const isSelected = selectedIdSet.has(item.id)
-                const isLinked = hoverLinkItemId === item.id
-
-                return (
-                  <div
-                    key={`${item.id}-handles`}
-                    className="pointer-events-none absolute"
-                    style={{
-                      left: item.x * viewportScale,
-                      top: item.y * viewportScale,
-                      width: item.width * viewportScale,
-                      height: item.height * viewportScale,
-                      zIndex: isSelected ? 1500 : isLinked ? 1100 : 1000,
-                      ...getImageMarkerStyle(index),
-                    }}
-                  >
-                    <ResizeHandles
-                      active={isSelected || isLinked}
-                      labelPrefix={getImageAriaLabel(index)}
-                      selected={isSelected}
-                      onPointerDown={(event, edge) =>
-                        startItemResize(event, item, edge)
-                      }
-                    />
-                  </div>
-                )
-              })}
+                  )
+                })}
+              </div>
             </div>
           </div>
         </section>
 
         {/* right sidebar properties */}
-        <aside className="glass-sidebar corner-brackets flex min-h-0 flex-col overflow-y-auto border-l text-card-foreground">
+        <aside className="properties-panel glass-sidebar corner-brackets">
           {/* canvas section */}
-          <section className="border-b">
+          <section className="properties-panel__section">
             <PanelHeader title="canvas" meta="Ctrl drag keeps images" />
-            <div className="space-y-4 p-4">
-              <div className="grid grid-cols-2 gap-2">
+            <div className="properties-panel__content">
+              <div className="properties-panel__fields">
                 <NumberField
                   label="Width"
                   value={layout.canvas.width}
@@ -1845,7 +1879,7 @@ export function App() {
                 />
               </div>
 
-              <div className="space-y-3 border p-3">
+              <div className="properties-panel__slider-group">
                 <SliderField
                   label="View zoom"
                   max={140}
@@ -1864,13 +1898,11 @@ export function App() {
                 />
               </div>
 
-              <div className="space-y-2">
-                <p className="text-xs font-medium text-muted-foreground">
-                  aspect ratio
-                </p>
-                <div className="grid grid-cols-4 gap-1.5">
+              <div className="properties-panel__ratio">
+                <p className="properties-panel__label">aspect ratio</p>
+                <div className="properties-panel__ratio-grid">
                   <Button
-                    className="h-8 text-xs"
+                    className="properties-panel__ratio-button"
                     size="sm"
                     variant={activeRatio === "original" ? "default" : "outline"}
                     onClick={restoreOriginalCanvas}
@@ -1880,7 +1912,7 @@ export function App() {
                   {ASPECT_RATIO_PRESETS.map((preset) => (
                     <Button
                       key={preset.label}
-                      className="h-8 font-mono text-xs"
+                      className="properties-panel__ratio-button properties-panel__ratio-button--mono"
                       size="sm"
                       variant={
                         activeRatio === preset.label ? "default" : "outline"
@@ -1893,11 +1925,13 @@ export function App() {
                 </div>
               </div>
 
-              <div className="flex items-center justify-between border p-2">
-                <span className="text-sm">canvas markers</span>
+              <div className="properties-panel__marker-setting">
+                <span className="properties-panel__marker-label">
+                  canvas markers
+                </span>
                 <Toggle
                   aria-label="toggle canvas markers"
-                  className="h-8 font-mono text-xs data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
+                  className="properties-panel__marker-toggle"
                   pressed={showCanvasMarkers}
                   size="sm"
                   variant="outline"
@@ -1910,7 +1944,7 @@ export function App() {
           </section>
 
           {/* selection section */}
-          <section className="border-b">
+          <section className="properties-panel__section">
             <PanelHeader
               title="selection"
               meta={
@@ -1922,8 +1956,8 @@ export function App() {
               }
             />
             {selectedItem ? (
-              <div className="space-y-3 p-4">
-                <div className="grid grid-cols-2 gap-2">
+              <div className="properties-panel__selection-content">
+                <div className="properties-panel__fields">
                   <NumberField
                     label="X"
                     value={selectedItem.x}
@@ -1947,43 +1981,35 @@ export function App() {
                 </div>
               </div>
             ) : (
-              <p className="p-4 text-sm text-muted-foreground">
+              <p className="properties-panel__empty">
                 no image selected. click on an image to edit its properties.
               </p>
             )}
           </section>
 
           {/* info / help section */}
-          <section className="flex-1 p-4">
-            <h2 className="mb-2 text-sm font-medium">shortcuts</h2>
-            <div className="space-y-2 text-xs text-muted-foreground">
-              <p className="flex items-center justify-between">
+          <section className="shortcuts">
+            <h2 className="shortcuts__title">shortcuts</h2>
+            <div className="shortcuts__list">
+              <p className="shortcuts__item">
                 <span>Move selected</span>
-                <kbd className="bg-muted px-1.5 py-0.5 font-mono">Arrows</kbd>
+                <kbd className="shortcuts__key">Arrows</kbd>
               </p>
-              <p className="flex items-center justify-between">
+              <p className="shortcuts__item">
                 <span>move faster</span>
-                <kbd className="bg-muted px-1.5 py-0.5 font-mono">
-                  Shift + Arrows
-                </kbd>
+                <kbd className="shortcuts__key">Shift + Arrows</kbd>
               </p>
-              <p className="flex items-center justify-between">
+              <p className="shortcuts__item">
                 <span>add to selection</span>
-                <kbd className="bg-muted px-1.5 py-0.5 font-mono">
-                  Shift Click
-                </kbd>
+                <kbd className="shortcuts__key">Shift Click</kbd>
               </p>
-              <p className="flex items-center justify-between">
+              <p className="shortcuts__item">
                 <span>keep ratio on resize</span>
-                <kbd className="bg-muted px-1.5 py-0.5 font-mono">
-                  Shift Drag
-                </kbd>
+                <kbd className="shortcuts__key">Shift Drag</kbd>
               </p>
-              <p className="flex items-center justify-between">
+              <p className="shortcuts__item">
                 <span>resize canvas only</span>
-                <kbd className="bg-muted px-1.5 py-0.5 font-mono">
-                  Ctrl Drag
-                </kbd>
+                <kbd className="shortcuts__key">Ctrl Drag</kbd>
               </p>
             </div>
           </section>
@@ -1991,26 +2017,26 @@ export function App() {
       </div>
 
       {/* status bar */}
-      <footer className="glass flex items-center justify-between border-t px-4 py-1.5 text-xs text-muted-foreground">
-        <div className="flex items-center gap-2">
+      <footer className="status-bar glass">
+        <div className="status-bar__message">
           <div
             className={cn(
-              "h-2 w-2",
+              "status-bar__indicator",
               status.includes("...")
-                ? "animate-pulse bg-primary"
+                ? "status-bar__indicator--loading"
                 : status.includes("Failed") || status.includes("error")
-                  ? "bg-destructive"
-                  : "bg-primary"
+                  ? "status-bar__indicator--error"
+                  : "status-bar__indicator--success"
             )}
           />
-          <span className="font-mono">{status}</span>
+          <span className="status-bar__text">{status}</span>
         </div>
-        <div className="hidden items-center gap-4 md:flex">
-          <span className="font-mono">
+        <div className="status-bar__meta">
+          <span className="status-bar__text">
             Canvas: {layout.canvas.width} x {layout.canvas.height}px
           </span>
           {selectedItem && (
-            <span className="font-mono">
+            <span className="status-bar__text">
               Selection: {selectedItem.width} x {selectedItem.height}px
             </span>
           )}
@@ -2113,48 +2139,61 @@ function isPrimaryPointer(event: PointerEvent<HTMLElement>): boolean {
   return event.button === 0
 }
 
+type ResizeHandlesProps = {
+  active: boolean
+  labelPrefix: string
+  selected?: boolean
+  variant?: "default" | "canvas"
+  onPointerDown: (event: React.PointerEvent, edge: ResizeEdge) => void
+}
+
 function ResizeHandles({
   active,
   labelPrefix,
   selected = false,
+  variant = "default",
   onPointerDown,
-}: {
-  active: boolean
-  labelPrefix: string
-  selected?: boolean
-  onPointerDown: (
-    event: PointerEvent<HTMLButtonElement>,
-    edge: ResizeEdge
-  ) => void
-}) {
-  return RESIZE_HANDLES.map((handle) => (
-    <button
-      key={handle.edge}
-      aria-label={`${labelPrefix}: ${handle.label}`}
-      className={cn(
-        "pointer-events-auto absolute z-1000 bg-transparent opacity-0 transition-opacity outline-none group-hover:opacity-100 focus-visible:opacity-100",
-        active && "opacity-100",
-        handle.className
-      )}
-      type="button"
-      onPointerDown={(event) => onPointerDown(event, handle.edge)}
-    >
-      <span
+}: ResizeHandlesProps) {
+  return RESIZE_HANDLES.map((handle) => {
+    const isCanvasHandle = variant === "canvas"
+
+    return (
+      <button
+        key={handle.edge}
+        aria-label={`${labelPrefix}: ${handle.label}`}
         className={cn(
-          "pointer-events-none absolute box-border",
-          RESIZE_HANDLE_COLOR_CLASS,
-          selected
-            ? handle.type === "edge"
-              ? RESIZE_EDGE_SELECTED_BORDER_CLASS
-              : RESIZE_CORNER_SELECTED_BORDER_CLASS
-            : handle.type === "edge"
-              ? RESIZE_EDGE_HOVER_BORDER_CLASS
-              : RESIZE_CORNER_HOVER_BORDER_CLASS,
-          handle.indicatorClassName
+          "pointer-events-auto absolute z-1000 bg-transparent opacity-0 transition-opacity outline-none group-hover:opacity-100 focus-visible:opacity-100",
+          active && "opacity-100",
+          isCanvasHandle && "canvas-resize-handle",
+          handle.className
         )}
-      />
-    </button>
-  ))
+        data-edge={handle.edge}
+        data-handle-type={handle.type}
+        type="button"
+        onPointerDown={(event) => onPointerDown(event, handle.edge)}
+      >
+        <span
+          aria-hidden="true"
+          className={cn(
+            "pointer-events-none absolute box-border",
+            isCanvasHandle
+              ? "canvas-resize-handle__indicator"
+              : cn(
+                  RESIZE_HANDLE_COLOR_CLASS,
+                  selected
+                    ? handle.type === "edge"
+                      ? RESIZE_EDGE_SELECTED_BORDER_CLASS
+                      : RESIZE_CORNER_SELECTED_BORDER_CLASS
+                    : handle.type === "edge"
+                      ? RESIZE_EDGE_HOVER_BORDER_CLASS
+                      : RESIZE_CORNER_HOVER_BORDER_CLASS
+                ),
+            handle.indicatorClassName
+          )}
+        />
+      </button>
+    )
+  })
 }
 
 function NumberField({
@@ -2749,7 +2788,7 @@ function updateScale(next: CanvasItem, previous: CanvasItem): CanvasItem {
   }
 }
 
-function formatBatchDate(value: string | null): string {
+function formatCompositionDate(value: string | null): string {
   if (!value) {
     return "no date"
   }
@@ -2762,35 +2801,37 @@ function formatBatchDate(value: string | null): string {
   }).format(new Date(value))
 }
 
-function formatBatchTitle(batch: UserBatchItem | null): string {
-  if (!batch) {
-    return "Current build"
+function formatCompositionTitle(
+  composition: UserCompositionItem | null
+): string {
+  if (!composition) {
+    return "Current composition"
   }
 
-  return `${batch.imageCount} images`
+  return `${composition.imageCount} images`
 }
 
-function formatBatchMeta(batch: UserBatchItem): string {
-  const canvas = batch.canvas
-    ? `${Math.round(batch.canvas.width)}x${Math.round(batch.canvas.height)}`
+function formatCompositionMeta(composition: UserCompositionItem): string {
+  const canvas = composition.canvas
+    ? `${Math.round(composition.canvas.width)}x${Math.round(composition.canvas.height)}`
     : "canvas pending"
 
-  return `${canvas} · ${formatBatchDate(batch.createdAt)}`
+  return `${canvas} · ${formatCompositionDate(composition.createdAt)}`
 }
 
-function getInitialRemoteBatch(): RemoteBatch | null {
+function getInitialRemoteComposition(): RemoteComposition | null {
   const params = new URLSearchParams(window.location.search)
-  const batchId = params.get("batchId")
+  const compositionId = params.get("compositionId")
   const token = params.get("token")
 
-  if (!batchId || !token) {
+  if (!compositionId || !token) {
     return null
   }
 
-  return { batchId, token, outputUrl: null }
+  return { compositionId, token, jigsawImageUrl: null }
 }
 
-function parseRemoteBatchInput(value: string): RemoteBatch | null {
+function parseRemoteCompositionInput(value: string): RemoteComposition | null {
   const input = value.trim()
 
   if (!input) {
@@ -2799,38 +2840,38 @@ function parseRemoteBatchInput(value: string): RemoteBatch | null {
 
   try {
     const url = new URL(input)
-    const batchId = url.searchParams.get("batchId")
+    const compositionId = url.searchParams.get("compositionId")
     const token = url.searchParams.get("token")
 
-    if (batchId && token) {
-      return { batchId, token, outputUrl: null }
+    if (compositionId && token) {
+      return { compositionId, token, jigsawImageUrl: null }
     }
   } catch {
     // Not a URL. Fall through to compact code parsing.
   }
 
-  const [batchId, token] = input.split(/[\s:|,]+/).filter(Boolean)
+  const [compositionId, token] = input.split(/[\s:|,]+/).filter(Boolean)
 
-  if (!batchId || !token) {
+  if (!compositionId || !token) {
     return null
   }
 
-  return { batchId, token, outputUrl: null }
+  return { compositionId, token, jigsawImageUrl: null }
 }
 
-async function fetchBatchLayout(
-  batch: RemoteBatch,
+async function fetchCompositionLayout(
+  composition: RemoteComposition,
   authToken: string
-): Promise<ApiBatchLayout> {
-  return requestBatchLayout(batch, authToken, "GET")
+): Promise<ApiCompositionLayout> {
+  return requestCompositionLayout(composition, authToken, "GET")
 }
 
-async function requestBatchLayout(
-  batch: RemoteBatch,
+async function requestCompositionLayout(
+  composition: RemoteComposition,
   authToken: string,
   method: "GET" | "PATCH",
   body?: unknown
-): Promise<ApiBatchLayout> {
+): Promise<ApiCompositionLayout> {
   const headers: Record<string, string> = {
     Authorization: `Bearer ${authToken}`,
   }
@@ -2840,7 +2881,7 @@ async function requestBatchLayout(
   }
 
   const response = await fetch(
-    `${API_BASE_URL}/api/batches/${batch.batchId}/layout?token=${encodeURIComponent(batch.token)}`,
+    `${API_BASE_URL}/api/compositions/${composition.compositionId}/layout?token=${encodeURIComponent(composition.token)}`,
     {
       method,
       headers,
@@ -2848,7 +2889,7 @@ async function requestBatchLayout(
     }
   )
 
-  return readJsonResponse<ApiBatchLayout>(response)
+  return readJsonResponse<ApiCompositionLayout>(response)
 }
 
 async function readJsonResponse<T>(response: Response): Promise<T> {
