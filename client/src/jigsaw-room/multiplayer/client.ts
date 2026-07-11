@@ -3,7 +3,7 @@ import type {
   JigsawPlayer,
   JigsawSession,
   ServerToClientMessage,
-} from "@jigtable/jigsaw-core/multiplayer/protocol"
+} from "@jigtable/core/protocol"
 import { isRecord } from "@jigtable/shared/utils"
 
 import { API_BASE_URL, JIGSAW_WS_ENABLED, JIGSAW_WS_URL } from "@/config"

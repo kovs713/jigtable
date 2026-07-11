@@ -1,10 +1,7 @@
 import type { Application, Ticker } from "pixi.js"
 
-import { countPlacedPieces } from "@jigtable/jigsaw-core/jigsaw/groups"
-import type {
-  JigsawState,
-  JigsawStats,
-} from "@jigtable/jigsaw-core/jigsaw/types"
+import { countPlacedPieces } from "@jigtable/core/groups"
+import type { JigsawState, JigsawStats } from "@jigtable/core/types"
 import type { CameraController } from "./camera"
 
 export interface DebugTicker {

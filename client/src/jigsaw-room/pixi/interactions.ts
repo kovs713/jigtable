@@ -1,15 +1,8 @@
 import type { Application } from "pixi.js"
 
-import {
-  getGroupSnapshot,
-  moveGroupFromSnapshot,
-} from "@jigtable/jigsaw-core/jigsaw/groups"
-import { snapDroppedGroup } from "@jigtable/jigsaw-core/jigsaw/snap"
-import type {
-  GroupId,
-  JigsawState,
-  PieceId,
-} from "@jigtable/jigsaw-core/jigsaw/types"
+import { getGroupSnapshot, moveGroupFromSnapshot } from "@jigtable/core/groups"
+import { snapDroppedGroup } from "@jigtable/core/snap"
+import type { GroupId, JigsawState, PieceId } from "@jigtable/core/types"
 
 import type { CameraController, WorldPoint } from "./camera"
 import type { PieceViewSet } from "./pieces"

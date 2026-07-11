@@ -1,4 +1,4 @@
-import type { JigsawConfig } from "@jigtable/jigsaw-core/jigsaw/types"
+import type { JigsawConfig } from "@jigtable/core/types"
 import { isRecord } from "@jigtable/shared"
 
 import { API_BASE_URL, TELEGRAM_BOT_USERNAME } from "@/config"
@@ -33,7 +33,7 @@ export interface JigsawHistoryItem {
   imageUrl: string | null
   jigsawConfig: JigsawConfig | null
   source: {
-    kind: "dev" | "batch_render" | "external"
+    kind: "dev" | "jigsaw_image" | "external"
     label: string
   }
   participants: Array<{

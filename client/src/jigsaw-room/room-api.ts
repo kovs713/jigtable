@@ -1,8 +1,8 @@
-import type { JigsawConfig } from "@jigtable/jigsaw-core"
+import type { JigsawConfig } from "@jigtable/core"
 import type {
   CreateJigsawRoomResponse,
   JigsawRoomSnapshot,
-} from "@jigtable/jigsaw-core/multiplayer/protocol"
+} from "@jigtable/core/protocol"
 import { isRecord } from "@jigtable/shared/utils"
 
 import { API_BASE_URL } from "@/config"
@@ -14,9 +14,9 @@ export interface CreateJigsawRoomInput {
   sourceHeight?: number
 }
 
-export interface UserBatchItem {
-  batchId: string
-  batchToken: string
+export interface UserCompositionItem {
+  compositionId: string
+  compositionToken: string
   status: string
   createdAt: string | null
   imageCount: number
@@ -39,9 +39,9 @@ export async function createJigsawRoom(
   return readJsonResponse<CreateJigsawRoomResponse>(response)
 }
 
-export async function createJigsawRoomFromBatch(
-  batchId: string,
-  batchToken: string,
+export async function createJigsawRoomFromComposition(
+  compositionId: string,
+  compositionToken: string,
   pieceCount: number,
   authToken: string
 ): Promise<CreateJigsawRoomResponse> {
@@ -51,25 +51,25 @@ export async function createJigsawRoomFromBatch(
       Authorization: `Bearer ${authToken}`,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ batchId, batchToken, pieceCount }),
+    body: JSON.stringify({ compositionId, compositionToken, pieceCount }),
   })
 
   return readJsonResponse<CreateJigsawRoomResponse>(response)
 }
 
-export async function fetchUserBatches(
+export async function fetchUserCompositions(
   authToken: string
-): Promise<UserBatchItem[]> {
-  const response = await fetch(`${API_BASE_URL}/api/me/batches`, {
+): Promise<UserCompositionItem[]> {
+  const response = await fetch(`${API_BASE_URL}/api/me/compositions`, {
     headers: { Authorization: `Bearer ${authToken}` },
   })
   const payload = await readJsonResponse<unknown>(response)
 
-  if (!isRecord(payload) || !Array.isArray(payload.batches)) {
-    throw new Error("Invalid batches response")
+  if (!isRecord(payload) || !Array.isArray(payload.compositions)) {
+    throw new Error("Invalid compositions response")
   }
 
-  return payload.batches as UserBatchItem[]
+  return payload.compositions as UserCompositionItem[]
 }
 
 export async function fetchJigsawRoomSnapshot(

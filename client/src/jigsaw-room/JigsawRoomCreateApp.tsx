@@ -1,7 +1,7 @@
 import * as React from "react"
 import { useEffect, useMemo, useRef, useState } from "react"
 
-import type { CreateJigsawRoomResponse } from "@jigtable/jigsaw-core/multiplayer/protocol"
+import type { CreateJigsawRoomResponse } from "@jigtable/core/protocol"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -28,15 +28,15 @@ import {
   type JigsawHistoryItem,
 } from "./multiplayer/auth"
 import {
-  createJigsawRoomFromBatch,
-  fetchUserBatches,
-  type UserBatchItem,
+  createJigsawRoomFromComposition,
+  fetchUserCompositions,
+  type UserCompositionItem,
 } from "./room-api"
 
 import "./jigsaw-room-create.css"
 import "./jigsaw-room.css"
 
-type BatchLayoutItem = {
+type CompositionLayoutItem = {
   id: string
   src: string
   x: number
@@ -45,9 +45,9 @@ type BatchLayoutItem = {
   height: number
 }
 
-type BatchLayout = {
+type CompositionLayout = {
   canvas: { width: number; height: number }
-  items: BatchLayoutItem[]
+  items: CompositionLayoutItem[]
 }
 
 type DifficultyTier = {
@@ -91,9 +91,14 @@ function getPresetRanges(presets: number[]) {
 
 export function JigsawRoomCreateApp() {
   const widgetRef = useRef<HTMLDivElement | null>(null)
-  const initialBatchId = useMemo(() => getInitialBatchId(), [])
-  const initialBatchToken = useMemo(() => getInitialBatchToken(), [])
-  const hasBatchParams = Boolean(initialBatchId && initialBatchToken)
+  const initialCompositionId = useMemo(() => getInitialCompositionId(), [])
+  const initialCompositionToken = useMemo(
+    () => getInitialCompositionToken(),
+    []
+  )
+  const hasCompositionParams = Boolean(
+    initialCompositionId && initialCompositionToken
+  )
 
   const [authSession, setAuthSession] = useState<AuthSession | null>(() =>
     readLocalAuthSession()
@@ -110,14 +115,18 @@ export function JigsawRoomCreateApp() {
   const [createdRoom, setCreatedRoom] =
     useState<CreateJigsawRoomResponse | null>(null)
   const [copied, setCopied] = useState(false)
-  const [batchPreview, setBatchPreview] = useState<BatchLayout | null>(null)
-  const [batches, setBatches] = useState<UserBatchItem[]>([])
-  const [selectedBatch, setSelectedBatch] = useState<{
-    batchId: string
-    batchToken: string
+  const [compositionPreview, setCompositionPreview] =
+    useState<CompositionLayout | null>(null)
+  const [compositions, setCompositions] = useState<UserCompositionItem[]>([])
+  const [selectedComposition, setSelectedComposition] = useState<{
+    compositionId: string
+    compositionToken: string
   } | null>(() =>
-    initialBatchId && initialBatchToken
-      ? { batchId: initialBatchId, batchToken: initialBatchToken }
+    initialCompositionId && initialCompositionToken
+      ? {
+          compositionId: initialCompositionId,
+          compositionToken: initialCompositionToken,
+        }
       : null
   )
   const [history, setHistory] = useState<JigsawHistoryItem[]>([])
@@ -146,14 +155,14 @@ export function JigsawRoomCreateApp() {
     if (!authSession) return
     let disposed = false
 
-    void fetchUserBatches(authSession.token)
+    void fetchUserCompositions(authSession.token)
       .then((items) => {
         if (disposed) return
-        setBatches(items)
-        if (!selectedBatch && items[0]) {
-          setSelectedBatch({
-            batchId: items[0].batchId,
-            batchToken: items[0].batchToken,
+        setCompositions(items)
+        if (!selectedComposition && items[0]) {
+          setSelectedComposition({
+            compositionId: items[0].compositionId,
+            compositionToken: items[0].compositionToken,
           })
         }
       })
@@ -164,7 +173,7 @@ export function JigsawRoomCreateApp() {
     return () => {
       disposed = true
     }
-  }, [authSession, selectedBatch])
+  }, [authSession, selectedComposition])
 
   useEffect(() => {
     if (!historyOpen) return
@@ -186,36 +195,36 @@ export function JigsawRoomCreateApp() {
     setStatus(`Loaded: ${item.source.label}`)
   }
 
-  function selectBuild(batch: UserBatchItem): void {
-    setSelectedBatch({
-      batchId: batch.batchId,
-      batchToken: batch.batchToken,
+  function selectComposition(composition: UserCompositionItem): void {
+    setSelectedComposition({
+      compositionId: composition.compositionId,
+      compositionToken: composition.compositionToken,
     })
-    setBatchPreview(null)
+    setCompositionPreview(null)
     setStatus("Choose jigsaw size")
   }
 
   useEffect(() => {
-    if (!selectedBatch || !authSession) return
+    if (!selectedComposition || !authSession) return
 
     let disposed = false
 
     void fetch(
-      `${API_BASE_URL}/api/batches/${selectedBatch.batchId}/layout?token=${encodeURIComponent(selectedBatch.batchToken)}`,
+      `${API_BASE_URL}/api/compositions/${selectedComposition.compositionId}/layout?token=${encodeURIComponent(selectedComposition.compositionToken)}`,
       { headers: { Authorization: `Bearer ${authSession.token}` } }
     )
       .then((r) => r.json())
       .then((payload: unknown) => {
         if (disposed) return
-        const p = payload as { layout?: BatchLayout }
-        if (p?.layout) setBatchPreview(p.layout)
+        const p = payload as { layout?: CompositionLayout }
+        if (p?.layout) setCompositionPreview(p.layout)
       })
       .catch(() => {})
 
     return () => {
       disposed = true
     }
-  }, [selectedBatch, authSession])
+  }, [selectedComposition, authSession])
 
   useEffect(() => {
     const saved = readLocalAuthSession()
@@ -367,10 +376,10 @@ export function JigsawRoomCreateApp() {
       return
     }
 
-    const batchId = selectedBatch?.batchId
-    const batchToken = selectedBatch?.batchToken
+    const compositionId = selectedComposition?.compositionId
+    const compositionToken = selectedComposition?.compositionToken
 
-    if (!batchId || !batchToken) {
+    if (!compositionId || !compositionToken) {
       setStatus("choose a build first")
       setIsError(true)
       return
@@ -381,9 +390,9 @@ export function JigsawRoomCreateApp() {
     setIsError(false)
 
     try {
-      const payload = await createJigsawRoomFromBatch(
-        batchId,
-        batchToken,
+      const payload = await createJigsawRoomFromComposition(
+        compositionId,
+        compositionToken,
         pieceCount,
         authSession.token
       )
@@ -419,10 +428,13 @@ export function JigsawRoomCreateApp() {
     }
   }
 
-  const selectedBatchInfo = selectedBatch
-    ? batches.find((batch) => batch.batchId === selectedBatch.batchId)
+  const selectedCompositionInfo = selectedComposition
+    ? compositions.find(
+        (composition) =>
+          composition.compositionId === selectedComposition.compositionId
+      )
     : null
-  const selectedBatchView = selectedBatchInfo ?? null
+  const selectedCompositionView = selectedCompositionInfo ?? null
 
   return (
     <main className="jigsaw-room jigsaw-room--create">
@@ -469,47 +481,58 @@ export function JigsawRoomCreateApp() {
         </div>
 
         <div className="jigsaw-room__create-form">
-          {selectedBatch ? (
+          {selectedComposition ? (
             <div className="jigsaw-room__input-group">
               <span>Build</span>
               <Select
-                value={selectedBatch.batchId}
+                value={selectedComposition.compositionId}
                 onValueChange={(value) => {
-                  const batch = batches.find((item) => item.batchId === value)
-                  if (batch) selectBuild(batch)
+                  const composition = compositions.find(
+                    (item) => item.compositionId === value
+                  )
+                  if (composition) selectComposition(composition)
                 }}
               >
                 <SelectTrigger className="jigsaw-room__build-select-trigger">
                   <SelectValue>
-                    {formatBatchTitle(selectedBatchView)} ·{" "}
-                    {formatBatchMeta(selectedBatchView)}
+                    {formatCompositionTitle(selectedCompositionView)} ·{" "}
+                    {formatCompositionMeta(selectedCompositionView)}
                   </SelectValue>
                 </SelectTrigger>
                 <SelectContent className="jigsaw-room__build-select-content">
-                  {batches.map((batch, index) => (
-                    <SelectItem key={batch.batchId} value={batch.batchId}>
-                      {String(index + 1).padStart(2, "0")} · {batch.imageCount}{" "}
-                      images · {formatBatchMeta(batch)}
+                  {compositions.map((composition, index) => (
+                    <SelectItem
+                      key={composition.compositionId}
+                      value={composition.compositionId}
+                    >
+                      {String(index + 1).padStart(2, "0")} ·{" "}
+                      {composition.imageCount} images ·{" "}
+                      {formatCompositionMeta(composition)}
                     </SelectItem>
                   ))}
-                  {!batches.length ? (
-                    <SelectItem value={selectedBatch.batchId} disabled>
+                  {!compositions.length ? (
+                    <SelectItem
+                      value={selectedComposition.compositionId}
+                      disabled
+                    >
                       no other builds found
                     </SelectItem>
                   ) : null}
-                  {hasBatchParams &&
-                  !batches.some(
-                    (batch) => batch.batchId === selectedBatch.batchId
+                  {hasCompositionParams &&
+                  !compositions.some(
+                    (composition) =>
+                      composition.compositionId ===
+                      selectedComposition.compositionId
                   ) ? (
-                    <SelectItem value={selectedBatch.batchId}>
-                      Current build · Opened from bot link
+                    <SelectItem value={selectedComposition.compositionId}>
+                      Current composition · Opened from bot link
                     </SelectItem>
                   ) : null}
                 </SelectContent>
               </Select>
               <div className="jigsaw-room__image-preview">
-                {batchPreview ? (
-                  <BatchCanvasPreview layout={batchPreview} />
+                {compositionPreview ? (
+                  <CompositionCanvasPreview layout={compositionPreview} />
                 ) : (
                   <div className="jigsaw-room__image-placeholder">
                     <span>Loading preview…</span>
@@ -622,7 +645,7 @@ export function JigsawRoomCreateApp() {
 
           <Button
             className="jigsaw-room__submit-btn"
-            disabled={creating || !selectedBatch || !authSession}
+            disabled={creating || !selectedComposition || !authSession}
             onClick={() => void createRoom()}
           >
             {creating && (
@@ -678,17 +701,17 @@ function readErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : "tg login failed"
 }
 
-function getInitialBatchId(): string | null {
+function getInitialCompositionId(): string | null {
   const params = new URLSearchParams(window.location.search)
-  return params.get("batchId")?.trim() || null
+  return params.get("compositionId")?.trim() || null
 }
 
-function getInitialBatchToken(): string | null {
+function getInitialCompositionToken(): string | null {
   const params = new URLSearchParams(window.location.search)
-  return params.get("batchToken")?.trim() || null
+  return params.get("compositionToken")?.trim() || null
 }
 
-function formatBatchDate(value: string | null): string {
+function formatCompositionDate(value: string | null): string {
   if (!value) return "no date"
 
   return new Intl.DateTimeFormat("ru-RU", {
@@ -699,23 +722,27 @@ function formatBatchDate(value: string | null): string {
   }).format(new Date(value))
 }
 
-function formatBatchTitle(batch: UserBatchItem | null): string {
-  if (!batch) return "Current build"
+function formatCompositionTitle(
+  composition: UserCompositionItem | null
+): string {
+  if (!composition) return "Current composition"
 
-  return `${batch.imageCount} images`
+  return `${composition.imageCount} images`
 }
 
-function formatBatchMeta(batch: UserBatchItem | null): string {
-  if (!batch) return "Opened from bot link"
+function formatCompositionMeta(
+  composition: UserCompositionItem | null
+): string {
+  if (!composition) return "Opened from bot link"
 
-  const canvas = batch.canvas
-    ? `${Math.round(batch.canvas.width)}x${Math.round(batch.canvas.height)}`
+  const canvas = composition.canvas
+    ? `${Math.round(composition.canvas.width)}x${Math.round(composition.canvas.height)}`
     : "canvas pending"
 
-  return `${canvas} · ${formatBatchDate(batch.createdAt)}`
+  return `${canvas} · ${formatCompositionDate(composition.createdAt)}`
 }
 
-function BatchCanvasPreview({ layout }: { layout: BatchLayout }) {
+function CompositionCanvasPreview({ layout }: { layout: CompositionLayout }) {
   const canvasRef = React.useRef<HTMLCanvasElement>(null)
   const [src, setSrc] = useState<string | null>(null)
 

@@ -1,8 +1,8 @@
 import type { Application, Texture } from "pixi.js"
 import { Container, Graphics, Sprite } from "pixi.js"
 
-import { getJigsawBounds } from "@jigtable/jigsaw-core/jigsaw/config"
-import type { JigsawState } from "@jigtable/jigsaw-core/jigsaw/types"
+import { getJigsawBounds } from "@jigtable/core/config"
+import type { JigsawState } from "@jigtable/core/types"
 
 export interface SceneColors {
   boardFill: number
@@ -47,7 +47,7 @@ export function createJigsawScene(
     state,
     imageTexture,
     colors,
-    previewOverlay,
+    previewOverlay
   )
   preview.visible = false
   overlayLayer.addChild(preview)
@@ -110,7 +110,7 @@ function createPreviewOverlay(
   state: JigsawState,
   imageTexture: Texture,
   colors: SceneColors,
-  overlay: Graphics,
+  overlay: Graphics
 ): Container {
   const board = getJigsawBounds(state.config)
   const preview = new Container({ label: "jigsaw-preview" })

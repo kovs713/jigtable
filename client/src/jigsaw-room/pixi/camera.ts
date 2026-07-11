@@ -1,9 +1,6 @@
 import type { Application, Container } from "pixi.js"
 
-import type {
-  JigsawConfig,
-  WorldRect,
-} from "@jigtable/jigsaw-core/jigsaw/types"
+import type { JigsawConfig, WorldRect } from "@jigtable/core/types"
 
 export interface WorldPoint {
   x: number
@@ -130,9 +127,11 @@ export function createCameraController(
     canvas.style.cursor = ""
   }
 
-  function getPinchDetails():
-    | { centerClientX: number; centerClientY: number; distance: number }
-    | null {
+  function getPinchDetails(): {
+    centerClientX: number
+    centerClientY: number
+    distance: number
+  } | null {
     const activeTouches = Array.from(touches.values()).slice(0, 2)
 
     if (activeTouches.length < 2) {

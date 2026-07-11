@@ -1,13 +1,13 @@
 import { Container, Graphics } from "pixi.js"
 
+import type { JigsawLock } from "@jigtable/core/protocol"
 import type {
   JigsawState,
   PieceDefinition,
   PieceEdgePoint,
   PieceEdgeShape,
   PieceId,
-} from "@jigtable/jigsaw-core/jigsaw/types"
-import type { JigsawLock } from "@jigtable/jigsaw-core/multiplayer/protocol"
+} from "@jigtable/core/types"
 
 import type { PieceViewSet } from "./pieces"
 
