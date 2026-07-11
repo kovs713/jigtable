@@ -1019,7 +1019,7 @@ export function App() {
   }
 
   function startItemResize(
-    event: PointerEvent<HTMLButtonElement>,
+    event: PointerEvent<Element>,
     item: CanvasItem,
     edge: ResizeEdge
   ) {
@@ -1056,7 +1056,7 @@ export function App() {
   }
 
   function startCanvasResize(
-    event: PointerEvent<HTMLButtonElement>,
+    event: PointerEvent<Element>,
     edge: ResizeEdge
   ) {
     if (!isPrimaryPointer(event)) {
@@ -2135,7 +2135,9 @@ function getConnectorPath(from: DOMRect, to: DOMRect): string {
   return `M ${x1} ${y1} C ${midX} ${y1}, ${midX} ${y2}, ${x2} ${y2}`
 }
 
-function isPrimaryPointer(event: PointerEvent<HTMLElement>): boolean {
+function isPrimaryPointer<T extends Element>(
+  event: PointerEvent<T>
+): boolean {
   return event.button === 0
 }
 

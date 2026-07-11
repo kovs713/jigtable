@@ -5,23 +5,9 @@ import {
   createImageJigsawConfig,
   getPlayAreaBounds,
   JIGSAW_CONFIG_2000,
-} from "@jigtable/jigsaw-core/jigsaw/config"
-import { createJigsawState } from "@jigtable/jigsaw-core/jigsaw/generate-jigsaw"
-import {
-  getGroupAnchor,
-  moveGroupToAnchor,
-} from "@jigtable/jigsaw-core/jigsaw/groups"
-import {
-  arrangeLoosePieces,
-  scatterAllPieces,
-  type ArrangeLoosePiecesMode,
-} from "@jigtable/jigsaw-core/jigsaw/scatter"
-import type {
-  GroupId,
-  JigsawState,
-  JigsawStats,
-  PieceId,
-} from "@jigtable/jigsaw-core/jigsaw/types"
+} from "@jigtable/core/config"
+import { createJigsawState } from "@jigtable/core/generate"
+import { getGroupAnchor, moveGroupToAnchor } from "@jigtable/core/groups"
 import type {
   JigsawGroupLock,
   JigsawLock,
@@ -30,7 +16,18 @@ import type {
   JigsawRoomTimer,
   JigsawSession,
   ServerToClientMessage,
-} from "@jigtable/jigsaw-core/multiplayer/protocol"
+} from "@jigtable/core/protocol"
+import {
+  arrangeLoosePieces,
+  scatterAllPieces,
+  type ArrangeLoosePiecesMode,
+} from "@jigtable/core/scatter"
+import type {
+  GroupId,
+  JigsawState,
+  JigsawStats,
+  PieceId,
+} from "@jigtable/core/types"
 
 import { loadImageTexture } from "./image-texture"
 import {
