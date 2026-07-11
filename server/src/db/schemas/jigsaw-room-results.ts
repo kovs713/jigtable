@@ -1,10 +1,10 @@
 import { integer, jsonb, pgTable, text, timestamp } from "drizzle-orm/pg-core"
 
-import type { JigsawConfig } from "@jigtable/jigsaw-core"
+import type { JigsawConfig } from "@jigtable/core/types"
 
 export type JigsawSafeAssetRef =
   | { kind: "dev"; assetId: string }
-  | { kind: "batch_render"; batchId: string; assetId: string }
+  | { kind: "jigsaw_image"; compositionId: string; assetId: string }
   | { kind: "external"; assetId: string; sourceHash: string; origin?: string }
 
 export interface JigsawResultParticipant {
