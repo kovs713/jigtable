@@ -1,5 +1,6 @@
 import { jsonb, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core"
 
+import type { RenderFormat } from "@/native"
 import type { CompositionLayout } from "@/native/composition-layout-engine"
 
 export const CompositionStatus = {
@@ -22,8 +23,7 @@ export const compositionsSchema = pgTable("compositions", {
     .default(CompositionStatus.Collecting)
     .$type<CompositionStatus>(),
   layout: jsonb("layout").$type<CompositionLayout>(),
-  jigsawImageKey: text("jigsaw_image_key"),
-  jigsawImageFormat: text("jigsaw_image_format"),
+  jigsawImageFormat: text("jigsaw_image_format").$type<RenderFormat>(),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 })
