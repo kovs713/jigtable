@@ -2,15 +2,15 @@ import type { GroupId, JigsawState } from "@jigtable/core"
 import type {
   JigsawGroupLock,
   JigsawLock,
-  JigsawPlayer,
-  JigsawPlayerCursor,
-  JigsawRoomSnapshot,
-  JigsawRoomStats,
-  JigsawRoomTimer,
+  Player as JigsawPlayer,
+  PlayerCursor as JigsawPlayerCursor,
+  RoomSnapshot as JigsawRoomSnapshot,
+  RoomStats as JigsawRoomStats,
+  RoomTimer as JigsawRoomTimer,
 } from "@jigtable/core/protocol"
 
 import type { WsSocket } from "@/api/ws/types"
-import type { JigsawSafeAssetRef } from "../../../services/jigsaw-history/history-typesry/history-types"
+import type { JigsawSafeAssetRef } from "../history/history-types"
 
 export type JigsawSocket = WsSocket
 

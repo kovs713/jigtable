@@ -1,4 +1,4 @@
-import type { JigsawSession } from "@jigtable/core"
+import type { PlayerSession } from "@jigtable/core"
 
 import type { Services } from "@/services"
 import { ApiError, errorResponse } from "./errors"
@@ -22,7 +22,7 @@ export type JigsawSessionContext =
     }
   | {
       status: "authenticated"
-      session: JigsawSession
+      session: PlayerSession
     }
 
 export type Context = {
@@ -117,7 +117,8 @@ export function createRouter(options: {
         params: {},
         query: url.searchParams,
         services: options.services,
-        actor: null,
+        auth: null,
+        jigsaw: { status: "anonymous" },
       })
     },
   }

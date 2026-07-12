@@ -1,4 +1,4 @@
-import type { JigsawPlayer } from "@jigtable/core/protocol"
+import type { Player as JigsawPlayer } from "@jigtable/core/protocol"
 
 import { createPlayerId } from "./session-ids"
 

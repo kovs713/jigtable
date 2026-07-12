@@ -1,6 +1,6 @@
 import type { ServerWebSocket } from "bun"
 
-import type { JigsawPlayer } from "@jigtable/core/protocol"
+import type { Player as JigsawPlayer } from "@jigtable/core/protocol"
 
 import type { Services } from "@/services"
 

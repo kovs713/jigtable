@@ -1,4 +1,4 @@
-import type { JigsawSession } from "@jigtable/core/protocol"
+import type { PlayerSession as JigsawSession } from "@jigtable/core/protocol"
 
 export type { JigsawSession }
 

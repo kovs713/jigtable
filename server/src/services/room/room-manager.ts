@@ -1,5 +1,5 @@
 import { moveGroupToAnchor } from "@jigtable/core/groups"
-import type { JigsawPlayer } from "@jigtable/core/protocol"
+import type { Player as JigsawPlayer } from "@jigtable/core/protocol"
 import type { ArrangeLoosePiecesMode } from "@jigtable/core/scatter"
 import { arrangeLoosePieces } from "@jigtable/core/scatter"
 import { snapDroppedGroup } from "@jigtable/core/snap"
@@ -13,8 +13,8 @@ import {
 } from "@/api/ws/send"
 import { LIMITS } from "@/config"
 import { wsRoomsCurrent, wsUsersCurrent } from "@/observability/metrics"
-import type { JigsawHistoryStore } from "../../../services/jigsaw-history/history-storery/history-store"
-import type { JigsawSessionStore } from "../../../services/jigsaw-session/session-storeon/session-store"
+import type { HistoryService } from "../history/history-store"
+import type { SessionService } from "../session/session-store"
 import { markRoomCompletedIfSolved } from "./room-completion"
 import { createJigsawRoomRecord } from "./room-factory"
 import {
@@ -47,8 +47,8 @@ export class RoomService {
   private readonly rooms = new Map<string, JigsawRoom>()
 
   constructor(
-    private readonly sessionStore: JigsawSessionStore,
-    private readonly historyStore: JigsawHistoryStore
+    private readonly sessionStore: SessionService,
+    private readonly historyStore: HistoryService
   ) {
     setInterval(
       () => this.cleanupExpiredRooms(),
@@ -268,7 +268,7 @@ export class RoomService {
 
       void this.historyStore
         .markParticipantLeft(room.roomId, player.id)
-        .catch((error) =>
+        .catch((error: unknown) =>
           console.error("Jigsaw participant leave failed", error)
         )
 
@@ -900,7 +900,7 @@ export class RoomService {
         snapCount: completed.snapCount,
         completedAt: new Date(completed.completedAt),
       })
-      .catch((error) =>
+      .catch((error: unknown) =>
         console.error("Jigsaw completion history failed", error)
       )
   }

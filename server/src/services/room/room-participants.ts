@@ -1,4 +1,4 @@
-import type { JigsawPlayer } from "@jigtable/core/protocol"
+import type { Player as JigsawPlayer } from "@jigtable/core/protocol"
 
 import { broadcast } from "@/api/ws/send"
 import type { JigsawPlayerCursor, JigsawRoom } from "./room-types"
