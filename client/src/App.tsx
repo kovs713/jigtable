@@ -7,6 +7,7 @@ import type {
 } from "react"
 import { forwardRef, useCallback, useEffect, useRef, useState } from "react"
 
+import { apiRoutes } from "@jigtable/shared/api-routes"
 import { isRecord } from "@jigtable/shared/utils"
 
 import { Button } from "@/components/ui/button"
@@ -1055,10 +1056,7 @@ export function App() {
     dragStartLayoutRef.current = structuredClone(layoutRef.current)
   }
 
-  function startCanvasResize(
-    event: PointerEvent<Element>,
-    edge: ResizeEdge
-  ) {
+  function startCanvasResize(event: PointerEvent<Element>, edge: ResizeEdge) {
     if (!isPrimaryPointer(event)) {
       return
     }
@@ -1366,7 +1364,7 @@ export function App() {
 
     try {
       const response = await fetch(
-        `${API_BASE_URL}/api/compositions/${remoteComposition.compositionId}/render?token=${encodeURIComponent(remoteComposition.token)}`,
+        `${API_BASE_URL}${apiRoutes.compositions.post.render.build(remoteComposition.compositionId)}?token=${encodeURIComponent(remoteComposition.token)}`,
         {
           method: "POST",
           headers: {
@@ -2135,9 +2133,7 @@ function getConnectorPath(from: DOMRect, to: DOMRect): string {
   return `M ${x1} ${y1} C ${midX} ${y1}, ${midX} ${y2}, ${x2} ${y2}`
 }
 
-function isPrimaryPointer<T extends Element>(
-  event: PointerEvent<T>
-): boolean {
+function isPrimaryPointer<T extends Element>(event: PointerEvent<T>): boolean {
   return event.button === 0
 }
 
@@ -2883,7 +2879,7 @@ async function requestCompositionLayout(
   }
 
   const response = await fetch(
-    `${API_BASE_URL}/api/compositions/${composition.compositionId}/layout?token=${encodeURIComponent(composition.token)}`,
+    `${API_BASE_URL}${apiRoutes.compositions.get.layout.build(composition.compositionId)}?token=${encodeURIComponent(composition.token)}`,
     {
       method,
       headers,

@@ -4,6 +4,7 @@ import type {
   PlayerSession as JigsawSession,
   ServerToClientMessage,
 } from "@jigtable/core/protocol"
+import { apiRoutes } from "@jigtable/shared/api-routes"
 import { isRecord } from "@jigtable/shared/utils"
 
 import { API_BASE_URL, JIGSAW_WS_ENABLED, JIGSAW_WS_URL } from "@/config"
@@ -116,15 +117,18 @@ export async function restoreJigsawSession(
   fallback: JigsawSession,
   roomId?: string
 ): Promise<JigsawSession> {
-  const response = await fetch(`${API_BASE_URL}/api/sessions`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      token: fallback.token,
-      player: fallback.player,
-      roomId,
-    }),
-  })
+  const response = await fetch(
+    `${API_BASE_URL}${apiRoutes.sessions.post.pattern}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        token: fallback.token,
+        player: fallback.player,
+        roomId,
+      }),
+    }
+  )
   const payload = await response.json().catch(() => null)
 
   if (!response.ok) {
@@ -148,14 +152,17 @@ export async function saveJigsawSessionProfile(
   sessionToken: string,
   profile: Pick<JigsawPlayer, "name" | "color">
 ): Promise<JigsawSession> {
-  const response = await fetch(`${API_BASE_URL}/api/sessions/current`, {
-    method: "PATCH",
-    headers: {
-      Authorization: `Bearer ${sessionToken}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ player: profile }),
-  })
+  const response = await fetch(
+    `${API_BASE_URL}${apiRoutes.sessions.patch.current.pattern}`,
+    {
+      method: "PATCH",
+      headers: {
+        Authorization: `Bearer ${sessionToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ player: profile }),
+    }
+  )
   const payload = await response.json().catch(() => null)
 
   if (!response.ok) {

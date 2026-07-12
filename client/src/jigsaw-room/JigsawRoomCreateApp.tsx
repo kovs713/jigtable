@@ -2,6 +2,7 @@ import * as React from "react"
 import { useEffect, useMemo, useRef, useState } from "react"
 
 import type { CreateJigsawRoomResponse } from "@jigtable/core/protocol"
+import { apiRoutes } from "@jigtable/shared/api-routes"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -210,7 +211,7 @@ export function JigsawRoomCreateApp() {
     let disposed = false
 
     void fetch(
-      `${API_BASE_URL}/api/compositions/${selectedComposition.compositionId}/layout?token=${encodeURIComponent(selectedComposition.compositionToken)}`,
+      `${API_BASE_URL}${apiRoutes.compositions.get.layout.build(selectedComposition.compositionId)}?token=${encodeURIComponent(selectedComposition.compositionToken)}`,
       { headers: { Authorization: `Bearer ${authSession.token}` } }
     )
       .then((r) => r.json())

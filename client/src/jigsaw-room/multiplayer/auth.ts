@@ -1,5 +1,6 @@
 import type { JigsawConfig } from "@jigtable/core/types"
 import { isRecord } from "@jigtable/shared"
+import { apiRoutes } from "@jigtable/shared/api-routes"
 
 import { API_BASE_URL, TELEGRAM_BOT_USERNAME } from "@/config"
 
@@ -147,7 +148,7 @@ export async function loginTelegramWebApp(
     throw new Error("Open from Telegram to login")
   }
 
-  return requestAuth("/api/auth/telegram-webapp", {
+  return requestAuth(apiRoutes.auth.post.telegram.webapp.pattern, {
     initData,
     anonSessionToken,
   })
@@ -157,22 +158,25 @@ export async function loginTelegramWidget(
   payload: Record<string, unknown>,
   anonSessionToken?: string
 ): Promise<AuthSession> {
-  return requestAuth("/api/auth/telegram-widget", {
+  return requestAuth(apiRoutes.auth.post.telegram.widget.pattern, {
     ...payload,
     anonSessionToken,
   })
 }
 
 export async function loginDev(): Promise<AuthSession> {
-  return requestAuth("/api/auth/dev-login", {
+  return requestAuth(apiRoutes.auth.post.devLogin.pattern, {
     telegramId: import.meta.env.VITE_DEV_TELEGRAM_ID,
   })
 }
 
 export async function fetchAuthMe(token: string): Promise<AuthSession> {
-  const response = await fetch(`${API_BASE_URL}/api/auth/me`, {
-    headers: authHeaders(token),
-  })
+  const response = await fetch(
+    `${API_BASE_URL}${apiRoutes.auth.get.me.pattern}`,
+    {
+      headers: authHeaders(token),
+    }
+  )
   let payload: unknown
 
   try {
@@ -203,9 +207,12 @@ export async function fetchAuthMe(token: string): Promise<AuthSession> {
 export async function fetchJigsawHistory(
   token: string
 ): Promise<JigsawHistoryItem[]> {
-  const response = await fetch(`${API_BASE_URL}/api/me/jigsaw-history`, {
-    headers: authHeaders(token),
-  })
+  const response = await fetch(
+    `${API_BASE_URL}${apiRoutes.auth.get.history.pattern}`,
+    {
+      headers: authHeaders(token),
+    }
+  )
   const payload = await readJson(response)
 
   if (!isRecord(payload) || !Array.isArray(payload.history)) {

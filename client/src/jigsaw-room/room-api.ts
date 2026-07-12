@@ -3,6 +3,7 @@ import type {
   CreateJigsawRoomResponse,
   RoomSnapshot as JigsawRoomSnapshot,
 } from "@jigtable/core/protocol"
+import { apiRoutes } from "@jigtable/shared/api-routes"
 import { isRecord } from "@jigtable/shared/utils"
 
 import { API_BASE_URL } from "@/config"
@@ -27,14 +28,17 @@ export async function createJigsawRoom(
   input: CreateJigsawRoomInput,
   authToken: string
 ): Promise<CreateJigsawRoomResponse> {
-  const response = await fetch(`${API_BASE_URL}/api/rooms`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${authToken}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(input),
-  })
+  const response = await fetch(
+    `${API_BASE_URL}${apiRoutes.rooms.post.pattern}`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${authToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(input),
+    }
+  )
 
   return readJsonResponse<CreateJigsawRoomResponse>(response)
 }
@@ -45,14 +49,17 @@ export async function createJigsawRoomFromComposition(
   pieceCount: number,
   authToken: string
 ): Promise<CreateJigsawRoomResponse> {
-  const response = await fetch(`${API_BASE_URL}/api/rooms`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${authToken}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ compositionId, compositionToken, pieceCount }),
-  })
+  const response = await fetch(
+    `${API_BASE_URL}${apiRoutes.rooms.post.pattern}`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${authToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ compositionId, compositionToken, pieceCount }),
+    }
+  )
 
   return readJsonResponse<CreateJigsawRoomResponse>(response)
 }
@@ -60,9 +67,12 @@ export async function createJigsawRoomFromComposition(
 export async function fetchUserCompositions(
   authToken: string
 ): Promise<UserCompositionItem[]> {
-  const response = await fetch(`${API_BASE_URL}/api/me/compositions`, {
-    headers: { Authorization: `Bearer ${authToken}` },
-  })
+  const response = await fetch(
+    `${API_BASE_URL}${apiRoutes.compositions.get.me.pattern}`,
+    {
+      headers: { Authorization: `Bearer ${authToken}` },
+    }
+  )
   const payload = await readJsonResponse<unknown>(response)
 
   if (!isRecord(payload) || !Array.isArray(payload.compositions)) {
@@ -76,7 +86,7 @@ export async function fetchJigsawRoomSnapshot(
   roomId: string
 ): Promise<JigsawRoomSnapshot> {
   const response = await fetch(
-    `${API_BASE_URL}/api/rooms/${encodeURIComponent(roomId)}`
+    `${API_BASE_URL}${apiRoutes.rooms.get.byRoomId.build(roomId)}`
   )
   const payload = await readJsonResponse<unknown>(response)
 
@@ -107,7 +117,7 @@ export async function fetchJigsawRoomResult(
   roomId: string
 ): Promise<JigsawRoomResult> {
   const response = await fetch(
-    `${API_BASE_URL}/api/rooms/${encodeURIComponent(roomId)}/result`
+    `${API_BASE_URL}${apiRoutes.rooms.get.result.byRoomId.build(roomId)}`
   )
   const payload = await readJsonResponse<unknown>(response)
 
