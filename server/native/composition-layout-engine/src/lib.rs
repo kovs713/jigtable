@@ -12,7 +12,7 @@ pub struct SourceImage {
 }
 
 #[napi(object)]
-pub struct GenerateCompositionLayoutInput {
+pub struct CompositionLayoutInput {
     pub images: Vec<SourceImage>,
     pub image_count: Option<f64>,
 }
@@ -80,7 +80,7 @@ const DEFAULT_MAX_ASPECT_RATIO_DISTORTION: f64 = 1.5;
 
 #[napi(js_name = "generateCompositionLayout")]
 pub fn generate_composition_layout(
-    input: GenerateCompositionLayoutInput,
+    input: CompositionLayoutInput,
     options: Option<CompositionLayoutOptions>,
 ) -> Result<CompositionLayout> {
     let images = input
@@ -465,7 +465,9 @@ fn validate_image(image: SourceImage) -> Result<ValidatedImage> {
 
 fn normalize_positive_number(value: Option<f64>, fallback: Option<f64>, name: &str) -> Result<f64> {
     let normalized = value.or(fallback).ok_or_else(|| {
-        Error::from_reason(format!("Composition image {name} must be a positive number"))
+        Error::from_reason(format!(
+            "Composition image {name} must be a positive number"
+        ))
     })?;
 
     if !normalized.is_finite() || normalized <= 0.0 {
