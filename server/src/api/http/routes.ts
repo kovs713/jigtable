@@ -550,19 +550,19 @@ export function registerRoutes(router: Router): void {
   })
 
   router.get(apiRoutes.compositions.get.image.pattern, {
-    middleware: [resolveAuth()],
-
     handler: async (context) => {
-      if (context.auth?.status !== "authenticated") {
-        throw new ApiError("Unauthorized", 401)
-      }
-
       const compositionId = context.params.compositionId ?? ""
       const fileId = context.params.fileId ?? ""
 
+      const editToken =
+        context.query.get("token") ??
+        (context.auth?.status === "authenticated"
+          ? context.auth.session.token
+          : "")
+
       const { sourceImages } = await getCompositionAndImagesByIdAndToken(
         compositionId,
-        context.auth.session.token
+        editToken
       )
 
       const photo = sourceImages.find((item) => item.fileId === fileId)
@@ -668,15 +668,17 @@ export function registerRoutes(router: Router): void {
 
   router.get(apiRoutes.compositions.get.rendered.pattern, {
     handler: async (context) => {
-      if (context.auth?.status !== "authenticated") {
-        throw new ApiError("Unauthorized", 401)
-      }
-
       const compositionId = context.params.compositionId ?? ""
+
+      const token =
+        context.query.get("token") ??
+        (context.auth?.status === "authenticated"
+          ? context.auth.session.token
+          : "")
 
       const { composition } = await getCompositionAndImagesByIdAndToken(
         compositionId,
-        context.auth.session.token
+        token
       )
 
       const format = resolveRenderFormat(composition.jigsawImageFormat)
