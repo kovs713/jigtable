@@ -11,10 +11,10 @@ import { getGroupAnchor, moveGroupToAnchor } from "@jigtable/core/groups"
 import type {
   JigsawGroupLock,
   JigsawLock,
-  JigsawPlayer,
-  JigsawRoomSnapshot,
-  JigsawRoomTimer,
-  JigsawSession,
+  Player as JigsawPlayer,
+  RoomSnapshot as JigsawRoomSnapshot,
+  RoomTimer as JigsawRoomTimer,
+  PlayerSession as JigsawSession,
   ServerToClientMessage,
 } from "@jigtable/core/protocol"
 import {
@@ -22,12 +22,7 @@ import {
   scatterAllPieces,
   type ArrangeLoosePiecesMode,
 } from "@jigtable/core/scatter"
-import type {
-  GroupId,
-  JigsawState,
-  JigsawStats,
-  PieceId,
-} from "@jigtable/core/types"
+import type { GroupId, JigsawState, PieceId } from "@jigtable/core/types"
 
 import { loadImageTexture } from "./image-texture"
 import {
@@ -63,7 +58,7 @@ import type {
   RemoteCursorViewSet,
 } from "./pixi/cursors"
 import { createRemoteCursorViews, setupCursorBroadcast } from "./pixi/cursors"
-import type { DebugTicker } from "./pixi/debug"
+import type { DebugTicker, JigsawStats } from "./pixi/debug"
 import { createDebugTicker, getJigsawStats } from "./pixi/debug"
 import type { InteractionController } from "./pixi/interactions"
 import { setupPieceInteractions } from "./pixi/interactions"

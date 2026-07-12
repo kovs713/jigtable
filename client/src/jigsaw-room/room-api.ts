@@ -1,7 +1,7 @@
 import type { JigsawConfig } from "@jigtable/core"
 import type {
   CreateJigsawRoomResponse,
-  JigsawRoomSnapshot,
+  RoomSnapshot as JigsawRoomSnapshot,
 } from "@jigtable/core/protocol"
 import { isRecord } from "@jigtable/shared/utils"
 

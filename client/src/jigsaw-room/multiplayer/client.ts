@@ -1,7 +1,7 @@
 import type {
   ClientToServerMessage,
-  JigsawPlayer,
-  JigsawSession,
+  Player as JigsawPlayer,
+  PlayerSession as JigsawSession,
   ServerToClientMessage,
 } from "@jigtable/core/protocol"
 import { isRecord } from "@jigtable/shared/utils"
