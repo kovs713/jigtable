@@ -13,13 +13,13 @@ const getSessionKey = (ctx: Context): string | undefined =>
 const initialSession = (): SessionData => ({
   photos: [],
   isStarted: false,
-  activeBatchId: undefined,
+  activeCompositionId: undefined,
 })
 
 export async function createBot(): Promise<Bot<BotContext>> {
   const bot = new Bot<BotContext>(process.env.BOT_TOKEN, {
     client: {
-      fetch: telegramApiFetch as unknown as ApiClientOptions["fetch"],
+      fetch: telegramApiFetch,
     },
   })
 
@@ -47,18 +47,9 @@ export async function startBot(bot: Bot<BotContext>): Promise<void> {
     drop_pending_updates: true,
   })
 
-export function startBot(bot: Bot<BotContext>): void {
-  void bot.api
-    .deleteWebhook({ drop_pending_updates: true })
-    .then(() =>
-      bot.start({
-        onStart(botInfo) {
-          console.log(`Bot polling started as @${botInfo.username}`)
-        },
-      })
-    )
-    .catch((error) => {
-      console.error("Bot fatal error", error)
-      process.exit(1)
-    })
+  await bot.start({
+    onStart(botInfo) {
+      console.log(`Bot polling started as @${botInfo.username}`)
+    },
+  })
 }

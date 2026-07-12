@@ -21,6 +21,7 @@ export interface UploadSession {
   statusRefreshTimer?: ReturnType<typeof setInterval>
   lastStatusRefreshAt?: number
   viewerImageId?: string
+  viewerMessageId?: number
 }
 
 export interface SessionData {
