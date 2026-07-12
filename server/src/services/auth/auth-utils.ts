@@ -1,63 +1,15 @@
-import {
-  readAuthToken,
-  TelegramAuthService,
-  type TelegramAuthProfile,
-} from "@/auth"
-import type { JigsawSession } from "@jigtable/jigsaw-core"
-import { optional, string } from "@jigtable/shared"
-import type { BunRequest } from "bun"
+import type { JigsawSession } from "@jigtable/core/protocol"
+import { optional, string } from "@jigtable/shared/schemas"
 
-import { ApiError } from "../errors"
-import type { Context } from "../types"
-import { parseApiSchema } from "../utils/request"
+import { ApiError } from "@/api/http/errors"
+import { parseApiSchema } from "@/api/http/request"
+import type { Context } from "@/api/http/router"
+import { type TelegramAuthProfile } from "./"
 
-export async function requireAuthenticatedUser(
-  request: BunRequest,
-  auth: TelegramAuthService
-) {
-  return (await requireAuthenticatedSession(request, auth)).user
-}
-
-export async function requireAuthenticatedSession(
-  request: BunRequest,
-  auth: TelegramAuthService
-) {
-  const token = readAuthToken(request)
-
-  if (!token) {
-    throw new ApiError("Auth token required", 401)
-  }
-
-  const session = await auth.getSession(token)
-
-  if (!session) {
-    throw new ApiError("Auth session not found", 401)
-  }
-
-  return session
-}
-
-export async function readOptionalAuthenticatedUser(
-  request: BunRequest,
-  auth: TelegramAuthService
-) {
-  const token = readAuthToken(request)
-
-  if (!token) {
-    return null
-  }
-
-  const user = await auth.getUser(token)
-
-  if (!user) {
-    throw new ApiError("Auth session not found", 401)
-  }
-
-  return user
-}
+// FIX: should be a auth() middleware
 
 export async function requireJigsawSession(
-  request: BunRequest,
+  request: Request,
   sessions: { getSession(token: string): Promise<JigsawSession | null> }
 ): Promise<JigsawSession> {
   const token = readJigsawAuthToken(request)
@@ -75,7 +27,7 @@ export async function requireJigsawSession(
   return session
 }
 
-export function readJigsawAuthToken(request: BunRequest): string | null {
+export function readJigsawAuthToken(request: Request): string | null {
   const authorization = request.headers.get("authorization")
 
   if (authorization?.toLowerCase().startsWith("bearer ")) {

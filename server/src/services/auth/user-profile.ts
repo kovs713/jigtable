@@ -1,3 +1,28 @@
+import type { TelegramAuthProfile } from "./auth-types"
+
+const USER_NAME_MAX_LENGTH = 24
+
+export function profileName(profile: TelegramAuthProfile): string {
+  return (
+    normalizeName(
+      [profile.firstName, profile.lastName].filter(Boolean).join(" ") ||
+        profile.username
+    ) ?? `tg_${profile.telegramId}`
+  )
+}
+
+export function normalizeName(value: string | undefined): string | null {
+  const trimmed = value?.trim().replace(/\s+/g, " ")
+
+  return trimmed ? trimmed.slice(0, USER_NAME_MAX_LENGTH) : null
+}
+
+export function normalizeColor(value: string | undefined): string | null {
+  const color = value?.trim().toLowerCase()
+
+  return color && /^#[0-9a-f]{6}$/.test(color) ? color : null
+}
+
 export function colorFromSeed(seed: string): string {
   let hash = 0
 
@@ -13,6 +38,7 @@ function hslToHex(hue: number, saturation: number, lightness: number): string {
   const x = chroma * (1 - Math.abs(((hue * 6) % 2) - 1))
   const match = lightness - chroma / 2
   const sector = Math.floor(hue * 6)
+
   const [red, green, blue] =
     sector === 0
       ? [chroma, x, 0]
