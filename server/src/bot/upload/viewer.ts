@@ -1,19 +1,22 @@
 import type { UploadSession, UploadedImage } from "@/bot/types"
 
 export function getActiveImages(session: UploadSession): UploadedImage[] {
-  return session.images.filter((img) => img.status === "active")
+  return session.images.filter((image) => image.status === "active")
 }
 
 export function getDeletedImages(session: UploadSession): UploadedImage[] {
-  return session.images.filter((img) => img.status === "deleted")
+  return session.images.filter((image) => image.status === "deleted")
 }
 
 export function getCurrentViewerIndex(session: UploadSession): number {
   const active = getActiveImages(session)
+
   if (active.length === 0) return -1
   if (!session.viewerImageId) return 0
-  const idx = active.findIndex((img) => img.id === session.viewerImageId)
-  return idx >= 0 ? idx : 0
+
+  const index = active.findIndex((image) => image.id === session.viewerImageId)
+
+  return index >= 0 ? index : 0
 }
 
 export function getViewerImage(
@@ -21,45 +24,44 @@ export function getViewerImage(
 ): UploadedImage | undefined {
   const active = getActiveImages(session)
   if (active.length === 0) return undefined
-  const idx = getCurrentViewerIndex(session)
-  return active[idx]
+
+  return active[getCurrentViewerIndex(session)]
 }
 
 export function selectNextViewerImage(session: UploadSession): void {
   const active = getActiveImages(session)
   if (active.length === 0) return
-  const idx = getCurrentViewerIndex(session)
-  const next = idx + 1
-  const img = active[next]
-  if (img) {
-    session.viewerImageId = img.id
-  }
+
+  const nextImage = active[getCurrentViewerIndex(session) + 1]
+  if (nextImage) session.viewerImageId = nextImage.id
 }
 
 export function selectPrevViewerImage(session: UploadSession): void {
   const active = getActiveImages(session)
   if (active.length === 0) return
-  const idx = getCurrentViewerIndex(session)
-  const prev = idx - 1
-  const img = active[prev]
-  if (img) {
-    session.viewerImageId = img.id
-  }
+
+  const previousImage = active[getCurrentViewerIndex(session) - 1]
+  if (previousImage) session.viewerImageId = previousImage.id
 }
 
 export function deleteCurrentViewerImage(session: UploadSession): boolean {
-  const img = getViewerImage(session)
-  if (!img) return false
-  img.status = "deleted"
-  const active = getActiveImages(session)
-  if (active.length === 0) {
+  const activeBeforeDelete = getActiveImages(session)
+  const currentIndex = getCurrentViewerIndex(session)
+  const currentImage = activeBeforeDelete[currentIndex]
+
+  if (!currentImage) return false
+
+  currentImage.status = "deleted"
+
+  const activeAfterDelete = getActiveImages(session)
+
+  if (activeAfterDelete.length === 0) {
     session.viewerImageId = undefined
     return true
   }
-  const idx = getCurrentViewerIndex(session)
-  const nextImg = active[idx] ?? active[active.length - 1]
-  if (nextImg) {
-    session.viewerImageId = nextImg.id
-  }
+
+  const nextIndex = Math.min(currentIndex, activeAfterDelete.length - 1)
+
+  session.viewerImageId = activeAfterDelete[nextIndex]?.id
   return true
 }

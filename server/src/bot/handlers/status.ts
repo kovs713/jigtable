@@ -15,8 +15,10 @@ export async function handleStatus(
   }
 
   const upload = ctx.session.upload
+
   if (upload) {
     const active = getActiveImages(upload)
+
     if (active.length === 0) {
       await ctx.reply("Набор пустой. Кинь картинки через /new.")
       return
@@ -38,8 +40,9 @@ async function replyWithCoolPhoto(
   ctx: CommandContext<BotContext>
 ): Promise<void> {
   if (coolImageFileId) {
-    const isSent = await tryReplyWithCoolPhoto(ctx, coolImageFileId)
-    if (!isSent) {
+    const message = await tryReplyWithCoolPhoto(ctx, coolImageFileId)
+
+    if (!message) {
       coolImageFileId = null
       await ctx.reply("Набор пустой.")
     }
@@ -48,6 +51,7 @@ async function replyWithCoolPhoto(
   }
 
   const response = await fetch(COOL_IMAGE_S3_FILE_NAME)
+
   if (!response.ok || !response.body) {
     console.warn(
       `ERROR: Failed to fetch cool asset with status ${response.status}`

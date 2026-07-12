@@ -1,21 +1,22 @@
 import { asc, eq } from "drizzle-orm"
 
 import type { BotContext } from "@/bot/types"
-import { getActiveImages } from "@/bot/upload"
-import { renderLayout } from "@/features/render-layout"
-import { clientLayoutUrl } from "@/features/urls"
-import { db } from "@/infra/db"
+import { clearStatusPanel, getActiveImages } from "@/bot/upload"
+import { LIMITS } from "@/config"
+import { db } from "@/db"
 import {
-  batchesSchema,
-  batchPhotosSchema,
-  PhotoBatchStatus,
-} from "@/infra/db/schemas"
+  CompositionStatus,
+  compositionSourceImagesSchema,
+  compositionsSchema,
+} from "@/db/schemas"
 import {
-  generateCollageLayout,
-  type CollageLayout,
-} from "@/collage-layout-engine"
-
-const PREVIEW_MAX_SIDE = 1200
+  generateCompositionLayout,
+  type CompositionLayout,
+} from "@/native/composition-layout-engine"
+import { renderLayout, type RenderPhotoSource } from "@/native/render-layout"
+import { s3Client } from "@/storage/client"
+import { telegramPreviewObjectKey } from "@/storage/utils"
+import { clientLayoutUrl } from "../utils"
 
 export async function handleCommit(ctx: BotContext): Promise<void> {
   if (!ctx.session.isStarted || !ctx.session.activeBatchId) {
@@ -23,10 +24,12 @@ export async function handleCommit(ctx: BotContext): Promise<void> {
     return
   }
 
-  const [batch] = await db
+  const [composition] = await db
     .select()
-    .from(batchesSchema)
-    .where(eq(batchesSchema.batchId, ctx.session.activeBatchId))
+    .from(compositionsSchema)
+    .where(
+      eq(compositionsSchema.compositionId, ctx.session.activeCompositionId)
+    )
 
   if (!batch) {
     await ctx.reply("active batch не найден, начни заново через /new")
@@ -34,20 +37,27 @@ export async function handleCommit(ctx: BotContext): Promise<void> {
   }
 
   if (
-    batch.status === PhotoBatchStatus.Ready ||
-    batch.status === PhotoBatchStatus.Completed
+    composition.status === CompositionStatus.Ready ||
+    composition.status === CompositionStatus.Completed
   ) {
     const allPhotos = await db
       .select()
-      .from(batchPhotosSchema)
-      .where(eq(batchPhotosSchema.batchId, batch.batchId))
+      .from(compositionSourceImagesSchema)
+      .where(
+        eq(
+          compositionSourceImagesSchema.compositionId,
+          composition.compositionId
+        )
+      )
+
     await replyWithEditorLink(
       ctx,
-      batch.batchId,
-      batch.editToken,
+      composition.compositionId,
+      composition.editToken,
       allPhotos.length
     )
-    clearActiveBatch(ctx)
+
+    await clearActiveComposition(ctx)
     return
   }
 
@@ -58,18 +68,21 @@ export async function handleCommit(ctx: BotContext): Promise<void> {
   }
 
   const uploadSession = ctx.session.upload
+
   const activeIds = uploadSession
-    ? new Set(getActiveImages(uploadSession).map((img) => img.id))
+    ? new Set(getActiveImages(uploadSession).map((image) => image.id))
     : null
 
   const allPhotos = await db
     .select()
-    .from(batchPhotosSchema)
-    .where(eq(batchPhotosSchema.batchId, batch.batchId))
-    .orderBy(asc(batchPhotosSchema.sortOrder))
+    .from(compositionSourceImagesSchema)
+    .where(
+      eq(compositionSourceImagesSchema.compositionId, composition.compositionId)
+    )
+    .orderBy(asc(compositionSourceImagesSchema.sortOrder))
 
   const photos = activeIds
-    ? allPhotos.filter((p) => activeIds.has(p.fileId))
+    ? allPhotos.filter((photo) => activeIds.has(photo.fileId))
     : allPhotos
 
   if (photos.length === 0) {
@@ -77,13 +90,8 @@ export async function handleCommit(ctx: BotContext): Promise<void> {
     return
   }
 
-  // if (photos.length < 2) {
-  //   await ctx.reply("Нужно хотя бы 2 картинки. Из одной пазл так себе, конечно.")
-  //   return
-  // }
-
-  const layout = generateCollageLayout({
-    count: photos.length,
+  const layout = generateCompositionLayout({
+    imageCount: photos.length,
     images: photos.map((photo) => ({
       id: photo.fileId,
       src: photo.objectKey,
@@ -91,41 +99,62 @@ export async function handleCommit(ctx: BotContext): Promise<void> {
       height: photo.height,
     })),
   })
-  const preview = await renderLayout(
-    batch.batchId,
-    scaleLayout(layout, PREVIEW_MAX_SIDE),
-    photos.map((photo) => ({
-      fileId: photo.fileId,
-      objectKey: photo.objectKey,
-    })),
-    "jpg"
-  )
+
+  const renderPhotos: RenderPhotoSource[] = photos.map((photo) => ({
+    fileId: photo.fileId,
+    objectKey: photo.objectKey,
+  }))
+
+  const previewLayout = scaleLayout(layout, LIMITS.telegram.previewMaxSide)
+
+  const preview = await renderLayout(previewLayout, renderPhotos, "jpg", {
+    jpegQuality: 68,
+    jpegProgressive: false,
+  })
+
+  const previewObjectKey = telegramPreviewObjectKey(composition.compositionId)
+
+  await s3Client.write(previewObjectKey, preview.buffer, {
+    type: preview.contentType,
+  })
 
   await db
-    .update(batchesSchema)
+    .update(compositionsSchema)
     .set({
       layout,
-      outputKey: preview.objectKey,
-      outputFormat: preview.format,
-      status: PhotoBatchStatus.Ready,
+      status: CompositionStatus.Ready,
       updatedAt: new Date(),
     })
-    .where(eq(batchesSchema.batchId, batch.batchId))
+    .where(eq(compositionsSchema.compositionId, composition.compositionId))
 
-  await replyWithEditorLink(ctx, batch.batchId, batch.editToken, photos.length)
-  clearActiveBatch(ctx)
+  await replyWithEditorLink(
+    ctx,
+    composition.compositionId,
+    composition.editToken,
+    photos.length
+  )
+
+  await clearActiveComposition(ctx)
 }
 
-function scaleLayout(layout: CollageLayout, maxSide: number): CollageLayout {
+function scaleLayout(
+  layout: CompositionLayout,
+  maxSide: number
+): CompositionLayout {
   const longestSide = Math.max(layout.canvas.width, layout.canvas.height)
-  if (longestSide <= maxSide) return layout
+
+  if (longestSide <= maxSide) {
+    return layout
+  }
 
   const scale = maxSide / longestSide
+
   return {
     canvas: {
       width: Math.round(layout.canvas.width * scale),
       height: Math.round(layout.canvas.height * scale),
     },
+
     items: layout.items.map((item) => ({
       ...item,
       x: Math.round(item.x * scale),
@@ -139,23 +168,19 @@ function scaleLayout(layout: CollageLayout, maxSide: number): CollageLayout {
 
 async function replyWithEditorLink(
   ctx: BotContext,
-  batchId: string,
+  compositionId: string,
   editToken: string,
   photoCount: number
 ): Promise<void> {
-  const layoutUrl = clientLayoutUrl(batchId, editToken)
-  const editCode = `${batchId}:${editToken}`
+  const layoutUrl = clientLayoutUrl(compositionId, editToken)
+  const editCode = `${compositionId}:${editToken}`
   const canUseUrlButton = isTelegramUrl(layoutUrl)
 
-  const lines = [
-    `Готово. Собрал из ${photoCount} картинок.`,
-    "",
-    "Открывай редактор:",
-    `<code>${escapeHtml(layoutUrl)}</code>`,
-    "",
-    "Код для ручного ввода:",
-    `<code>${escapeHtml(editCode)}</code>`,
-  ]
+  const text = ctx.t("commit-ready", {
+    photoCount,
+    url: escapeHtml(layoutUrl),
+    editCode: escapeHtml(editCode),
+  })
 
   const replyOptions = canUseUrlButton
     ? {
@@ -169,13 +194,15 @@ async function replyWithEditorLink(
   await ctx.reply(lines.join("\n"), replyOptions)
 }
 
-function clearActiveBatch(ctx: BotContext): void {
-  const upload = ctx.session.upload
-  if (upload?.statusRefreshTimer) {
-    clearTimeout(upload.statusRefreshTimer)
+async function clearActiveComposition(ctx: BotContext): Promise<void> {
+  const chatId = ctx.chat?.id
+
+  if (chatId) {
+    await clearStatusPanel(ctx, chatId)
   }
+
   ctx.session.isStarted = false
-  ctx.session.activeBatchId = undefined
+  ctx.session.activeCompositionId = undefined
   ctx.session.photos = []
   ctx.session.upload = undefined
 }

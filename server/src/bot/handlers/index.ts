@@ -1,4 +1,5 @@
 import type { Bot } from "grammy"
+
 import type { BotContext } from "@/bot/types"
 import { registerUploadCallbacks } from "@/bot/upload"
 import { handleCommit } from "./commit"
@@ -11,15 +12,15 @@ import { handleStatus } from "./status"
 import { handleSticker } from "./sticker"
 import { handleWhitelist } from "./whitelist"
 
-export function registerHandlers(bot: Bot<BotContext>) {
-  void bot.api.setMyCommands([
-    { command: "start", description: "welkomе мesagе" },
-    { command: "new", description: "начать совать шлаком" },
-    { command: "reset", description: "прервать подачу шлака" },
-    { command: "commit", description: "подтвердить подачу шлака" },
-    { command: "status", description: "узнать статус подачи шлака" },
-    { command: "list", description: "посмотреть свои готовые сборки шлака" },
-  ]).catch(() => {})
+export async function registerHandlers(bot: Bot<BotContext>) {
+  await bot.api.setMyCommands([
+    { command: "start", description: "welcome message" }, // welcome мессаге
+    { command: "new", description: "start feeding slag" }, // начать совать шлаком
+    { command: "reset", description: "cancel feeding slag" }, // прервать подачу шлака
+    { command: "commit", description: "commit slag feeding" }, // зафиксировать подачу шлака
+    { command: "status", description: "check slag feeding status" }, // узнать статус подачи шлака
+    { command: "list", description: "view your finished slag builds" }, // посмотреть свои готовые сборки шлака
+  ])
 
   // commands
   bot.command("start", handleStart)
