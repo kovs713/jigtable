@@ -155,7 +155,7 @@ export class HistoryService {
       .where(inArray(jigsawRoomResultsSchema.roomId, roomIds))
       .orderBy(desc(jigsawRoomResultsSchema.completedAt))
 
-    return rows.flatMap((row) => {
+    const items = rows.flatMap((row) => {
       const item = toJigsawHistoryItem({
         roomId: row.roomId,
         assetRef: row.assetRef,
@@ -170,6 +170,19 @@ export class HistoryService {
 
       return item ? [item] : []
     })
+
+    const colorsById = await this.loadCurrentUserColors(items)
+    const colorFor = (userId?: string): string | undefined =>
+      userId ? colorsById.get(userId) : undefined
+
+    return items.map((item) => ({
+      ...item,
+      participants: item.participants.map((participant) => {
+        const color = colorFor(participant.userId)
+
+        return color ? { ...participant, color } : participant
+      }),
+    }))
   }
 
   async getRoomResult(roomId: string): Promise<JigsawRoomResult | null> {
@@ -185,7 +198,7 @@ export class HistoryService {
       return null
     }
 
-    return toJigsawRoomResult({
+    const result = toJigsawRoomResult({
       roomId: row.roomId,
       assetRef: row.assetRef,
       imageUrl: row.imageUrl,
@@ -196,6 +209,51 @@ export class HistoryService {
       completedAt: row.completedAt,
       participants: row.participants,
     })
+
+    if (!result) {
+      return null
+    }
+
+    const colorsById = await this.loadCurrentUserColors([result])
+
+    return {
+      ...result,
+      participants: result.participants.map((participant) =>
+        participant.userId && colorsById.has(participant.userId)
+          ? { ...participant, color: colorsById.get(participant.userId)! }
+          : participant
+      ),
+    }
+  }
+
+  private async loadCurrentUserColors(
+    items: ReadonlyArray<{
+      participants: readonly JigsawResultParticipant[]
+    }>
+  ): Promise<Map<string, string>> {
+    const userIds = new Set<string>()
+
+    for (const item of items) {
+      for (const participant of item.participants) {
+        if (participant.userId) {
+          userIds.add(participant.userId)
+        }
+      }
+    }
+
+    if (userIds.size === 0) {
+      return new Map()
+    }
+
+    const users = await db
+      .select({
+        id: usersSchema.id,
+        color: usersSchema.color,
+      })
+      .from(usersSchema)
+      .where(inArray(usersSchema.id, [...userIds]))
+
+    return new Map(users.map((user) => [user.id, user.color]))
   }
 
   private async readResultParticipants(

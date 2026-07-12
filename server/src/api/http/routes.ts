@@ -225,9 +225,10 @@ export function registerRoutes(router: Router): void {
         await context.services.auth
           .updateProfile(session.userId, {
             displayName: session.player.name,
+            color: session.player.color,
           })
           .catch((error) =>
-            console.error("Failed to update user displayName", error)
+            console.error("Failed to update user profile", error)
           )
       }
 

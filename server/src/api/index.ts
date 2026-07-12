@@ -28,6 +28,7 @@ export function startApiServer(): void {
 
   const server = serve<WsData>({
     port,
+
     maxRequestBodySize: LIMITS.jsonBodyBytes,
 
     async fetch(request: BunRequest, server) {
