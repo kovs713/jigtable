@@ -1,52 +1,54 @@
 import { serve, type BunRequest } from "bun"
 
-import { TelegramAuthService } from "@/auth"
 import { LIMITS } from "@/config"
-import { JigsawHistoryStore } from "@/api/services/history-store"
-import {
-  JigsawRoomManager,
-  type JigsawSocketData,
-} from "@/api/services/room-manager"
-import { JigsawSessionStore } from "@/api/services/session-store"
-import { errorResponse } from "./errors"
-import { cors, errorBoundary } from "./middlewares"
-import { registerRoutes } from "./routes"
-import { createRouter } from "./types"
-
-const jigsawSessionsService = new JigsawSessionStore()
-const jigsawHistoryService = new JigsawHistoryStore()
-const jigsawRoomsService = new JigsawRoomManager(
-  jigsawSessionsService,
-  jigsawHistoryService
-)
-const authService = new TelegramAuthService()
-export const services = {
-  rooms: jigsawRoomsService,
-  sessions: jigsawSessionsService,
-  history: jigsawHistoryService,
-  auth: authService,
-}
+import { metricsRegistry } from "@/observability/metrics"
+import { createServices } from "@/services"
+import { errorResponse } from "./http/errors"
+import { cors, errorBoundary } from "./http/middleware"
+import { createRouter } from "./http/router"
+import { registerRoutes } from "./http/routes"
+import { createWsRouter } from "./ws/router"
+import { registerWsRoutes } from "./ws/routes"
+import type { WsData } from "./ws/types"
 
 export function startApiServer(): void {
-  const port = Number(process.env.PORT) ?? 3000
+  const port = Number(process.env.PORT)
+
+  const services = createServices()
 
   const router = createRouter({
     services,
-    middleware: [cors(), errorBoundary()],
+    middleware: [errorBoundary(), cors()],
   })
 
   registerRoutes(router)
 
-  const server = serve<JigsawSocketData>({
-    port,
+  const wsRouter = createWsRouter({ services })
+  registerWsRoutes(wsRouter)
 
+  const server = serve<WsData>({
+    port,
     maxRequestBodySize: LIMITS.jsonBodyBytes,
 
-    fetch(request: BunRequest, server) {
+    async fetch(request: BunRequest, server) {
       const url = new URL(request.url)
 
+      if (url.pathname === "/metrics") {
+        return new Response(await metricsRegistry.metrics(), {
+          headers: {
+            "content-type": metricsRegistry.contentType,
+          },
+        })
+      }
+
       if (url.pathname === "/api/jigsaw/ws") {
-        if (server.upgrade(request, { data: {} })) {
+        if (
+          server.upgrade(request, {
+            data: {
+              connectionId: crypto.randomUUID(),
+            },
+          })
+        ) {
           return undefined
         }
 
@@ -57,21 +59,16 @@ export function startApiServer(): void {
     },
 
     websocket: {
-      message(socket, message) {
-        void services.rooms.handleMessage(socket, message).catch((error) => {
-          console.error("Jigsaw websocket error", error)
-          socket.send(
-            JSON.stringify({
-              type: "error",
-              code: "internal_error",
-              message: "Internal error",
-            })
-          )
-        })
+      open(socket) {
+        return wsRouter.open(socket)
       },
 
-      close(socket) {
-        jigsawRoomsService.handleClose(socket)
+      message(socket, message) {
+        return wsRouter.message(socket, message)
+      },
+
+      close(socket, code) {
+        return wsRouter.close(socket, code)
       },
     },
   })
