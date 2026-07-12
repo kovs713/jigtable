@@ -498,7 +498,7 @@ export function registerRoutes(router: Router): void {
       }
 
       const compositionId = context.params.compositionId ?? ""
-      const editToken = context.query.get("token") ?? ""
+      const editToken = context.query.get("editToken") ?? ""
 
       const { composition } = await getCompositionAndImagesByIdAndToken(
         compositionId,
@@ -555,7 +555,7 @@ export function registerRoutes(router: Router): void {
       const fileId = context.params.fileId ?? ""
 
       const editToken =
-        context.query.get("token") ??
+        context.query.get("editToken") ??
         (context.auth?.status === "authenticated"
           ? context.auth.session.token
           : "")
@@ -671,7 +671,7 @@ export function registerRoutes(router: Router): void {
       const compositionId = context.params.compositionId ?? ""
 
       const token =
-        context.query.get("token") ??
+        context.query.get("editToken") ??
         (context.auth?.status === "authenticated"
           ? context.auth.session.token
           : "")

@@ -37,9 +37,9 @@ export function sourceImageUrl(
   token: string,
   fileId: string
 ): string {
-  return `${process.env.PUBLIC_API_URL}/api/compositions/${compositionId}/images/${encodeURIComponent(fileId)}?token=${encodeURIComponent(token)}`
+  return `${process.env.PUBLIC_API_URL}/api/compositions/${compositionId}/images/${encodeURIComponent(fileId)}?editToken=${encodeURIComponent(token)}`
 }
 
 export function jigsawImageUrl(compositionId: string, token: string): string {
-  return `${process.env.PUBLIC_API_URL}/api/compositions/${compositionId}/rendered?token=${encodeURIComponent(token)}`
+  return `${process.env.PUBLIC_API_URL}/api/compositions/${compositionId}/rendered?editToken=${encodeURIComponent(token)}`
 }

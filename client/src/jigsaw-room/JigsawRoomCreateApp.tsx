@@ -211,7 +211,7 @@ export function JigsawRoomCreateApp() {
     let disposed = false
 
     void fetch(
-      `${API_BASE_URL}${apiRoutes.compositions.get.layout.build(selectedComposition.compositionId)}?token=${encodeURIComponent(selectedComposition.compositionToken)}`,
+      `${API_BASE_URL}${apiRoutes.compositions.get.layout.build(selectedComposition.compositionId)}?editToken=${encodeURIComponent(selectedComposition.compositionToken)}`,
       { headers: { Authorization: `Bearer ${authSession.token}` } }
     )
       .then((r) => r.json())

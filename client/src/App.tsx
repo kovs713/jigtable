@@ -1364,7 +1364,7 @@ export function App() {
 
     try {
       const response = await fetch(
-        `${API_BASE_URL}${apiRoutes.compositions.post.render.build(remoteComposition.compositionId)}?token=${encodeURIComponent(remoteComposition.token)}`,
+        `${API_BASE_URL}${apiRoutes.compositions.post.render.build(remoteComposition.compositionId)}?editToken=${encodeURIComponent(remoteComposition.token)}`,
         {
           method: "POST",
           headers: {
@@ -2879,7 +2879,7 @@ async function requestCompositionLayout(
   }
 
   const response = await fetch(
-    `${API_BASE_URL}${apiRoutes.compositions.get.layout.build(composition.compositionId)}?token=${encodeURIComponent(composition.token)}`,
+    `${API_BASE_URL}${apiRoutes.compositions.get.layout.build(composition.compositionId)}?editToken=${encodeURIComponent(composition.token)}`,
     {
       method,
       headers,
