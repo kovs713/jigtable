@@ -26,9 +26,10 @@ export function toApiCompositionLayout(
         ),
       })),
     },
-    jigsawImageUrl: composition.jigsawImageKey
-      ? jigsawImageUrl(composition.compositionId, composition.editToken)
-      : null,
+    jigsawImageUrl: jigsawImageUrl(
+      composition.compositionId,
+      composition.editToken
+    ),
   }
 }
 
