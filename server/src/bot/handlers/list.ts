@@ -29,19 +29,28 @@ export async function handleList(
   ctx: CommandContext<BotContext>
 ): Promise<void> {
   if (!ctx.from) {
-    await ctx.reply("не вижу юзера")
+    await ctx.reply(ctx.t("user-not-found"))
     return
   }
 
-  const view = await renderListPage(String(ctx.from.id), 0)
+  const locale = await ctx.i18n.getLocale()
+  const view = await renderListPage(ctx, String(ctx.from.id), 0, locale)
+
   if (!view.media) {
-    await ctx.reply(view.caption)
+    await ctx.reply(view.caption, {
+      reply_markup:
+        view.keyboard.length > 0
+          ? { inline_keyboard: view.keyboard }
+          : undefined,
+    })
     return
   }
 
   const message = await ctx.replyWithPhoto(view.media, {
     caption: view.caption,
-    reply_markup: { inline_keyboard: view.keyboard },
+    reply_markup: {
+      inline_keyboard: view.keyboard,
+    },
   })
 
   cachePreviewFileId(view.previewObjectKey, message.photo.at(-1)?.file_id)
@@ -57,6 +66,7 @@ export async function handleListAction(
 
   const data = ctx.callbackQuery.data
   const userId = String(ctx.from.id)
+  const locale = await ctx.i18n.getLocale()
 
   if (data.startsWith("list:page:")) {
     await ctx.answerCallbackQuery()
@@ -159,7 +169,12 @@ async function editToView(
   if (!view.media) {
     await ctx.api.editMessageCaption(chatId, messageId, {
       caption: view.caption,
-      reply_markup: undefined,
+      reply_markup:
+        view.keyboard.length > 0
+          ? {
+              inline_keyboard: view.keyboard,
+            }
+          : undefined,
     })
     return
   }
@@ -172,7 +187,11 @@ async function editToView(
       media: view.media,
       caption: view.caption,
     },
-    { reply_markup: { inline_keyboard: view.keyboard } }
+    {
+      reply_markup: {
+        inline_keyboard: view.keyboard,
+      },
+    }
   )
 
   if (typeof edited !== "boolean" && edited.photo) {
@@ -237,8 +256,9 @@ async function renderListPage(
   const cover = await loadPreview(previewObjectKey)
 
   return {
-    caption: ["Твои сборки.", "", ...summaries].join("\n"),
-    keyboard: renderListKeyboard({
+    caption: [ctx.t("list-title"), "", ...summaries].join("\n"),
+
+    keyboard: renderListKeyboard(ctx, {
       offset,
       compositions: visible,
       page: safePage,
@@ -269,26 +289,36 @@ async function renderCompositionCard(
   const media = await loadPreview(previewObjectKey)
 
   const caption = [
-    "Превью",
-    `Сборка #${index + 1}`,
-    `${photoCount} картинок`,
-    formatDimensions(batch),
+    ctx.t("list-preview"),
+    ctx.t("list-composition-number", { number: index + 1 }),
+    ctx.t("list-pictures", { count: photoCount }),
+    formatDimensions(ctx, composition),
   ]
 
   if (!isTelegramUrl(url)) {
-    caption.push("", "Ссылка:", url)
+    caption.push("", ctx.t("list-link"), url)
   }
 
   const keyboard: InlineKeyboardButton[][] = []
 
   if (isTelegramUrl(url)) {
-    keyboard.push([{ text: "открыть редактор", url }])
+    keyboard.push([
+      {
+        text: ctx.t("button-open-editor"),
+        url,
+      },
+    ])
   }
 
   keyboard.push([
     {
-      text: "удалить",
-      callback_data: `list:delete:${page}:${index}:${batch.batchId}`,
+      text: ctx.t("button-delete"),
+      callback_data:
+        `list:delete:${page}:` + `${index}:${composition.compositionId}`,
+    },
+    {
+      text: ctx.t("button-back"),
+      callback_data: `list:back:${page}`,
     },
   ])
 
@@ -308,26 +338,38 @@ async function renderDeleteConfirm(
   index: number,
   locale: string
 ): Promise<ListView> {
-  const batch = await getBatchById(userId, batchId)
-  if (!batch) return notFoundView(page)
+  const composition = await getCompositionById(userId, compositionId)
+
+  if (!composition) {
+    return notFoundView(ctx, page)
+  }
+
+  const photoCount = await getPhotoCount(composition.compositionId)
+  const previewObjectKey = telegramPreviewObjectKey(composition.compositionId)
+  const pictures = ctx.t("list-pictures", { count: photoCount })
 
   return {
     caption: [
-      `Снести сборку #${index + 1}?`,
-      `${await getPhotoCount(batch.batchId)} картинок · ${formatDate(batch.createdAt)}`,
+      ctx.t("list-delete-question", { number: index + 1 }),
+      ctx.t("list-delete-details", {
+        pictures,
+        date: formatDate(ctx, composition.createdAt, locale),
+      }),
       "",
-      "Удалю картинки из хранилища и уберу из списка.",
+      ctx.t("list-delete-warning"),
     ].join("\n"),
 
     keyboard: [
       [
         {
-          text: "да, снести",
-          callback_data: `list:delete_confirm:${page}:${index}:${batchId}`,
+          text: ctx.t("button-yes-remove"),
+          callback_data:
+            `list:delete_confirm:${page}:` + `${index}:${compositionId}`,
         },
         {
-          text: "не надо",
-          callback_data: `list:delete_cancel:${page}:${index}:${batchId}`,
+          text: ctx.t("button-no-cancel"),
+          callback_data:
+            `list:delete_cancel:${page}:` + `${index}:${compositionId}`,
         },
       ],
     ],
@@ -352,8 +394,11 @@ function renderListKeyboard(
     const number = input.offset + index + 1
 
     openRow.push({
-      text: `открыть ${number}`,
-      callback_data: `list:open:${input.page}:${number - 1}:${batch.batchId}`,
+      text: ctx.t("list-open-number", { number }),
+      callback_data:
+        `list:open:${input.page}:` +
+        `${number - 1}:` +
+        composition.compositionId,
     })
   }
 
@@ -361,19 +406,39 @@ function renderListKeyboard(
   const navigation: InlineKeyboardButton[] = []
 
   if (input.page > 0) {
-    nav.push({ text: "назад", callback_data: `list:page:${input.page - 1}` })
+    navigation.push({
+      text: ctx.t("button-back"),
+      callback_data: `list:page:${input.page - 1}`,
+    })
   }
 
   if (input.hasNext) {
-    nav.push({ text: "дальше", callback_data: `list:page:${input.page + 1}` })
+    navigation.push({
+      text: ctx.t("button-continue"),
+      callback_data: `list:page:${input.page + 1}`,
+    })
   }
-  if (nav.length > 0) rows.push(nav)
+
+  if (navigation.length > 0) {
+    rows.push(navigation)
+  }
+
   return rows
 }
 
-async function renderListLine(batch: Batch, offset: number): Promise<string> {
-  const photoCount = await getPhotoCount(batch.batchId)
-  return `${offset + 1}. ${photoCount} картинок · ${formatDimensions(batch)} · ${formatRelativeDate(batch.createdAt)}`
+function renderListLine(
+  ctx: BotContext,
+  composition: Composition,
+  offset: number,
+  photoCount: number,
+  locale: string
+): string {
+  return ctx.t("list-line", {
+    number: offset + 1,
+    pictures: ctx.t("list-pictures", { count: photoCount }),
+    dimensions: formatDimensions(ctx, composition),
+    date: formatRelativeDate(ctx, composition.createdAt, locale),
+  })
 }
 
 async function getPhotoCount(compositionId: string): Promise<number> {
@@ -504,8 +569,15 @@ function cachePreviewFileId(
 
 function notFoundView(ctx: BotContext, page: number): ListView {
   return {
-    caption: "Сборка уже исчезла.",
-    keyboard: [[{ text: "назад", callback_data: `list:back:${page}` }]],
+    caption: ctx.t("list-not-found"),
+    keyboard: [
+      [
+        {
+          text: ctx.t("button-back"),
+          callback_data: `list:back:${page}`,
+        },
+      ],
+    ],
   }
 }
 
@@ -542,15 +614,26 @@ function parseCompositionAction(data: string): {
   }
 }
 
-function formatDimensions(batch: Batch): string {
-  const canvas = batch.layout?.canvas
-  if (!canvas) return "размер пока не готов"
+function formatDimensions(ctx: BotContext, composition: Composition): string {
+  const canvas = composition.layout?.canvas
+
+  if (!canvas) {
+    return ctx.t("size-not-ready")
+  }
+
   return `${Math.round(canvas.width)}×${Math.round(canvas.height)}`
 }
 
-function formatDate(value: Date | null): string {
-  if (!value) return "без даты"
-  return new Intl.DateTimeFormat("ru-RU", {
+function formatDate(
+  ctx: BotContext,
+  value: Date | null,
+  locale: string
+): string {
+  if (!value) {
+    return ctx.t("date-missing")
+  }
+
+  return new Intl.DateTimeFormat(locale, {
     day: "2-digit",
     month: "2-digit",
     hour: "2-digit",
@@ -558,18 +641,36 @@ function formatDate(value: Date | null): string {
   }).format(value)
 }
 
-function formatRelativeDate(value: Date | null): string {
-  if (!value) return "без даты"
+function formatRelativeDate(
+  ctx: BotContext,
+  value: Date | null,
+  locale: string
+): string {
+  if (!value) {
+    return ctx.t("date-missing")
+  }
+
   const diffMs = Date.now() - value.getTime()
 
   const minute = 60 * 1000
   const hour = 60 * minute
   const day = 24 * hour
 
-  if (diffMs < hour)
-    return `${Math.max(1, Math.round(diffMs / minute))} мин назад`
-  if (diffMs < day) return `${Math.round(diffMs / hour)} ч назад`
-  if (diffMs < 2 * day) return "вчера"
+  if (diffMs < hour) {
+    return ctx.t("relative-minutes", {
+      count: Math.max(1, Math.round(diffMs / minute)),
+    })
+  }
+
+  if (diffMs < day) {
+    return ctx.t("relative-hours", {
+      count: Math.round(diffMs / hour),
+    })
+  }
+
+  if (diffMs < 2 * day) {
+    return ctx.t("relative-yesterday")
+  }
 
   return formatDate(ctx, value, locale)
 }

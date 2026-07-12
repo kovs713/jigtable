@@ -53,7 +53,9 @@ async function handleUploadView(ctx: CallbackQueryContext): Promise<void> {
   const active = getActiveImages(session)
 
   if (active.length === 0) {
-    await ctx.answerCallbackQuery({ text: "Смотреть пока нечего." })
+    await ctx.answerCallbackQuery({
+      text: ctx.t("upload-nothing-to-show"),
+    })
     return
   }
 
@@ -74,13 +76,15 @@ async function handleUploadBuild(ctx: CallbackQueryContext): Promise<void> {
   const active = getActiveImages(session)
 
   await ctx.answerCallbackQuery()
-  await ctx.editMessageText(`Собираю из ${active.length} картинок.`)
+  await ctx.editMessageText(ctx.t("upload-building", { count: active.length }))
+
+  const id = chatId(ctx)
 
   await deleteMessageSafe(ctx, id, session.viewerMessageId)
   session.viewerMessageId = undefined
 
-  if (!ctx.session.activeBatchId) {
-    await ctx.reply("Нет активного батча. Начни через /new")
+  if (!ctx.session.activeCompositionId) {
+    await ctx.reply(ctx.t("upload-no-active-composition"))
     return
   }
 
@@ -107,8 +111,11 @@ async function handleUploadDeleteLast(
 
   last.status = "deleted"
 
-  await ctx.answerCallbackQuery({ text: "Удалил" })
-  await refreshStatus(ctx, session)
+  await ctx.answerCallbackQuery({
+    text: ctx.t("callback-removed"),
+  })
+
+  await refreshBottomStatus(ctx, chatId(ctx))
 }
 
 async function handleUploadClear(ctx: CallbackQueryContext): Promise<void> {
@@ -118,8 +125,14 @@ async function handleUploadClear(ctx: CallbackQueryContext): Promise<void> {
     reply_markup: {
       inline_keyboard: [
         [
-          { text: "да, снести", callback_data: "upload:clear_confirm" },
-          { text: "не надо", callback_data: "upload:clear_cancel" },
+          {
+            text: ctx.t("button-remove-all-confirm"),
+            callback_data: "upload:clear_confirm",
+          },
+          {
+            text: ctx.t("button-cancel"),
+            callback_data: "upload:clear_cancel",
+          },
         ],
       ],
     },
@@ -142,9 +155,8 @@ async function handleUploadClearConfirm(
 
   session.viewerImageId = undefined
 
-  const chatId = cid(ctx)
-  await deleteMessageSafe(ctx, chatId, getStatusMessageId(chatId))
-  clearStatusMessageId(chatId)
+  await ctx.answerCallbackQuery()
+  await ctx.editMessageText(ctx.t("upload-cleared"))
 }
 
 async function handleUploadClearCancel(
@@ -206,7 +218,9 @@ async function handleViewerDelete(ctx: CallbackQueryContext): Promise<void> {
     return
   }
 
-  await ctx.answerCallbackQuery({ text: "Удалил" })
+  await ctx.answerCallbackQuery({
+    text: ctx.t("callback-removed"),
+  })
 
   const id = chatId(ctx)
   const active = getActiveImages(session)
@@ -214,8 +228,11 @@ async function handleViewerDelete(ctx: CallbackQueryContext): Promise<void> {
   if (active.length === 0) {
     if (session.viewerMessageId) {
       try {
-        await ctx.api.editMessageCaption(chatId, viewerId, {
-          caption: "Всё удалил. Набор пустой.",
+        await ctx.api.editMessageCaption(id, session.viewerMessageId, {
+          caption: ctx.t("upload-cleared-empty"),
+          reply_markup: {
+            inline_keyboard: renderViewerKeyboard(ctx, session),
+          },
         })
       } catch {
         // ignore
@@ -260,8 +277,8 @@ async function handleViewerBuild(ctx: CallbackQueryContext): Promise<void> {
 
   await refreshBottomStatus(ctx, id)
 
-  if (!ctx.session.activeBatchId) {
-    await ctx.reply("Нет активного батча. Начни через /new")
+  if (!ctx.session.activeCompositionId) {
+    await ctx.reply(ctx.t("upload-no-active-composition"))
     return
   }
 

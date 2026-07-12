@@ -1,10 +1,11 @@
-import { Bot, session, type ApiClientOptions, type Context } from "grammy"
+import { Bot, session, type Context } from "grammy"
 
-import { isAdminTelegramUserId, isWhitelistedTelegramUserId } from "@/auth"
 import { registerHandlers } from "@/bot/handlers"
 import { telegramApiFetch } from "@/bot/proxy"
 import { drizzleSessionStorage } from "@/bot/session-storage"
 import type { BotContext, SessionData } from "@/bot/types"
+import { requireWhitelistedUser } from "./handlers/whitelist"
+import { i18n } from "./i18n"
 
 const getSessionKey = (ctx: Context): string | undefined =>
   ctx.chat?.id.toString()
@@ -29,6 +30,7 @@ export async function createBot(): Promise<Bot<BotContext>> {
       getSessionKey,
     })
   )
+  bot.use(i18n)
   bot.use(requireWhitelistedUser)
 
   registerHandlers(bot)
@@ -40,44 +42,10 @@ export async function createBot(): Promise<Bot<BotContext>> {
   return bot
 }
 
-async function requireWhitelistedUser(
-  ctx: BotContext,
-  next: () => Promise<void>
-): Promise<void> {
-  const command = readCommand(ctx)
-  const userId = ctx.from?.id
-
-  if (command === "whitelist") {
-    if (userId && (await isAdminTelegramUserId(userId))) {
-      await next()
-    } else {
-      console.warn(`Bot whitelist command denied user=${userId ?? "-"}`)
-    }
-
-    return
-  }
-
-  if (!userId || !(await isWhitelistedTelegramUserId(userId))) {
-    console.warn(
-      `Bot update denied by whitelist user=${userId ?? "-"} command=${command ?? "-"}`
-    )
-    await ctx.reply("доступ только для whitelist")
-    return
-  }
-
-  await next()
-}
-
-function readCommand(ctx: BotContext): string | null {
-  const message = ctx.message
-  const text = message && "text" in message ? message.text?.trim() : undefined
-
-  if (!text?.startsWith("/")) {
-    return null
-  }
-
-  return text.slice(1).split(/\s+/)[0]?.split("@")[0]?.toLowerCase() ?? null
-}
+export async function startBot(bot: Bot<BotContext>): Promise<void> {
+  await bot.api.deleteWebhook({
+    drop_pending_updates: true,
+  })
 
 export function startBot(bot: Bot<BotContext>): void {
   void bot.api

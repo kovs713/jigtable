@@ -14,7 +14,7 @@ export async function handleNew(
   ctx: CommandContext<BotContext>
 ): Promise<void> {
   if (!ctx.from) {
-    await ctx.reply("не вижу юзера, не могу начать")
+    await ctx.reply(ctx.t("user-not-found"))
     return
   }
 
@@ -53,8 +53,10 @@ export async function handleNew(
   const text = ctx.t("new-message")
 
   try {
-    const msg = await ctx.api.sendMessage(ctx.chat!.id, text, {
-      reply_markup: { inline_keyboard: keyboard },
+    const message = await ctx.api.sendMessage(ctx.chat!.id, text, {
+      reply_markup: {
+        inline_keyboard: renderUploadKeyboard(ctx, ctx.session.upload),
+      },
     })
 
     if (chatId) {

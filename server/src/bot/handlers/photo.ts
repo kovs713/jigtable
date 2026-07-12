@@ -9,8 +9,8 @@ import { compositionSourceImageObjectKey } from "@/storage/utils"
 export async function handlePhoto(ctx: PhotoContext): Promise<void> {
   const photos = ctx.message.photo
 
-  if (!ctx.session.isStarted || !ctx.session.activeBatchId) {
-    await ctx.reply("сначала /new нажми")
+  if (!ctx.session.isStarted || !ctx.session.activeCompositionId) {
+    await ctx.reply(ctx.t("photo-start-first"))
     return
   }
 

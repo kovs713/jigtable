@@ -19,8 +19,8 @@ import { telegramPreviewObjectKey } from "@/storage/utils"
 import { clientLayoutUrl } from "../utils"
 
 export async function handleCommit(ctx: BotContext): Promise<void> {
-  if (!ctx.session.isStarted || !ctx.session.activeBatchId) {
-    await ctx.reply("Нет активного батча. Начни через /new")
+  if (!ctx.session.isStarted || !ctx.session.activeCompositionId) {
+    await ctx.reply(ctx.t("commit-not-started"))
     return
   }
 
@@ -31,8 +31,8 @@ export async function handleCommit(ctx: BotContext): Promise<void> {
       eq(compositionsSchema.compositionId, ctx.session.activeCompositionId)
     )
 
-  if (!batch) {
-    await ctx.reply("active batch не найден, начни заново через /new")
+  if (!composition) {
+    await ctx.reply(ctx.t("commit-missing"))
     return
   }
 
@@ -61,9 +61,9 @@ export async function handleCommit(ctx: BotContext): Promise<void> {
     return
   }
 
-  if (batch.status !== PhotoBatchStatus.Collecting) {
-    clearActiveBatch(ctx)
-    await ctx.reply("active batch уже не собирается, начни заново через /new")
+  if (composition.status !== CompositionStatus.Collecting) {
+    await clearActiveComposition(ctx)
+    await ctx.reply(ctx.t("commit-not-collecting"))
     return
   }
 
@@ -86,7 +86,7 @@ export async function handleCommit(ctx: BotContext): Promise<void> {
     : allPhotos
 
   if (photos.length === 0) {
-    await ctx.reply("Нечего собирать. Кинь хотя бы 2 картинки.")
+    await ctx.reply(ctx.t("commit-empty"))
     return
   }
 
@@ -186,12 +186,14 @@ async function replyWithEditorLink(
     ? {
         parse_mode: "HTML" as const,
         reply_markup: {
-          inline_keyboard: [[{ text: "открыть редактор", url: layoutUrl }]],
+          inline_keyboard: [
+            [{ text: ctx.t("button-open-editor"), url: layoutUrl }],
+          ],
         },
       }
     : { parse_mode: "HTML" as const }
 
-  await ctx.reply(lines.join("\n"), replyOptions)
+  await ctx.reply(text, replyOptions)
 }
 
 async function clearActiveComposition(ctx: BotContext): Promise<void> {

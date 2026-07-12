@@ -54,5 +54,5 @@ export async function handleReset(
   session.photos = []
   session.upload = undefined
 
-  await ctx.reply("Снёс. Можно кидать заново.")
+  await ctx.reply(ctx.t("reset-done"))
 }

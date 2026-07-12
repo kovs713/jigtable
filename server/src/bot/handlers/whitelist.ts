@@ -28,21 +28,28 @@ export async function handleWhitelist(
 
   const command = match[0]
 
-  if ((command === "add" || command === "rm") && !whitelistCandidate) {
-    await ctx.reply("user_id invalid. Команды: add <user_id>, rm <user_id>")
+  if (command !== "add" && command !== "rm") {
+    await ctx.reply(ctx.t("whitelist-invalid-command"))
     return
   }
 
-  if (command == "add") {
-    const targetUserId = whitelistCandidate!
-    const user = await db
-      .select()
-      .from(whitelistUsersSchema)
-      .where(eq(whitelistUsersSchema.user_id, targetUserId))
-      .limit(1)
+  const whitelistCandidate = number().parse(Number(match[1]))
 
+  if (!whitelistCandidate.ok) {
+    await ctx.reply(ctx.t("whitelist-invalid-user-id"))
+    return
+  }
+
+  const targetUserId = whitelistCandidate.value
+  const user = await db
+    .select()
+    .from(whitelistUsersSchema)
+    .where(eq(whitelistUsersSchema.user_id, targetUserId))
+    .limit(1)
+
+  if (command === "add") {
     if (user.length) {
-      await ctx.reply("Пользователь уже был добавлен в вайтлист")
+      await ctx.reply(ctx.t("whitelist-user-already-added"))
       return
     }
 
@@ -50,14 +57,20 @@ export async function handleWhitelist(
       user_id: targetUserId,
     })
 
-    await ctx.reply("Пользователь удален из вайтлиста")
-    return
-  } else {
-    await ctx.reply(
-      "Такой команды не существует. Команды: add <user_id>, rm <user_id>"
-    )
+    await ctx.reply(ctx.t("whitelist-user-added"))
     return
   }
+
+  if (!user.length) {
+    await ctx.reply(ctx.t("whitelist-user-not-found"))
+    return
+  }
+
+  await db
+    .delete(whitelistUsersSchema)
+    .where(eq(whitelistUsersSchema.user_id, targetUserId))
+
+  await ctx.reply(ctx.t("whitelist-user-removed"))
 }
 
 async function replyWhitelist(ctx: CommandContext<BotContext>): Promise<void> {
@@ -67,12 +80,12 @@ async function replyWhitelist(ctx: CommandContext<BotContext>): Promise<void> {
     .where(eq(whitelistUsersSchema.isAdmin, false))
 
   if (!users.length) {
-    await ctx.reply("Вайтлист пуст")
+    await ctx.reply(ctx.t("whitelist-empty"))
     return
   }
 
   const text = [
-    `Вайтлист: ${users.length}`,
+    ctx.t("whitelist-title", { count: users.length }),
     "",
     ...users.map((user, index) => `${index + 1}. ${user.user_id}`),
   ].join("\n")

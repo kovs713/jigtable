@@ -55,7 +55,7 @@ export function renderUploadStatus(
   const deleted = getDeletedImages(session)
 
   if (active.length === 0 && deleted.length === 0) {
-    return ["Смотреть пока нечего.", "Кинь сначала картинки."].join("\n")
+    return ctx.t("upload-status-empty")
   }
 
   const lines: string[] = [
@@ -63,15 +63,19 @@ export function renderUploadStatus(
   ]
 
   if (deleted.length > 0) {
-    lines.push(`Удалено: ${deleted.length}.`)
+    lines.push(ctx.t("upload-status-deleted", { count: deleted.length }))
   }
 
   if (session.duplicateCount > 0) {
-    lines.push(`Повторов выкинул: ${session.duplicateCount}.`)
+    lines.push(
+      ctx.t("upload-status-duplicates", {
+        count: session.duplicateCount,
+      })
+    )
   }
 
   lines.push("")
-  lines.push("Докидывай ещё или собираем.")
+  lines.push(ctx.t("upload-status-continue"))
 
   return lines.join("\n")
 }
@@ -85,21 +89,21 @@ export function renderUploadKeyboard(
   return [
     [
       {
-        text: "глянуть",
+        text: ctx.t("button-view"),
         callback_data: hasImages ? "upload:view" : "viewer:noop",
       },
       {
-        text: "собрать",
+        text: ctx.t("button-build"),
         callback_data: hasImages ? "upload:build" : "viewer:noop",
       },
     ],
     [
       {
-        text: "убрать последнюю",
+        text: ctx.t("button-remove-latest"),
         callback_data: hasImages ? "upload:delete_last" : "viewer:noop",
       },
       {
-        text: "снести всё",
+        text: ctx.t("button-remove-all"),
         callback_data: hasImages ? "upload:clear" : "viewer:noop",
       },
     ],
@@ -112,9 +116,18 @@ export function renderViewerCaption(
   index: number,
   total: number
 ): string {
-  const img = session.images.find((i) => i.id === session.viewerImageId)
-  if (!img) return "Всё удалил. Набор пустой."
-  return `${index + 1} из ${total}\n${img.width}×${img.height}`
+  const image = getViewerImage(session)
+
+  if (!image) {
+    return ctx.t("viewer-empty")
+  }
+
+  return ctx.t("viewer-caption", {
+    current: index + 1,
+    total,
+    width: image.width,
+    height: image.height,
+  })
 }
 
 export function renderViewerKeyboard(
@@ -124,7 +137,14 @@ export function renderViewerKeyboard(
   const active = getActiveImages(session)
 
   if (active.length === 0) {
-    return [[{ text: "закрыть", callback_data: "viewer:back" }]]
+    return [
+      [
+        {
+          text: ctx.t("button-close"),
+          callback_data: "viewer:back",
+        },
+      ],
+    ]
   }
 
   const index = getCurrentViewerIndex(session)
@@ -134,18 +154,26 @@ export function renderViewerKeyboard(
   return [
     [
       {
-        text: isFirst ? "·" : "назад",
+        text: isFirst ? "·" : ctx.t("button-back"),
         callback_data: isFirst ? "viewer:noop" : "viewer:prev",
       },
       {
-        text: isLast ? "·" : "дальше",
+        text: ctx.t("button-remove"),
+        callback_data: "viewer:delete",
+      },
+      {
+        text: isLast ? "·" : ctx.t("button-next"),
         callback_data: isLast ? "viewer:noop" : "viewer:next",
       },
     ],
     [
       {
-        text: "собрать",
-        callback_data: active.length >= 2 ? "viewer:build" : "viewer:noop",
+        text: ctx.t("button-close"),
+        callback_data: "viewer:back",
+      },
+      {
+        text: ctx.t("button-build"),
+        callback_data: "viewer:build",
       },
     ],
   ]
