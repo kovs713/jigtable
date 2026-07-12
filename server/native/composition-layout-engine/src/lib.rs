@@ -17,6 +17,13 @@ pub struct CompositionLayoutInput {
     pub image_count: Option<f64>,
 }
 
+#[napi(string_enum)]
+#[derive(Debug, PartialEq, Eq)]
+pub enum CompositionLayoutKind {
+    Justified,
+    Bento,
+}
+
 #[napi(object)]
 #[derive(Default)]
 pub struct CompositionLayoutOptions {
@@ -24,6 +31,8 @@ pub struct CompositionLayoutOptions {
     pub target_aspect_ratio: Option<f64>,
     pub target_image_area: Option<f64>,
     pub max_aspect_ratio_distortion: Option<f64>,
+
+    pub layout: Option<CompositionLayoutKind>,
 }
 
 #[napi(object)]
@@ -73,6 +82,19 @@ struct PackedImage {
     y: f64,
     width: f64,
     height: f64,
+}
+
+#[derive(Clone)]
+struct PackedGroup {
+    width: f64,
+    height: f64,
+    images: Vec<PackedImage>,
+}
+
+#[derive(Clone, Copy)]
+enum BentoDirection {
+    Horizontal,
+    Vertical,
 }
 
 const DEFAULT_GAP: f64 = 0.0;
@@ -135,6 +157,7 @@ pub fn generate_composition_layout(
         1.0,
         "maxAspectRatioDistortion",
     )?;
+    let layout = options.layout.unwrap_or(CompositionLayoutKind::Justified);
     let mut packing_images = images
         .iter()
         .enumerate()
@@ -147,10 +170,13 @@ pub fn generate_composition_layout(
         })
         .collect::<Vec<_>>();
 
-    packing_images.sort_by(compare_packing_images);
+    if layout == CompositionLayoutKind::Justified {
+        packing_images.sort_by(compare_packing_images);
+    }
 
     let mut packed_images = pack_images(
         &packing_images,
+        layout,
         target_image_area,
         target_aspect_ratio,
         gap,
@@ -177,6 +203,29 @@ pub fn generate_composition_layout(
 }
 
 fn pack_images(
+    images: &[PackingImage],
+    layout: CompositionLayoutKind,
+    target_image_area: f64,
+    target_aspect_ratio: f64,
+    gap: f64,
+    max_aspect_ratio_distortion: f64,
+) -> Result<Vec<PackedImage>> {
+    match layout {
+        CompositionLayoutKind::Justified => pack_justified(
+            images,
+            target_image_area,
+            target_aspect_ratio,
+            gap,
+            max_aspect_ratio_distortion,
+        ),
+
+        CompositionLayoutKind::Bento => {
+            pack_bento(images, target_image_area, target_aspect_ratio, gap)
+        }
+    }
+}
+
+fn pack_justified(
     images: &[PackingImage],
     target_image_area: f64,
     target_aspect_ratio: f64,
@@ -207,6 +256,211 @@ fn pack_images(
         .next()
         .map(|(_, images)| images)
         .ok_or_else(|| Error::from_reason("Could not build composition canvas layout"))
+}
+
+fn pack_bento(
+    images: &[PackingImage],
+    target_image_area: f64,
+    target_aspect_ratio: f64,
+    gap: f64,
+) -> Result<Vec<PackedImage>> {
+    if images.is_empty() {
+        return Err(Error::from_reason(
+            "Could not build bento composition layout",
+        ));
+    }
+
+    let group = pack_bento_group(images, target_image_area, target_aspect_ratio, gap)?;
+
+    Ok(group.images)
+}
+
+fn pack_bento_group(
+    images: &[PackingImage],
+    target_image_area: f64,
+    target_aspect_ratio: f64,
+    gap: f64,
+) -> Result<PackedGroup> {
+    if images.is_empty() {
+        return Err(Error::from_reason("Could not build empty bento group"));
+    }
+
+    if images.len() == 1 {
+        let image = images
+            .first()
+            .ok_or_else(|| Error::from_reason("Could not build bento image group"))?;
+
+        return Ok(create_bento_leaf(image, target_image_area));
+    }
+
+    let split_index = choose_bento_split_index(images);
+
+    let first_images = images
+        .get(..split_index)
+        .ok_or_else(|| Error::from_reason("Could not split first bento image group"))?;
+
+    let second_images = images
+        .get(split_index..)
+        .ok_or_else(|| Error::from_reason("Could not split second bento image group"))?;
+
+    let first = pack_bento_group(first_images, target_image_area, target_aspect_ratio, gap)?;
+
+    let second = pack_bento_group(second_images, target_image_area, target_aspect_ratio, gap)?;
+
+    let horizontal = combine_bento_groups(
+        first.clone(),
+        second.clone(),
+        BentoDirection::Horizontal,
+        gap,
+    );
+
+    let vertical = combine_bento_groups(first, second, BentoDirection::Vertical, gap);
+
+    let horizontal_score = score_bento_group(&horizontal, target_aspect_ratio);
+
+    let vertical_score = score_bento_group(&vertical, target_aspect_ratio);
+
+    if horizontal_score <= vertical_score {
+        Ok(horizontal)
+    } else {
+        Ok(vertical)
+    }
+}
+
+fn create_bento_leaf(image: &PackingImage, target_image_area: f64) -> PackedGroup {
+    /*
+     * width / height = aspect_ratio
+     * width * height = target_image_area
+     */
+    let width = (target_image_area * image.aspect_ratio).sqrt().max(1.0);
+
+    let height = (target_image_area / image.aspect_ratio).sqrt().max(1.0);
+
+    PackedGroup {
+        width,
+        height,
+        images: vec![PackedImage {
+            image: image.clone(),
+            x: 0.0,
+            y: 0.0,
+            width,
+            height,
+        }],
+    }
+}
+
+fn choose_bento_split_index(images: &[PackingImage]) -> usize {
+    /*
+     * Делим примерно пополам.
+     *
+     * Для нечётного количества первая группа будет меньше:
+     *
+     * 3 -> 1 + 2
+     * 5 -> 2 + 3
+     */
+    (images.len() / 2).max(1)
+}
+
+fn combine_bento_groups(
+    mut first: PackedGroup,
+    mut second: PackedGroup,
+    direction: BentoDirection,
+    gap: f64,
+) -> PackedGroup {
+    match direction {
+        BentoDirection::Horizontal => {
+            let height = first.height.max(second.height);
+
+            let first_scale = height / first.height;
+            let second_scale = height / second.height;
+
+            scale_packed_group(&mut first, first_scale);
+            scale_packed_group(&mut second, second_scale);
+
+            translate_packed_group(&mut second, first.width + gap, 0.0);
+
+            let width = first.width + gap + second.width;
+
+            let mut images = first.images;
+            images.extend(second.images);
+
+            PackedGroup {
+                width,
+                height,
+                images,
+            }
+        }
+
+        BentoDirection::Vertical => {
+            let width = first.width.max(second.width);
+
+            let first_scale = width / first.width;
+            let second_scale = width / second.width;
+
+            scale_packed_group(&mut first, first_scale);
+            scale_packed_group(&mut second, second_scale);
+
+            translate_packed_group(&mut second, 0.0, first.height + gap);
+
+            let height = first.height + gap + second.height;
+
+            let mut images = first.images;
+            images.extend(second.images);
+
+            PackedGroup {
+                width,
+                height,
+                images,
+            }
+        }
+    }
+}
+
+fn scale_packed_group(group: &mut PackedGroup, scale: f64) {
+    group.width *= scale;
+    group.height *= scale;
+
+    for image in &mut group.images {
+        image.x *= scale;
+        image.y *= scale;
+        image.width *= scale;
+        image.height *= scale;
+    }
+}
+
+fn translate_packed_group(group: &mut PackedGroup, offset_x: f64, offset_y: f64) {
+    for image in &mut group.images {
+        image.x += offset_x;
+        image.y += offset_y;
+    }
+}
+
+fn score_bento_group(group: &PackedGroup, target_aspect_ratio: f64) -> f64 {
+    let canvas_aspect_ratio = group.width / group.height;
+
+    let aspect_ratio_score = (canvas_aspect_ratio / target_aspect_ratio).ln().abs();
+
+    let area_spread_score = score_bento_area_spread(&group.images);
+
+    aspect_ratio_score + area_spread_score * 0.2
+}
+
+fn score_bento_area_spread(images: &[PackedImage]) -> f64 {
+    let min_area = images
+        .iter()
+        .map(|image| image.width * image.height)
+        .fold(f64::INFINITY, f64::min);
+
+    let max_area = images
+        .iter()
+        .map(|image| image.width * image.height)
+        .fold(0.0, f64::max);
+
+    if min_area <= 0.0 || !min_area.is_finite() {
+        return f64::INFINITY;
+    }
+
+    (max_area / min_area).ln().abs()
 }
 
 fn partition_rows(images: &[PackingImage], row_count: usize) -> Result<Vec<Vec<PackingImage>>> {

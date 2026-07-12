@@ -9,6 +9,11 @@ export interface SourceImage {
   height: number
 }
 
+export enum CompositionLayoutKind {
+  Justified,
+  Bento,
+}
+
 export interface CompositionLayoutInput {
   images: SourceImage[]
   imageCount?: number
@@ -19,6 +24,8 @@ export interface CompositionLayoutOptions {
   targetAspectRatio?: number
   targetImageArea?: number
   maxAspectRatioDistortion?: number
+
+  layout: CompositionLayoutKind
 }
 
 interface CanvasLayout {
@@ -54,7 +61,9 @@ const native =
 
 export function generateCompositionLayout(
   input: CompositionLayoutInput,
-  options: CompositionLayoutOptions = {}
+  options: CompositionLayoutOptions = {
+    layout: CompositionLayoutKind.Justified,
+  }
 ): CompositionLayout {
   return native.generateCompositionLayout(input, options)
 }

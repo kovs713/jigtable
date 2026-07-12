@@ -1,9 +1,10 @@
 import { describe, expect, test } from "bun:test"
 
 import {
+  CompositionLayoutKind,
   generateCompositionLayout,
-  type SourceImage,
   type CompositionLayoutItem,
+  type SourceImage,
 } from "./index"
 
 describe("generateImageLayout", () => {
@@ -53,7 +54,7 @@ describe("generateImageLayout", () => {
           { id: "6", src: "s3://photo-6", width: 1800, height: 1200 },
         ],
       },
-      { gap: 0 }
+      { layout: CompositionLayoutKind.Justified, gap: 0 }
     )
 
     for (let leftIndex = 0; leftIndex < result.items.length; leftIndex += 1) {
@@ -81,7 +82,10 @@ describe("generateImageLayout", () => {
       width: 900,
       height: index < 18 ? 1600 : 1800,
     }))
-    const result = generateCompositionLayout({ images }, { gap: 0 })
+    const result = generateCompositionLayout(
+      { images },
+      { layout: CompositionLayoutKind.Justified, gap: 0 }
+    )
     const tailItems = result.items.slice(-2)
 
     expect(totalItemArea(result.items)).toBe(
@@ -105,11 +109,20 @@ describe("generateImageLayout", () => {
     }))
     const baseResult = generateCompositionLayout(
       { images },
-      { gap: 0, targetImageArea: 10_000 }
+      {
+        layout: CompositionLayoutKind.Justified,
+        gap: 0,
+        targetImageArea: 10_000,
+      }
     )
     const wideResult = generateCompositionLayout(
       { images },
-      { gap: 0, targetAspectRatio: 16 / 9, targetImageArea: 10_000 }
+      {
+        layout: CompositionLayoutKind.Justified,
+        gap: 0,
+        targetAspectRatio: 16 / 9,
+        targetImageArea: 10_000,
+      }
     )
     const baseAspectRatio = baseResult.canvas.width / baseResult.canvas.height
     const wideAspectRatio = wideResult.canvas.width / wideResult.canvas.height
