@@ -1,8 +1,7 @@
-import type { WsSocket } from "./websockets"
-
 export class ApiError extends Error {
   readonly status: number
   readonly expose: boolean
+  readonly headers?: Record<string, string>
 
   constructor(
     message: string,
@@ -10,6 +9,7 @@ export class ApiError extends Error {
     opts?: {
       expose?: boolean
       cause?: unknown
+      headers?: Record<string, string>
     }
   ) {
     super(message, { cause: opts?.cause })
@@ -17,6 +17,7 @@ export class ApiError extends Error {
     this.name = "ApiError"
     this.status = status
     this.expose = opts?.expose ?? status < 500
+    this.headers = opts?.headers
   }
 }
 
@@ -30,7 +31,8 @@ export type ErrorResponseBody = {
 export function errorResponse(
   message: string,
   status: number,
-  code?: string
+  code?: string,
+  headers?: Record<string, string>
 ): Response {
   const body: ErrorResponseBody = {
     error: {
@@ -39,7 +41,10 @@ export function errorResponse(
     },
   }
 
-  return Response.json(body, { status })
+  return Response.json(body, {
+    status,
+    headers,
+  })
 }
 
 export function handleError(error: unknown): Response {
@@ -50,35 +55,13 @@ export function handleError(error: unknown): Response {
 
     return errorResponse(
       error.expose ? error.message : "Internal Server Error",
-      error.status
+      error.status,
+      undefined,
+      error.headers
     )
   }
 
   console.error(error)
 
   return errorResponse("Internal Server Error", 500)
-}
-
-export function sendWsError(
-  socket: WsSocket,
-  code: string,
-  message: string
-): void {
-  sendJson(socket, {
-    type: "error",
-    code,
-    message,
-  })
-}
-
-export function sendJson(socket: WsSocket, value: unknown): void {
-  const result = socket.send(JSON.stringify(value))
-
-  if (result === 0) {
-    console.warn("WebSocket message dropped")
-  }
-
-  if (result === -1) {
-    console.warn("WebSocket backpressure")
-  }
 }

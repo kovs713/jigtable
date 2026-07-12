@@ -5,17 +5,21 @@ import {
   optional,
   record,
   string,
-} from "@jigtable/shared"
+} from "@jigtable/shared/schemas"
 
-import type { CollageLayout, LayoutItem } from "@/collage-layout-engine"
 import { LIMITS } from "@/config"
-import type { batchPhotosSchema } from "@/infra/db/schemas"
-import { ApiError } from "../errors"
-import { parseApiSchema } from "../utils/request"
+import type { compositionSourceImagesSchema } from "@/db/schemas"
+import type {
+  CompositionLayout,
+  CompositionLayoutItem,
+} from "@/native/composition-layout-engine"
+import { ApiError } from "../http/errors"
+import { parseApiSchema } from "../http/request"
 
-export type PhotoRow = typeof batchPhotosSchema.$inferSelect
+export type CompositionSourceImageRow =
+  typeof compositionSourceImagesSchema.$inferSelect
 
-const LayoutSchema = object({
+const CompositionLayoutSchema = object({
   canvas: object({
     width: number({ min: 1 }),
     height: number({ min: 1 }),
@@ -33,12 +37,18 @@ const LayoutSchema = object({
   ),
 })
 
-export function normalizeLayout(
+export function normalizeCompositionLayout(
   raw: unknown,
-  photos: PhotoRow[]
-): CollageLayout {
-  const value = parseApiSchema(LayoutSchema, unwrapLayout(raw), "layout")
-  const photoById = new Map(photos.map((photo) => [photo.fileId, photo]))
+  sourceImages: CompositionSourceImageRow[]
+): CompositionLayout {
+  const value = parseApiSchema(
+    CompositionLayoutSchema,
+    unwrapCompositionLayout(raw),
+    "layout"
+  )
+  const sourceImagetoById = new Map(
+    sourceImages.map((image) => [image.fileId, image])
+  )
   const canvas = value.canvas
 
   assertCanvasWithinLimits(canvas)
@@ -50,16 +60,16 @@ export function normalizeLayout(
     )
   }
 
-  if (value.items.length > photos.length) {
+  if (value.items.length > sourceImages.length) {
     throw new ApiError("items cannot exceed source image count", 400)
   }
 
   const seenIds = new Set<string>()
-  const items = value.items.map((rawItem, index): LayoutItem => {
+  const items = value.items.map((rawItem, index): CompositionLayoutItem => {
     const id = rawItem.id
-    const photo = photoById.get(id)
+    const sourceImage = sourceImagetoById.get(id)
 
-    if (!photo) {
+    if (!sourceImage) {
       throw new ApiError(`Unknown image id ${id}`, 400)
     }
 
@@ -90,7 +100,7 @@ export function normalizeLayout(
 
     return {
       id,
-      src: photo.objectKey,
+      src: sourceImage.objectKey,
       x,
       y,
       width,
@@ -103,7 +113,7 @@ export function normalizeLayout(
   return { canvas, items }
 }
 
-function assertCanvasWithinLimits(canvas: CollageLayout["canvas"]): void {
+function assertCanvasWithinLimits(canvas: CompositionLayout["canvas"]): void {
   if (canvas.width > LIMITS.layout.maxCanvasWidth) {
     throw new ApiError(
       `canvas.width must be at most ${LIMITS.layout.maxCanvasWidth}`,
@@ -153,7 +163,7 @@ function assertItemWithinLimits(
   }
 }
 
-export function unwrapLayout(raw: unknown): unknown {
+export function unwrapCompositionLayout(raw: unknown): unknown {
   const value = record().parse(raw)
 
   if (value.ok && record().parse(value.value.layout).ok) {
