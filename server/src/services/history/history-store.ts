@@ -1,57 +1,22 @@
-import { CryptoHasher } from "bun"
 import { and, desc, eq, inArray } from "drizzle-orm"
 
-import type { JigsawConfig } from "@jigtable/jigsaw-core/jigsaw/types"
-import type { JigsawPlayer } from "@jigtable/jigsaw-core/multiplayer/protocol"
-
-import { db } from "@/infra/db"
+import { db } from "@/db"
 import {
   jigsawRoomParticipantsSchema,
   jigsawRoomResultsSchema,
   usersSchema,
-  type JigsawResultParticipant,
-  type JigsawSafeAssetRef,
-} from "@/infra/db/schemas"
-import type { StoredJigsawSession } from "./session-store"
+} from "@/db/schemas"
+import { hashToken } from "./asset-ref"
+import { toJigsawHistoryItem, toJigsawRoomResult } from "./history-mappers"
+import type {
+  JigsawHistoryItem,
+  JigsawHistoryRoomInfo,
+  JigsawResultParticipant,
+  JigsawRoomResult,
+} from "./history-types"
+import type { StoredJigsawSession } from "../session"
 
-export interface JigsawHistoryRoomInfo {
-  roomId: string
-  assetRef: JigsawSafeAssetRef
-  imageUrl: string
-  jigsawConfig: JigsawConfig
-  elapsedMs: number
-  pieceCount: number
-  snapCount: number
-  completedAt: Date
-}
-
-export interface JigsawHistoryItem {
-  roomId: string
-  completedAt: Date
-  elapsedMs: number
-  pieceCount: number
-  snapCount: number
-  imageUrl: string | null
-  jigsawConfig: JigsawConfig | null
-  source: {
-    kind: JigsawSafeAssetRef["kind"]
-    label: string
-  }
-  participants: JigsawResultParticipant[]
-}
-
-export interface JigsawRoomResult {
-  roomId: string
-  imageUrl: string | null
-  jigsawConfig: JigsawConfig | null
-  elapsedMs: number
-  pieceCount: number
-  snapCount: number
-  completedAt: Date
-  participants: JigsawResultParticipant[]
-}
-
-export class JigsawHistoryStore {
+export class HistoryService {
   async upsertParticipant({
     roomId,
     session,
@@ -84,6 +49,7 @@ export class JigsawHistoryStore {
         .update(jigsawRoomParticipantsSchema)
         .set(values)
         .where(eq(jigsawRoomParticipantsSchema.id, existingRows[0].id))
+
       return
     }
 
@@ -100,7 +66,10 @@ export class JigsawHistoryStore {
 
     await db
       .update(jigsawRoomParticipantsSchema)
-      .set({ leftAt: now, lastSeenAt: now })
+      .set({
+        leftAt: now,
+        lastSeenAt: now,
+      })
       .where(
         and(
           eq(jigsawRoomParticipantsSchema.roomId, roomId),
@@ -115,7 +84,11 @@ export class JigsawHistoryStore {
     userId,
   }: {
     sessionToken: string
-    player: JigsawPlayer
+    player: {
+      id: string
+      name: string
+      color: string
+    }
     userId?: string
   }): Promise<void> {
     await db
@@ -137,7 +110,10 @@ export class JigsawHistoryStore {
   async linkAnonSessionToUser(token: string, userId: string): Promise<void> {
     await db
       .update(jigsawRoomParticipantsSchema)
-      .set({ userId, lastSeenAt: new Date() })
+      .set({
+        userId,
+        lastSeenAt: new Date(),
+      })
       .where(eq(jigsawRoomParticipantsSchema.anonSessionHash, hashToken(token)))
   }
 
@@ -157,7 +133,9 @@ export class JigsawHistoryStore {
         snapCount: room.snapCount,
         completedAt: room.completedAt,
       })
-      .onConflictDoNothing({ target: jigsawRoomResultsSchema.roomId })
+      .onConflictDoNothing({
+        target: jigsawRoomResultsSchema.roomId,
+      })
   }
 
   async getUserHistory(userId: string): Promise<JigsawHistoryItem[]> {
@@ -177,17 +155,21 @@ export class JigsawHistoryStore {
       .where(inArray(jigsawRoomResultsSchema.roomId, roomIds))
       .orderBy(desc(jigsawRoomResultsSchema.completedAt))
 
-    return rows.map((row) => ({
-      roomId: row.roomId,
-      completedAt: row.completedAt,
-      elapsedMs: row.elapsedMs,
-      pieceCount: row.pieceCount,
-      snapCount: row.snapCount,
-      imageUrl: row.imageUrl,
-      jigsawConfig: row.jigsawConfig,
-      source: summarizeAssetRef(row.assetRef),
-      participants: row.participants,
-    }))
+    return rows.flatMap((row) => {
+      const item = toJigsawHistoryItem({
+        roomId: row.roomId,
+        assetRef: row.assetRef,
+        imageUrl: row.imageUrl,
+        jigsawConfig: row.jigsawConfig,
+        elapsedMs: row.elapsedMs,
+        pieceCount: row.pieceCount,
+        snapCount: row.snapCount,
+        completedAt: row.completedAt,
+        participants: row.participants,
+      })
+
+      return item ? [item] : []
+    })
   }
 
   async getRoomResult(roomId: string): Promise<JigsawRoomResult | null> {
@@ -203,8 +185,9 @@ export class JigsawHistoryStore {
       return null
     }
 
-    return {
+    return toJigsawRoomResult({
       roomId: row.roomId,
+      assetRef: row.assetRef,
       imageUrl: row.imageUrl,
       jigsawConfig: row.jigsawConfig,
       elapsedMs: row.elapsedMs,
@@ -212,7 +195,7 @@ export class JigsawHistoryStore {
       snapCount: row.snapCount,
       completedAt: row.completedAt,
       participants: row.participants,
-    }
+    })
   }
 
   private async readResultParticipants(
@@ -248,56 +231,4 @@ export class JigsawHistoryStore {
       }
     })
   }
-}
-
-export function createJigsawSafeAssetRef({
-  imageUrl,
-  assetId,
-}: {
-  imageUrl: string
-  assetId: string
-}): JigsawSafeAssetRef {
-  const url = new URL(imageUrl, process.env.CLIENT_URL)
-
-  if (url.pathname === "/test_jigsaw.png") {
-    return { kind: "dev", assetId }
-  }
-
-  if (url.pathname.startsWith("/api/batches/")) {
-    const parts = url.pathname.split("/").filter(Boolean)
-
-    if (parts[1] === "batches" && parts[2] && parts[3] === "rendered") {
-      return { kind: "batch_render", batchId: parts[2], assetId }
-    }
-  }
-
-  return {
-    kind: "external",
-    assetId,
-    sourceHash: hashToken(url.toString()),
-    origin: url.origin,
-  }
-}
-
-function summarizeAssetRef(
-  assetRef: JigsawSafeAssetRef
-): JigsawHistoryItem["source"] {
-  if (assetRef.kind === "dev") {
-    return { kind: assetRef.kind, label: "Test jigsaw" }
-  }
-
-  if (assetRef.kind === "batch_render") {
-    return { kind: assetRef.kind, label: "Rendered collage" }
-  }
-
-  return {
-    kind: assetRef.kind,
-    label: assetRef.origin
-      ? `External image from ${assetRef.origin}`
-      : "External image",
-  }
-}
-
-function hashToken(token: string): string {
-  return new CryptoHasher("sha256").update(token).digest("hex")
 }
