@@ -92,12 +92,3 @@ export interface JigsawState {
   neighbors: NeighborRelation[]
   snapCount: number
 }
-
-export interface JigsawStats {
-  fps: number
-  zoom: number
-  totalPieces: number
-  placedPieces: number
-  groupsCount: number
-  snapCount: number
-}

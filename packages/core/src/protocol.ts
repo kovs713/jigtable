@@ -8,15 +8,15 @@ import type {
   PieceState,
 } from "./types"
 
-export interface JigsawPlayer {
+export interface Player {
   id: string
   name: string
   color: string
 }
 
-export interface JigsawSession {
+export interface PlayerSession {
   token: string
-  player: JigsawPlayer
+  player: Player
   createdAt: number
   updatedAt: number
 }
@@ -38,7 +38,7 @@ export interface JigsawLock {
   connectionId: string
 }
 
-export interface JigsawPlayerCursor {
+export interface PlayerCursor {
   playerId: string
   playerName: string
   color: string
@@ -47,7 +47,7 @@ export interface JigsawPlayerCursor {
   updatedAt: number
 }
 
-export interface JigsawRoomTimer {
+export interface RoomTimer {
   elapsedMs: number
   paused: boolean
   updatedAt: number
@@ -55,7 +55,7 @@ export interface JigsawRoomTimer {
   pausedByPlayerName?: string
 }
 
-export interface JigsawRoomStats {
+export interface RoomStats {
   totalPieces: number
   placedPieces: number
   groupsCount: number
@@ -63,7 +63,7 @@ export interface JigsawRoomStats {
   snapCount: number
 }
 
-export interface JigsawRoomSnapshot {
+export interface RoomSnapshot {
   roomId: string
   jigsaw: {
     assetId: string
@@ -72,11 +72,11 @@ export interface JigsawRoomSnapshot {
   }
   pieces: JigsawState["pieces"]
   groups: JigsawState["groups"]
-  players: JigsawPlayer[]
+  players: Player[]
   locks: JigsawLock[]
-  cursors: JigsawPlayerCursor[]
-  timer: JigsawRoomTimer
-  stats: JigsawRoomStats
+  cursors: PlayerCursor[]
+  timer: RoomTimer
+  stats: RoomStats
   createdAt: number
   updatedAt: number
 }
@@ -92,7 +92,7 @@ export interface CreateJigsawRoomRequest {
 export interface CreateJigsawRoomResponse {
   roomId: string
   joinUrl: string
-  state: JigsawRoomSnapshot
+  state: RoomSnapshot
 }
 
 export type ClientToServerMessage =
@@ -115,14 +115,14 @@ export type ClientToServerMessage =
   | { type: "session:resume" }
 
 export type ServerToClientMessage =
-  | { type: "room:state"; state: JigsawRoomSnapshot }
-  | { type: "player:joined"; player: JigsawPlayer; playersCount: number }
-  | { type: "player:updated"; player: JigsawPlayer }
+  | { type: "room:state"; state: RoomSnapshot }
+  | { type: "player:joined"; player: Player; playersCount: number }
+  | { type: "player:updated"; player: Player }
   | { type: "player:left"; playerId: string; playersCount: number }
-  | { type: "cursor:moved"; cursor: JigsawPlayerCursor }
+  | { type: "cursor:moved"; cursor: PlayerCursor }
   | { type: "cursor:hidden"; playerId: string }
-  | { type: "session:paused"; timer: JigsawRoomTimer }
-  | { type: "session:resumed"; timer: JigsawRoomTimer }
+  | { type: "session:paused"; timer: RoomTimer }
+  | { type: "session:resumed"; timer: RoomTimer }
   | { type: "group:locked"; lock: JigsawGroupLock }
   | { type: "group:unlocked"; groupId: GroupId; playerId: string }
   | {
@@ -170,7 +170,7 @@ export type ServerToClientMessage =
       snapCount: number
     }
   | { type: "groups:arranged"; pieces: Record<PieceId, PieceState> }
-  | { type: "stats:updated"; stats: JigsawRoomStats }
+  | { type: "stats:updated"; stats: RoomStats }
   | {
       type: "room:pinged"
       id: string
