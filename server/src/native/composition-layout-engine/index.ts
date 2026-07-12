@@ -10,8 +10,8 @@ export interface SourceImage {
 }
 
 export enum CompositionLayoutKind {
-  Justified,
-  Bento,
+  Justified = "Justified",
+  Bento = "Bento",
 }
 
 export interface CompositionLayoutInput {
