@@ -269,8 +269,12 @@ function reverseEdgeShape(shape: PieceEdgeShape): PieceEdgeShape {
   return {
     sign: invertEdge(shape.sign),
     points: shape.points
-      .toReversed()
-      .map((point) => ({ l: 1 - point.l, w: -point.w })),
+      .slice()
+      .reverse()
+      .map((point) => ({
+        l: 1 - point.l,
+        w: -point.w,
+      })),
   }
 }
 
