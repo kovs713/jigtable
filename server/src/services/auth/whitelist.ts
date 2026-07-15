@@ -5,6 +5,7 @@ import { number } from "@jigtable/shared/schemas"
 import { db } from "@/db"
 import { whitelistUsersSchema } from "@/db/schemas"
 import { ApiError } from "@/api/http/errors"
+import { isAdmin } from "@/bot/handlers/whitelist"
 
 export const WHITELIST_DENIED_MESSAGE = "Telegram user is not whitelisted"
 
@@ -24,7 +25,7 @@ export async function isWhitelistedUser(userId: number): Promise<boolean> {
   const parsedUserId = number().parse(userId)
   if (!parsedUserId.ok) return false
 
-  if (parsedUserId.value === Number(process.env.ADMIN_USER_ID)) return true
+  if (isAdmin(parsedUserId.value)) return true
 
   const exists = await db
     .select()
