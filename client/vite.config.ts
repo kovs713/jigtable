@@ -17,6 +17,7 @@ export default defineConfig({
     }),
   ],
   resolve: {
+    dedupe: ["react", "react-dom"],
     alias: {
       "@jigtable/jigsaw-core": path.resolve(
         __dirname,

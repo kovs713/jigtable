@@ -7,6 +7,7 @@ import { apiRoutes } from "@jigtable/shared/api-routes"
 import { isRecord } from "@jigtable/shared/utils"
 
 import { API_BASE_URL } from "@/config"
+import { readJsonResponse } from "@/lib/api-response"
 
 export interface CreateJigsawRoomInput {
   imageUrl: string
@@ -126,18 +127,4 @@ export async function fetchJigsawRoomResult(
   }
 
   return payload.result as unknown as JigsawRoomResult
-}
-
-export async function readJsonResponse<T>(response: Response): Promise<T> {
-  const payload = await response.json().catch(() => null)
-
-  if (!response.ok) {
-    if (isRecord(payload) && typeof payload.error === "string") {
-      throw new Error(payload.error)
-    }
-
-    throw new Error(`Request failed: ${response.status}`)
-  }
-
-  return payload as T
 }

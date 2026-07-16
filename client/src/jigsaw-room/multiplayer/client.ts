@@ -8,6 +8,7 @@ import { apiRoutes } from "@jigtable/shared/api-routes"
 import { isRecord } from "@jigtable/shared/utils"
 
 import { API_BASE_URL, JIGSAW_WS_ENABLED, JIGSAW_WS_URL } from "@/config"
+import { readApiError } from "@/lib/api-response"
 
 const LOCAL_SESSION_STORAGE_KEY = "jigsaw-room-session"
 const LEGACY_PLAYER_STORAGE_KEY = "jigsaw-room-player"
@@ -335,10 +336,6 @@ function createId(prefix: string): string {
   const random = crypto.randomUUID?.() ?? String(Math.random()).slice(2)
 
   return `${prefix}_${random.replace(/-/g, "")}`
-}
-
-function readApiError(value: unknown): string | null {
-  return isRecord(value) && typeof value.error === "string" ? value.error : null
 }
 
 function createDisabledClient(): JigsawMultiplayerClient {

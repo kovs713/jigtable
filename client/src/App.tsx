@@ -8,7 +8,6 @@ import type {
 import { forwardRef, useCallback, useEffect, useRef, useState } from "react"
 
 import { apiRoutes } from "@jigtable/shared/api-routes"
-import { isRecord } from "@jigtable/shared/utils"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -38,6 +37,7 @@ import {
   fetchUserCompositions,
   type UserCompositionItem,
 } from "@/jigsaw-room/room-api"
+import { readJsonResponse } from "@/lib/api-response"
 import { cn } from "@/lib/utils"
 
 import "./app.css"
@@ -2888,20 +2888,6 @@ async function requestCompositionLayout(
   )
 
   return readJsonResponse<ApiCompositionLayout>(response)
-}
-
-async function readJsonResponse<T>(response: Response): Promise<T> {
-  const payload = await response.json().catch(() => null)
-
-  if (!response.ok) {
-    if (isRecord(payload) && typeof payload.error === "string") {
-      throw new Error(payload.error)
-    }
-
-    throw new Error(`Request failed: ${response.status}`)
-  }
-
-  return payload as T
 }
 
 function readErrorMessage(error: unknown): string {

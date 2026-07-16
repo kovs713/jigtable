@@ -3,6 +3,7 @@ import { isRecord } from "@jigtable/shared"
 import { apiRoutes } from "@jigtable/shared/api-routes"
 
 import { API_BASE_URL, TELEGRAM_BOT_USERNAME } from "@/config"
+import { readJsonResponse } from "@/lib/api-response"
 
 const AUTH_SESSION_STORAGE_KEY = "jigsaw-room-auth-v2"
 const LEGACY_AUTH_SESSION_STORAGE_KEY = "jigsaw-room-auth"
@@ -180,7 +181,7 @@ export async function fetchAuthMe(token: string): Promise<AuthSession> {
   let payload: unknown
 
   try {
-    payload = await readJson(response)
+    payload = await readJsonResponse<unknown>(response)
   } catch (error) {
     if (response.status === 401) {
       clearLocalAuthSession(token)
@@ -213,7 +214,7 @@ export async function fetchJigsawHistory(
       headers: authHeaders(token),
     }
   )
-  const payload = await readJson(response)
+  const payload = await readJsonResponse<unknown>(response)
 
   if (!isRecord(payload) || !Array.isArray(payload.history)) {
     throw new Error("Invalid history response")
@@ -231,7 +232,7 @@ async function requestAuth(
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
   })
-  const payload = await readJson(response)
+  const payload = await readJsonResponse<unknown>(response)
   const session = parseAuthSession(payload)
 
   if (!session) {
@@ -241,20 +242,6 @@ async function requestAuth(
   saveLocalAuthSession(session)
 
   return session
-}
-
-async function readJson(response: Response): Promise<unknown> {
-  const payload = await response.json().catch(() => null)
-
-  if (!response.ok) {
-    if (isRecord(payload) && typeof payload.error === "string") {
-      throw new Error(payload.error)
-    }
-
-    throw new Error(`Request failed: ${response.status}`)
-  }
-
-  return payload
 }
 
 function authHeaders(token: string): HeadersInit {
