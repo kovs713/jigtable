@@ -6,6 +6,8 @@ import {
   collectDefaultMetrics,
 } from "prom-client"
 
+import { WS_MESSAGE_TYPES } from "@jigtable/core/protocol"
+
 const ALLOWED_WS_ERROR_REASONS = new Set<string>([
   "invalid_payload",
   "handler_error",
@@ -116,42 +118,7 @@ export const wsPayloadBytes = new Histogram({
   registers: [metricsRegistry],
 })
 
-const ALLOWED_WS_EVENTS = new Set<string>([
-  // client -> server
-  "room:join",
-  "room:request_state",
-  "session:pause",
-  "session:resume",
-  "group:grab",
-  "group:move",
-  "group:drop",
-  "group:release",
-  "groups:arrange",
-  "room:lock-toggle",
-  "room:ping",
-  "cursor:move",
-  "cursor:hide",
-  // server -> client
-  "error",
-  "room:state",
-  "room:pinged",
-  "cursor:hidden",
-  "player:left",
-  "stats:updated",
-  "player:joined",
-  "player:updated",
-  "group:locked",
-  "room:lock-rejected",
-  "room:lock-updated",
-  "group:moved",
-  "groups:merged",
-  "pieces:placed",
-  "group:unlocked",
-  "cursor:moved",
-  "groups:arranged",
-  "session:paused",
-  "session:resumed",
-])
+const ALLOWED_WS_EVENTS = new Set<string>(WS_MESSAGE_TYPES)
 
 export function normalizeWsEvent(value: unknown): string {
   if (typeof value !== "string") {

@@ -182,3 +182,60 @@ export type ServerToClientMessage =
       createdAt: number
     }
   | { type: "error"; code: string; message: string }
+
+export type ClientMessageType = ClientToServerMessage["type"]
+export type ServerMessageType = ServerToClientMessage["type"]
+export type WsMessageType = ClientMessageType | ServerMessageType
+
+function defineMessageTypes<Message extends { type: string }>() {
+  return <const Types extends readonly Message["type"][]>(
+    types: Exclude<Message["type"], Types[number]> extends never ? Types : never
+  ): Types => types
+}
+
+export const CLIENT_MESSAGE_TYPES = defineMessageTypes<ClientToServerMessage>()(
+  [
+    "room:join",
+    "room:request_state",
+    "room:ping",
+    "group:grab",
+    "group:move",
+    "group:drop",
+    "group:release",
+    "groups:arrange",
+    "room:lock-toggle",
+    "cursor:move",
+    "cursor:hide",
+    "session:pause",
+    "session:resume",
+  ]
+)
+
+export const SERVER_MESSAGE_TYPES = defineMessageTypes<ServerToClientMessage>()(
+  [
+    "room:state",
+    "player:joined",
+    "player:updated",
+    "player:left",
+    "cursor:moved",
+    "cursor:hidden",
+    "session:paused",
+    "session:resumed",
+    "group:locked",
+    "group:unlocked",
+    "room:lock-updated",
+    "room:lock-rejected",
+    "group:moved",
+    "groups:merged",
+    "pieces:placed",
+    "groups:arranged",
+    "stats:updated",
+    "room:pinged",
+    "error",
+  ]
+)
+
+export const WS_MESSAGE_TYPES = [
+  ...CLIENT_MESSAGE_TYPES,
+  ...SERVER_MESSAGE_TYPES,
+] as const satisfies readonly WsMessageType[]

@@ -43,15 +43,15 @@ describe("WebSocket router", () => {
     const socket = createSocket()
     let received: unknown
 
-    router.on("test:event", {
+    router.on("room:request_state", {
       handler: ({ message }) => {
         received = message
       },
     })
 
-    await router.message(socket, '{"type":"test:event","value":1}')
+    await router.message(socket, '{"type":"room:request_state"}')
 
-    expect(received).toEqual({ type: "test:event", value: 1 })
+    expect(received).toEqual({ type: "room:request_state" })
   })
 
   test("returns a protocol error for invalid JSON", async () => {

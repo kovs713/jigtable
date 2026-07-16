@@ -1,3 +1,4 @@
+import type { ClientMessageType } from "@jigtable/core/protocol"
 import { isRecord } from "@jigtable/shared/utils"
 
 import {
@@ -70,11 +71,11 @@ export function createWsRouter(options: {
   roomController: RoomController
   middleware?: WsMiddleware[]
 }) {
-  const routes = new Map<string, WsHandler>()
+  const routes = new Map<ClientMessageType, WsHandler>()
   const globalMiddleware = options.middleware ?? []
 
   function on(
-    type: string,
+    type: ClientMessageType,
     config: {
       middleware?: WsMiddleware[]
       handler: WsHandler
@@ -117,7 +118,7 @@ export function createWsRouter(options: {
     }
 
     const event = normalizeWsEvent(message.type)
-    const route = routes.get(message.type)
+    const route = routes.get(message.type as ClientMessageType)
 
     if (!route) {
       wsMessageErrorsTotal.inc({
