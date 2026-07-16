@@ -2,10 +2,9 @@ import { startApiServer } from "@/api"
 import { createBot, startBot } from "@/bot"
 
 async function main(): Promise<void> {
+  const api = startApiServer()
+
   const bot = await createBot()
-
-  startApiServer()
-
   await startBot(bot)
 }
 

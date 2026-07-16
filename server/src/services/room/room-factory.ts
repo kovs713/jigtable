@@ -6,48 +6,34 @@ import { createJigsawState } from "@jigtable/core/generate"
 import { scatterAllPieces } from "@jigtable/core/scatter"
 
 import { LIMITS } from "@/config"
-import { createRoomId } from "./room-ids"
-import type { JigsawRoom } from "./room-types"
 
-export function createJigsawRoomRecord({
-  roomId = createRoomId(),
-  assetId,
-  assetRef,
-  imageUrl,
-  sourceSize,
-  pieceCount,
-}: {
-  roomId?: string
-  assetId: string
-  assetRef: JigsawRoom["assetRef"]
-  imageUrl: string
-  sourceSize: { width: number; height: number }
-  pieceCount: number
-}): JigsawRoom {
-  const safePieceCount = clampPieceCount(pieceCount)
-  const baseConfig = {
-    ...JIGSAW_CONFIG_2000,
-    rows: 1,
-    cols: safePieceCount,
-  }
+import { createRoomId } from "./room-id"
+import type { CreateRoomInput, Room } from "./room-types"
 
-  const state = createJigsawState(
-    createImageJigsawConfig(baseConfig, sourceSize)
+export function createRoom(input: CreateRoomInput, now = Date.now()): Room {
+  const pieceCount = clampPieceCount(input.pieceCount)
+  const config = createImageJigsawConfig(
+    {
+      ...JIGSAW_CONFIG_2000,
+      rows: 1,
+      cols: pieceCount,
+    },
+    input.sourceSize
   )
+  const state = createJigsawState(config)
+
   scatterAllPieces(state)
 
-  const now = Date.now()
-
   return {
-    roomId,
-    assetId,
-    assetRef,
-    imageUrl,
+    roomId: createRoomId(),
+    assetId: input.assetId ?? "room-image",
+    assetRef: input.assetRef,
+    imageUrl: input.imageUrl,
     state,
     players: new Map(),
+    connections: new Map(),
     cursors: new Map(),
-    sockets: new Set(),
-    locks: new Map(),
+    dragLocks: new Map(),
     toggleLocks: new Map(),
     pingCooldowns: new Map(),
     timer: {
@@ -57,14 +43,14 @@ export function createJigsawRoomRecord({
     },
     createdAt: now,
     updatedAt: now,
-  } satisfies JigsawRoom
+  }
 }
 
 export function clampPieceCount(value: number): number {
-  const fallbackPieceCount = JIGSAW_CONFIG_2000.rows * JIGSAW_CONFIG_2000.cols
+  const fallback = JIGSAW_CONFIG_2000.rows * JIGSAW_CONFIG_2000.cols
 
   if (!Number.isFinite(value)) {
-    return fallbackPieceCount
+    return fallback
   }
 
   return Math.max(

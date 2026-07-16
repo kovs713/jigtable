@@ -1,16 +1,15 @@
-import type { Player as JigsawPlayer } from "@jigtable/core/protocol"
 import type { GroupId } from "@jigtable/core/types"
 
-import { broadcast } from "@/api/ws/send"
-import type { JigsawRoom } from "./room-types"
+import type { LockTargetType, RoomPublisher } from "./room-events"
+import type { Player, Room } from "./room-types"
 
-export function updatePlayerLocks(
-  room: JigsawRoom,
-  player: JigsawPlayer
-): void {
-  for (const [groupId, lock] of room.locks) {
+export function updatePlayerLocks(room: Room, player: Player): void {
+  for (const [groupId, lock] of room.dragLocks) {
     if (lock.playerId === player.id) {
-      room.locks.set(groupId, { ...lock, playerName: player.name })
+      room.dragLocks.set(groupId, {
+        ...lock,
+        playerName: player.name,
+      })
     }
   }
 
@@ -25,16 +24,16 @@ export function updatePlayerLocks(
   }
 }
 
-export function playerOwnsLock(
-  room: JigsawRoom,
+export function playerOwnsDragLock(
+  room: Room,
   playerId: string,
   groupId: GroupId
 ): boolean {
-  return room.locks.get(groupId)?.playerId === playerId
+  return room.dragLocks.get(groupId)?.playerId === playerId
 }
 
-export function isGroupBlockedByToggleLock(
-  room: JigsawRoom,
+export function isGroupToggleLocked(
+  room: Room,
   playerId: string,
   groupId: GroupId
 ): boolean {
@@ -44,33 +43,24 @@ export function isGroupBlockedByToggleLock(
     return false
   }
 
-  const groupKey = `group:${groupId}`
-  const groupLock = room.toggleLocks.get(groupKey)
+  const groupLock = room.toggleLocks.get(lockKey("group", groupId))
 
   if (groupLock && groupLock.playerId !== playerId) {
     return true
   }
 
-  for (const pieceId of group.pieceIds) {
-    const pieceKey = `piece:${pieceId}`
-    const pieceLock = room.toggleLocks.get(pieceKey)
+  return group.pieceIds.some((pieceId) => {
+    const lock = room.toggleLocks.get(lockKey("piece", pieceId))
 
-    if (pieceLock && pieceLock.playerId !== playerId) {
-      return true
-    }
-  }
-
-  return false
+    return lock !== undefined && lock.playerId !== playerId
+  })
 }
 
 export function releaseConnectionLocks(
-  room: JigsawRoom,
-  connectionId: string | undefined
+  room: Room,
+  connectionId: string,
+  publisher: RoomPublisher
 ): void {
-  if (!connectionId) {
-    return
-  }
-
   for (const [key, lock] of room.toggleLocks) {
     if (lock.connectionId !== connectionId) {
       continue
@@ -78,7 +68,7 @@ export function releaseConnectionLocks(
 
     room.toggleLocks.delete(key)
 
-    broadcast(room, {
+    publisher.broadcast(room.roomId, {
       type: "room:lock-updated",
       targetType: lock.targetType,
       targetId: lock.targetId,
@@ -87,38 +77,46 @@ export function releaseConnectionLocks(
   }
 }
 
-export function releasePlayerLocks(room: JigsawRoom, playerId: string): void {
-  for (const [groupId, lock] of room.locks) {
-    if (lock.playerId === playerId) {
-      room.locks.delete(groupId)
-
-      broadcast(room, {
-        type: "group:unlocked",
-        groupId,
-        playerId,
-      })
+export function releasePlayerLocks(
+  room: Room,
+  playerId: string,
+  publisher: RoomPublisher
+): void {
+  for (const [groupId, lock] of room.dragLocks) {
+    if (lock.playerId !== playerId) {
+      continue
     }
+
+    room.dragLocks.delete(groupId)
+
+    publisher.broadcast(room.roomId, {
+      type: "group:unlocked",
+      groupId,
+      playerId,
+    })
   }
 
   for (const [key, lock] of room.toggleLocks) {
-    if (lock.playerId === playerId) {
-      room.toggleLocks.delete(key)
-
-      broadcast(room, {
-        type: "room:lock-updated",
-        targetType: lock.targetType,
-        targetId: lock.targetId,
-        lockedBy: null,
-      })
+    if (lock.playerId !== playerId) {
+      continue
     }
+
+    room.toggleLocks.delete(key)
+
+    publisher.broadcast(room.roomId, {
+      type: "room:lock-updated",
+      targetType: lock.targetType,
+      targetId: lock.targetId,
+      lockedBy: null,
+    })
   }
 }
 
-export function releaseAllLocks(room: JigsawRoom): void {
-  for (const [groupId, lock] of room.locks) {
-    room.locks.delete(groupId)
+export function releaseAllLocks(room: Room, publisher: RoomPublisher): void {
+  for (const [groupId, lock] of room.dragLocks) {
+    room.dragLocks.delete(groupId)
 
-    broadcast(room, {
+    publisher.broadcast(room.roomId, {
       type: "group:unlocked",
       groupId,
       playerId: lock.playerId,
@@ -128,11 +126,65 @@ export function releaseAllLocks(room: JigsawRoom): void {
   for (const [key, lock] of room.toggleLocks) {
     room.toggleLocks.delete(key)
 
-    broadcast(room, {
+    publisher.broadcast(room.roomId, {
       type: "room:lock-updated",
       targetType: lock.targetType,
       targetId: lock.targetId,
       lockedBy: null,
     })
   }
+}
+
+export function transferMergedGroupLocks({
+  room,
+  removedGroupIds,
+  keptGroupId,
+  publisher,
+}: {
+  room: Room
+  removedGroupIds: string[]
+  keptGroupId: GroupId
+  publisher: RoomPublisher
+}): void {
+  for (const removedGroupId of removedGroupIds) {
+    const removedKey = lockKey("group", removedGroupId)
+    const removedLock = room.toggleLocks.get(removedKey)
+
+    if (!removedLock) {
+      continue
+    }
+
+    room.toggleLocks.delete(removedKey)
+
+    const keptKey = lockKey("group", keptGroupId)
+
+    if (!room.toggleLocks.has(keptKey)) {
+      room.toggleLocks.set(keptKey, {
+        ...removedLock,
+        targetId: keptGroupId,
+      })
+    }
+
+    publisher.broadcast(room.roomId, {
+      type: "room:lock-updated",
+      targetType: "group",
+      targetId: removedGroupId,
+      lockedBy: null,
+    })
+
+    publisher.broadcast(room.roomId, {
+      type: "room:lock-updated",
+      targetType: "group",
+      targetId: keptGroupId,
+      lockedBy: {
+        userId: removedLock.playerId,
+        name: removedLock.playerName,
+        color: removedLock.playerColor,
+      },
+    })
+  }
+}
+
+export function lockKey(targetType: LockTargetType, targetId: string): string {
+  return `${targetType}:${targetId}`
 }

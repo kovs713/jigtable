@@ -1,14 +1,23 @@
-export { HistoryService } from "./history-store"
-
 export {
-  createJigsawSafeAssetRef,
-  hashToken,
-  summarizeAssetRef,
-} from "./asset-ref"
+  createAssetReference,
+  summarizeAssetReference,
+} from "./asset-reference"
 
 export type {
-  JigsawHistoryItem,
-  JigsawResultParticipant,
-  JigsawRoomResult,
-  JigsawSafeAssetRef,
-} from "./history-types"
+  HistoryRepository,
+  UpdateParticipantProfileInput,
+  UpsertParticipantInput,
+} from "./contracts"
+
+export { HistoryService } from "./history-service"
+
+export type {
+  AssetReference,
+  AssetSource,
+  HistoryEntry,
+  ParticipantSession,
+  ResultParticipant,
+  RoomCompletion,
+  RoomConfig,
+  RoomResult,
+} from "./types"

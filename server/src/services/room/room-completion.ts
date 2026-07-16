@@ -1,6 +1,6 @@
 import { getRoomStats } from "./room-stats"
 import { getTimerElapsedMs } from "./room-timer"
-import type { JigsawRoom } from "./room-types"
+import type { Room } from "./room-types"
 
 export type CompletedRoomRecord = {
   completedAt: number
@@ -9,10 +9,11 @@ export type CompletedRoomRecord = {
   snapCount: number
 }
 
-export function markRoomCompletedIfSolved(
-  room: JigsawRoom
+export function completeRoomIfSolved(
+  room: Room,
+  now = Date.now()
 ): CompletedRoomRecord | null {
-  if (room.completedAt) {
+  if (room.completedAt !== undefined) {
     return null
   }
 
@@ -22,19 +23,17 @@ export function markRoomCompletedIfSolved(
     return null
   }
 
-  const completedAt = Date.now()
-
-  room.completedAt = completedAt
+  room.completedAt = now
 
   if (!room.timer.paused) {
-    room.timer.elapsedMs = getTimerElapsedMs(room.timer, completedAt)
-    room.timer.updatedAt = completedAt
+    room.timer.elapsedMs = getTimerElapsedMs(room.timer, now)
+    room.timer.updatedAt = now
     room.timer.paused = true
   }
 
   return {
-    completedAt,
-    elapsedMs: getTimerElapsedMs(room.timer, completedAt),
+    completedAt: now,
+    elapsedMs: getTimerElapsedMs(room.timer, now),
     pieceCount: stats.totalPieces,
     snapCount: stats.snapCount,
   }

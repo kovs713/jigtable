@@ -17,11 +17,16 @@ const initialSession = (): SessionData => ({
 })
 
 export async function createBot(): Promise<Bot<BotContext>> {
-  const bot = new Bot<BotContext>(process.env.BOT_TOKEN, {
-    client: {
-      fetch: telegramApiFetch,
-    },
-  })
+  const bot = new Bot<BotContext>(
+    process.env.BOT_TOKEN,
+    process.env.DEV
+      ? {
+          client: {
+            fetch: telegramApiFetch,
+          },
+        }
+      : {}
+  )
 
   bot.use(
     session({
@@ -33,7 +38,7 @@ export async function createBot(): Promise<Bot<BotContext>> {
   bot.use(i18n)
   bot.use(requireWhitelistedUser)
 
-  registerHandlers(bot)
+  await registerHandlers(bot)
 
   bot.catch((err) => {
     console.error("Bot error", err)

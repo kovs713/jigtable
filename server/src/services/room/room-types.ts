@@ -1,22 +1,19 @@
-import type { GroupId, JigsawState } from "@jigtable/core"
+import type { GroupId, JigsawState as PuzzleState } from "@jigtable/core"
 import type {
-  JigsawGroupLock,
-  JigsawLock,
-  Player as JigsawPlayer,
-  PlayerCursor as JigsawPlayerCursor,
-  RoomSnapshot as JigsawRoomSnapshot,
-  RoomStats as JigsawRoomStats,
-  RoomTimer as JigsawRoomTimer,
+  JigsawGroupLock as GroupDragLock,
+  Player,
+  PlayerCursor,
+  RoomSnapshot,
+  RoomStats,
+  RoomTimer,
+  JigsawLock as ToggleLock,
 } from "@jigtable/core/protocol"
 
-import type { WsSocket } from "@/api/ws/types"
-import type { JigsawSafeAssetRef } from "../history/history-types"
+import type { AssetReference } from "@/services/history"
 
-export type JigsawSocket = WsSocket
-
-export type CreateJigsawRoomInput = {
+export type CreateRoomInput = {
   assetId?: string
-  assetRef: JigsawSafeAssetRef
+  assetRef: AssetReference
   imageUrl: string
   sourceSize: {
     width: number
@@ -25,29 +22,42 @@ export type CreateJigsawRoomInput = {
   pieceCount: number
 }
 
-export type JigsawRoom = {
+export type RoomConnection = {
+  connectionId: string
+  sessionToken: string
+  playerId: string
+}
+
+export type Room = {
   roomId: string
   assetId: string
-  assetRef: JigsawSafeAssetRef
+  assetRef: AssetReference
   imageUrl: string
-  state: JigsawState
-  players: Map<string, JigsawPlayer>
-  cursors: Map<string, JigsawPlayerCursor>
-  sockets: Set<JigsawSocket>
-  locks: Map<GroupId, JigsawGroupLock>
-  toggleLocks: Map<string, JigsawLock>
+  state: PuzzleState
+  players: Map<string, Player>
+  connections: Map<string, RoomConnection>
+  cursors: Map<string, PlayerCursor>
+  dragLocks: Map<GroupId, GroupDragLock>
+  toggleLocks: Map<string, ToggleLock>
   pingCooldowns: Map<string, number>
-  timer: JigsawRoomTimer
+  timer: RoomTimer
   completedAt?: number
   createdAt: number
   updatedAt: number
 }
 
+export type JoinedRoom = {
+  room: Room
+  player: Player
+  connection: RoomConnection
+}
+
 export type {
-  JigsawGroupLock,
-  JigsawLock,
-  JigsawPlayerCursor,
-  JigsawRoomSnapshot,
-  JigsawRoomStats,
-  JigsawRoomTimer,
+  GroupDragLock,
+  Player,
+  PlayerCursor,
+  RoomSnapshot,
+  RoomStats,
+  RoomTimer,
+  ToggleLock,
 }

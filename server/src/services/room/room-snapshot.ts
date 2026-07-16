@@ -1,16 +1,16 @@
 import type {
   GroupId,
   GroupState,
-  JigsawState,
+  JigsawState as PuzzleState,
   PieceId,
   PieceState,
 } from "@jigtable/core/types"
 
 import { getRoomStats } from "./room-stats"
-import type { JigsawLock, JigsawRoom, JigsawRoomSnapshot } from "./room-types"
+import type { Room, RoomSnapshot, ToggleLock } from "./room-types"
 
-export function toSnapshot(room: JigsawRoom): JigsawRoomSnapshot {
-  const toggleLocks: JigsawLock[] = [...room.toggleLocks.values()]
+export function toRoomSnapshot(room: Room): RoomSnapshot {
+  const locks: ToggleLock[] = [...room.toggleLocks.values()]
 
   return {
     roomId: room.roomId,
@@ -22,7 +22,7 @@ export function toSnapshot(room: JigsawRoom): JigsawRoomSnapshot {
     pieces: room.state.pieces,
     groups: room.state.groups,
     players: [...room.players.values()],
-    locks: toggleLocks,
+    locks,
     cursors: [...room.cursors.values()],
     timer: room.timer,
     stats: getRoomStats(room),
@@ -32,7 +32,7 @@ export function toSnapshot(room: JigsawRoom): JigsawRoomSnapshot {
 }
 
 export function pickPieces(
-  state: JigsawState,
+  state: PuzzleState,
   pieceIds: PieceId[]
 ): Record<PieceId, PieceState> {
   const pieces: Record<PieceId, PieceState> = {}
@@ -49,7 +49,7 @@ export function pickPieces(
 }
 
 export function pickGroupsForPieces(
-  state: JigsawState,
+  state: PuzzleState,
   pieceIds: PieceId[]
 ): Record<GroupId, GroupState> {
   const groups: Record<GroupId, GroupState> = {}
@@ -72,7 +72,7 @@ export function pickGroupsForPieces(
 }
 
 export function getGroupAnchorPosition(
-  state: JigsawState,
+  state: PuzzleState,
   groupId: GroupId
 ): { x: number; y: number } | null {
   const group = state.groups[groupId]

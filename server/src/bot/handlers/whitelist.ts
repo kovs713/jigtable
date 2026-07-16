@@ -4,16 +4,18 @@ import type { CommandContext } from "grammy"
 import { number } from "@jigtable/shared/schemas"
 
 import { db } from "@/db"
+import { DrizzleTelegramAccessRepository } from "@/db/repositories"
 import { whitelistUsersSchema } from "@/db/schemas"
-import { isWhitelistedUser } from "@/services/auth"
 import type { BotContext } from "../types"
+
+const telegramAccess = new DrizzleTelegramAccessRepository()
 
 export function isAdmin(userId: number): boolean {
   return userId === Number(process.env.ADMIN_USER_ID)
 }
 
 export async function isWhitelisted(userId: number): Promise<boolean> {
-  return isWhitelistedUser(userId)
+  return isAdmin(userId) || telegramAccess.contains(userId)
 }
 
 export async function handleWhitelist(
@@ -103,7 +105,7 @@ export async function requireWhitelistedUser(
   if (!userId) return
 
   if (whitelistCommandCalled) {
-    if ((await isWhitelistedUser(userId)) || isAdmin(userId)) {
+    if (await isWhitelisted(userId)) {
       await next()
     } else {
       console.warn(`Bot whitelist command denied user=${userId}`)
@@ -112,7 +114,7 @@ export async function requireWhitelistedUser(
     return
   }
 
-  if (!(await isWhitelistedUser(userId))) {
+  if (!(await isWhitelisted(userId))) {
     console.warn(`Bot update denied by whitelist user=${userId}`)
     await ctx.reply(ctx.t("whitelist-access"))
     return

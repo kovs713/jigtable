@@ -13,7 +13,7 @@
     "db:migrate": "bunx --bun drizzle-kit migrate --config=drizzle.config.ts",
     "format": "prettier --write \"**/*.{ts,tsx,json,md}\"",
     "typecheck": "bunx tsc --noEmit",
-    "test:api": "bun test src/api",
+    "test:api": "bun test src/http src/ws src/services src/db/mappers src/shared",
     "test:composition-layout-engine": "bun run native:build && bun test src/native/composition-layout-engine/index.test.ts"
   },
   "dependencies": {

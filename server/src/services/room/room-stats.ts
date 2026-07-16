@@ -1,6 +1,6 @@
-import type { JigsawRoom, JigsawRoomStats } from "./room-types"
+import type { Room, RoomStats } from "./room-types"
 
-export function getRoomStats(room: JigsawRoom): JigsawRoomStats {
+export function getRoomStats(room: Room): RoomStats {
   return {
     totalPieces: Object.keys(room.state.pieces).length,
     placedPieces: Object.values(room.state.pieces).filter(
