@@ -1,97 +1,109 @@
 import type { InlineKeyboardButton } from "grammy/types"
 
 import type { BotContext, UploadSession } from "@/bot/types"
-import { getActiveImages, getDeletedImages } from "./viewer"
+import { LIMITS } from "@/config"
+import {
+  getActiveImages,
+  getCurrentViewerIndex,
+  getDeletedImages,
+  getViewerImage,
+} from "./viewer"
 
-const statusMessageIds = new Map<number, number>()
-const viewerMessageIds = new Map<number, number>()
-
-export function getStatusMessageId(chatId: number): number | undefined {
-  return statusMessageIds.get(chatId)
+interface StatusPanelRuntime {
+  messageId?: number
+  timer?: ReturnType<typeof setTimeout>
+  lastRefreshAt?: number
 }
 
-export function setStatusMessageId(chatId: number, messageId: number): void {
-  statusMessageIds.set(chatId, messageId)
+const statusPanels = new Map<number, StatusPanelRuntime>()
+
+function getStatusPanel(chatId: number): StatusPanelRuntime {
+  const current = statusPanels.get(chatId)
+  if (current) return current
+
+  const created: StatusPanelRuntime = {}
+  statusPanels.set(chatId, created)
+  return created
 }
 
-export function clearStatusMessageId(chatId: number): void {
-  statusMessageIds.delete(chatId)
+export function rememberStatusMessage(chatId: number, messageId: number): void {
+  getStatusPanel(chatId).messageId = messageId
 }
 
-export function getViewerMessageId(chatId: number): number | undefined {
-  return viewerMessageIds.get(chatId)
+export async function clearStatusPanel(
+  ctx: BotContext,
+  chatId: number
+): Promise<void> {
+  const state = statusPanels.get(chatId)
+
+  if (state?.timer) {
+    clearTimeout(state.timer)
+  }
+
+  if (state?.messageId) {
+    await deleteMessageSafe(ctx, chatId, state.messageId)
+  }
+
+  statusPanels.delete(chatId)
 }
 
-export function setViewerMessageId(chatId: number, messageId: number): void {
-  viewerMessageIds.set(chatId, messageId)
-}
-
-export function clearViewerMessageId(chatId: number): void {
-  viewerMessageIds.delete(chatId)
-}
-
-export function renderUploadStatus(session: UploadSession): string {
+export function renderUploadStatus(
+  ctx: BotContext,
+  session: UploadSession
+): string {
   const active = getActiveImages(session)
   const deleted = getDeletedImages(session)
 
   if (active.length === 0 && deleted.length === 0) {
-    return ["Смотреть пока нечего.", "Кинь сначала картинки."].join("\n")
+    return ctx.t("upload-status-empty")
   }
 
-  // if (active.length < 2) {
-  //   const lines: string[] = [`В наборе ${active.length} картинок.`]
-  //   if (deleted.length > 0) {
-  //     lines.push(`Удалено: ${deleted.length}.`)
-  //   }
-  //   if (session.duplicateCount > 0) {
-  //     lines.push(`Повторов выкинул: ${session.duplicateCount}.`)
-  //   }
-  //   lines.push("")
-  //   lines.push("Нужно хотя бы 2 картинки.")
-  //   lines.push("Из одной пазл так себе, конечно.")
-  //   return lines.join("\n")
-  // }
-
-  const lines: string[] = [`В наборе ${active.length} картинок.`]
+  const lines: string[] = [
+    ctx.t("upload-status-pictures", { count: active.length }),
+  ]
 
   if (deleted.length > 0) {
-    lines.push(`Удалено: ${deleted.length}.`)
+    lines.push(ctx.t("upload-status-deleted", { count: deleted.length }))
   }
+
   if (session.duplicateCount > 0) {
-    lines.push(`Повторов выкинул: ${session.duplicateCount}.`)
+    lines.push(
+      ctx.t("upload-status-duplicates", {
+        count: session.duplicateCount,
+      })
+    )
   }
 
   lines.push("")
-  lines.push("Докидывай ещё или собираем.")
+  lines.push(ctx.t("upload-status-continue"))
 
   return lines.join("\n")
 }
 
 export function renderUploadKeyboard(
+  ctx: BotContext,
   session: UploadSession
 ): InlineKeyboardButton[][] {
-  const active = getActiveImages(session)
-  const hasImages = active.length > 0
-  // const canBuild = active.length > 0
+  const hasImages = getActiveImages(session).length > 0
 
   return [
     [
       {
-        text: "глянуть",
+        text: ctx.t("button-view"),
         callback_data: hasImages ? "upload:view" : "viewer:noop",
       },
       {
-        text: "собрать",
+        text: ctx.t("button-build"),
         callback_data: hasImages ? "upload:build" : "viewer:noop",
       },
     ],
     [
       {
-        text: "убрать последнюю",
+        text: ctx.t("button-remove-latest"),
         callback_data: hasImages ? "upload:delete_last" : "viewer:noop",
       },
       {
-        text: "снести всё",
+        text: ctx.t("button-remove-all"),
         callback_data: hasImages ? "upload:clear" : "viewer:noop",
       },
     ],
@@ -99,79 +111,109 @@ export function renderUploadKeyboard(
 }
 
 export function renderViewerCaption(
+  ctx: BotContext,
   session: UploadSession,
   index: number,
   total: number
 ): string {
-  const img = session.images.find((i) => i.id === session.viewerImageId)
-  if (!img) return "Всё удалил. Набор пустой."
-  return `${index + 1} из ${total}\n${img.width}×${img.height}`
+  const image = getViewerImage(session)
+
+  if (!image) {
+    return ctx.t("viewer-empty")
+  }
+
+  return ctx.t("viewer-caption", {
+    current: index + 1,
+    total,
+    width: image.width,
+    height: image.height,
+  })
 }
 
 export function renderViewerKeyboard(
+  ctx: BotContext,
   session: UploadSession
 ): InlineKeyboardButton[][] {
   const active = getActiveImages(session)
+
   if (active.length === 0) {
-    return [[{ text: "закрыть", callback_data: "viewer:back" }]]
+    return [
+      [
+        {
+          text: ctx.t("button-close"),
+          callback_data: "viewer:back",
+        },
+      ],
+    ]
   }
 
-  const idx = session.images.findIndex((i) => i.id === session.viewerImageId)
-  const isFirst = idx <= 0
-  const isLast = idx >= active.length - 1
+  const index = getCurrentViewerIndex(session)
+  const isFirst = index <= 0
+  const isLast = index >= active.length - 1
 
   return [
     [
       {
-        text: isFirst ? "·" : "назад",
+        text: isFirst ? "·" : ctx.t("button-back"),
         callback_data: isFirst ? "viewer:noop" : "viewer:prev",
       },
-      { text: "удалить", callback_data: "viewer:delete" },
       {
-        text: isLast ? "·" : "дальше",
+        text: ctx.t("button-remove"),
+        callback_data: "viewer:delete",
+      },
+      {
+        text: isLast ? "·" : ctx.t("button-next"),
         callback_data: isLast ? "viewer:noop" : "viewer:next",
       },
     ],
     [
-      { text: "закрыть", callback_data: "viewer:back" },
       {
-        text: "собрать",
-        callback_data: active.length >= 2 ? "viewer:build" : "viewer:noop",
+        text: ctx.t("button-close"),
+        callback_data: "viewer:back",
+      },
+      {
+        text: ctx.t("button-build"),
+        callback_data: "viewer:build",
       },
     ],
   ]
 }
 
-const STATUS_REFRESH_DEBOUNCE_MS = 1200
-const STATUS_REFRESH_THROTTLE_MS = 2500
-
 export function scheduleUploadStatusRefresh(ctx: BotContext): void {
   const session = ctx.session.upload
-  if (!session) return
   const chatId = ctx.chat?.id
-  if (!chatId) return
 
-  if (session.statusRefreshTimer) {
-    clearTimeout(session.statusRefreshTimer)
+  if (!session || !chatId) return
+
+  const state = getStatusPanel(chatId)
+
+  if (state.timer) {
+    clearTimeout(state.timer)
   }
 
-  session.statusRefreshTimer = setTimeout(() => {
-    session.statusRefreshTimer = undefined
-    const now = Date.now()
-    if (
-      session.lastStatusRefreshAt &&
-      now - session.lastStatusRefreshAt < STATUS_REFRESH_THROTTLE_MS
-    ) {
-      const delay =
-        STATUS_REFRESH_THROTTLE_MS - (now - session.lastStatusRefreshAt)
-      session.statusRefreshTimer = setTimeout(() => {
-        session.statusRefreshTimer = undefined
-        void refreshBottomStatus(ctx, chatId)
-      }, delay)
-      return
-    }
-    void refreshBottomStatus(ctx, chatId)
-  }, STATUS_REFRESH_DEBOUNCE_MS)
+  const schedule = (delay: number): void => {
+    state.timer = setTimeout(() => {
+      state.timer = undefined
+
+      if (!ctx.session.upload) return
+
+      const now = Date.now()
+      const elapsed = state.lastRefreshAt
+        ? now - state.lastRefreshAt
+        : Number.POSITIVE_INFINITY
+
+      if (elapsed < LIMITS.telegram.statusRefrechThrottleMs) {
+        schedule(LIMITS.telegram.statusRefrechThrottleMs - elapsed)
+        return
+      }
+
+      void refreshBottomStatus(ctx, chatId).catch((error) => {
+        console.error("Failed to refresh status panel", { chatId, error })
+      })
+    }, delay)
+  }
+
+  schedule(LIMITS.telegram.statusRefreshDebounceMs)
 }
 
 export async function refreshBottomStatus(
@@ -181,26 +223,30 @@ export async function refreshBottomStatus(
   const session = ctx.session.upload
   if (!session) return
 
-  const text = renderUploadStatus(session)
-  const keyboard = renderUploadKeyboard(session)
-  session.lastStatusRefreshAt = Date.now()
+  const state = getStatusPanel(chatId)
+  const oldMessageId = state.messageId
 
-  const oldId = getStatusMessageId(chatId)
-  clearStatusMessageId(chatId)
+  state.lastRefreshAt = Date.now()
+  state.messageId = undefined
 
-  if (oldId) {
-    await ctx.api.deleteMessage(chatId, oldId).catch((err) => {
-      console.warn("deleteMessage failed", { chatId, messageId: oldId, err })
-    })
+  if (oldMessageId) {
+    await deleteMessageSafe(ctx, chatId, oldMessageId)
   }
 
   try {
-    const msg = await ctx.api.sendMessage(chatId, text, {
-      reply_markup: { inline_keyboard: keyboard },
-    })
-    setStatusMessageId(chatId, msg.message_id)
+    const message = await ctx.api.sendMessage(
+      chatId,
+      renderUploadStatus(ctx, session),
+      {
+        reply_markup: {
+          inline_keyboard: renderUploadKeyboard(ctx, session),
+        },
+      }
+    )
+
+    state.messageId = message.message_id
   } catch (error) {
-    console.error("Failed to send status panel", error)
+    console.error("Failed to send status panel", { chatId, error })
   }
 }
 
@@ -210,6 +256,7 @@ export async function deleteMessageSafe(
   messageId: number | undefined
 ): Promise<void> {
   if (!messageId) return
+
   try {
     await ctx.api.deleteMessage(chatId, messageId)
   } catch {

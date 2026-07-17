@@ -22,6 +22,41 @@
       "when": 1783508740682,
       "tag": "0002_silly_prodigy",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1783680176618,
+      "tag": "0003_chemical_namora",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1783680509427,
+      "tag": "0004_big_trauma",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1783680509428,
+      "tag": "0005_rename_to_compositions",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1783868506606,
+      "tag": "0006_dizzy_red_skull",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1783868764092,
+      "tag": "0007_sad_nightcrawler",
+      "breakpoints": true
     }
   ]
 }

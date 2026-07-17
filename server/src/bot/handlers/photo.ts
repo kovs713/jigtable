@@ -1,16 +1,16 @@
 import type { PhotoContext } from "@/bot/types"
-import { LIMITS } from "@/config"
-import { batchPhotoObjectKey } from "@/features/object-keys"
-import { uploadPhotoToObjectKey } from "@/features/upload-photo"
-import { db } from "@/infra/db"
-import { batchPhotosSchema } from "@/infra/db/schemas"
 import { scheduleUploadStatusRefresh } from "@/bot/upload"
+import { LIMITS } from "@/config"
+import { db } from "@/db"
+import { compositionSourceImagesSchema } from "@/db/schemas"
+import { uploadPhotoToObjectKey } from "@/storage/upload-photo"
+import { compositionSourceImageObjectKey } from "@/storage/utils"
 
-export async function handlePhoto(ctx: PhotoContext) {
+export async function handlePhoto(ctx: PhotoContext): Promise<void> {
   const photos = ctx.message.photo
 
-  if (!ctx.session.isStarted || !ctx.session.activeBatchId) {
-    await ctx.reply("сначала /new нажми")
+  if (!ctx.session.isStarted || !ctx.session.activeCompositionId) {
+    await ctx.reply(ctx.t("photo-start-first"))
     return
   }
 
@@ -27,7 +27,7 @@ export async function handlePhoto(ctx: PhotoContext) {
 
   const session = ctx.session.upload
 
-  if (session.images.length >= LIMITS.photosPerBatch) {
+  if (session.images.length >= LIMITS.photosPerComposition) {
     return
   }
 
@@ -49,14 +49,17 @@ export async function handlePhoto(ctx: PhotoContext) {
     }
 
     const photoId = crypto.randomUUID()
-    const objectKey = batchPhotoObjectKey(ctx.session.activeBatchId, photoId)
+    const objectKey = compositionSourceImageObjectKey(
+      ctx.session.activeCompositionId,
+      photoId
+    )
     const fileUrl = `https://api.telegram.org/file/bot${process.env.BOT_TOKEN}/${file.file_path}`
     const uploaded = await uploadPhotoToObjectKey(fileUrl, objectKey)
     const sortOrder = session.images.length
 
-    await db.insert(batchPhotosSchema).values({
+    await db.insert(compositionSourceImagesSchema).values({
       fileId: photoId,
-      batchId: ctx.session.activeBatchId,
+      compositionId: ctx.session.activeCompositionId,
       objectKey: uploaded.objectKey,
       contentType: uploaded.contentType,
       sortOrder,
@@ -85,7 +88,7 @@ export async function handlePhoto(ctx: PhotoContext) {
   } catch (error) {
     console.error("Photo upload failed", {
       userId: ctx.from?.id ?? "-",
-      batchId: ctx.session.activeBatchId,
+      compositionId: ctx.session.activeCompositionId,
       telegramFileId: bestPhoto.file_id,
       error: getErrorMessage(error),
     })

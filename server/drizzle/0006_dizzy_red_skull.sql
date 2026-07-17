@@ -1,0 +1,1 @@
+ALTER TABLE "compositions" ADD COLUMN "preview_image_key" text;

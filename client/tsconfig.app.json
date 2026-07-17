@@ -25,11 +25,11 @@
     "erasableSyntaxOnly": true,
     "noFallthroughCasesInSwitch": true,
     "paths": {
-      "@jigtable/jigsaw-core": [
-        "../packages/jigsaw-core/src/index.ts"
+      "@jigtable/core": [
+        "../packages/core/src/index.ts"
       ],
-      "@jigtable/jigsaw-core/*": [
-        "../packages/jigsaw-core/src/*"
+      "@jigtable/core/*": [
+        "../packages/core/src/*"
       ],
       "@jigtable/shared": [
         "../packages/shared/src/index.ts"

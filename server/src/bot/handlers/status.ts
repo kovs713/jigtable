@@ -10,24 +10,28 @@ export async function handleStatus(
   ctx: CommandContext<BotContext>
 ): Promise<void> {
   if (!ctx.session.isStarted) {
-    await ctx.reply("Ничего не начато. Нажми /new чтобы начать.")
+    await ctx.reply(ctx.t("status-not-started"))
     return
   }
 
   const upload = ctx.session.upload
+
   if (upload) {
     const active = getActiveImages(upload)
+
     if (active.length === 0) {
-      await ctx.reply("Набор пустой. Кинь картинки через /new.")
+      await ctx.reply(ctx.t("status-empty-use-new"))
       return
     }
-    await ctx.reply(`В наборе ${active.length} картинок.`)
+
+    await ctx.reply(ctx.t("status-pictures", { count: active.length }))
     return
   }
 
-  const photos = ctx.session.photos
-  if (photos.length) {
-    await ctx.reply(`В наборе ${photos.length} картинок.`)
+  if (ctx.session.photos.length > 0) {
+    await ctx.reply(
+      ctx.t("status-pictures", { count: ctx.session.photos.length })
+    )
     return
   }
 
@@ -38,21 +42,24 @@ async function replyWithCoolPhoto(
   ctx: CommandContext<BotContext>
 ): Promise<void> {
   if (coolImageFileId) {
-    const isSent = await tryReplyWithCoolPhoto(ctx, coolImageFileId)
-    if (!isSent) {
+    const message = await tryReplyWithCoolPhoto(ctx, coolImageFileId)
+
+    if (!message) {
       coolImageFileId = null
-      await ctx.reply("Набор пустой.")
+      await ctx.reply(ctx.t("status-empty"))
     }
 
     return
   }
 
   const response = await fetch(COOL_IMAGE_S3_FILE_NAME)
+
   if (!response.ok || !response.body) {
-    console.warn(
-      `ERROR: Failed to fetch cool asset with status ${response.status}`
-    )
-    await ctx.reply("Набор пустой.")
+    console.warn("Failed to fetch cool asset", {
+      status: response.status,
+    })
+
+    await ctx.reply(ctx.t("status-empty"))
     return
   }
 
@@ -62,7 +69,7 @@ async function replyWithCoolPhoto(
   )
 
   if (!message) {
-    await ctx.reply("Набор пустой.")
+    await ctx.reply(ctx.t("status-empty"))
     return
   }
 
@@ -75,7 +82,7 @@ async function tryReplyWithCoolPhoto(
 ) {
   try {
     return await ctx.replyWithPhoto(photo, {
-      caption: "Набор пустой.",
+      caption: ctx.t("status-empty"),
     })
   } catch (error) {
     console.warn("Failed to send cool status photo", error)

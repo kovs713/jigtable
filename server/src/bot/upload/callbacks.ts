@@ -1,30 +1,26 @@
 import type { Bot } from "grammy"
+
 import type {
-  CallbackQueryContext,
   BotContext,
+  CallbackQueryContext,
   UploadSession,
 } from "@/bot/types"
 import {
+  deleteMessageSafe,
+  refreshBottomStatus,
+  renderUploadKeyboard,
+  renderUploadStatus,
+  renderViewerCaption,
+  renderViewerKeyboard,
+} from "./status"
+import {
+  deleteCurrentViewerImage,
   getActiveImages,
   getCurrentViewerIndex,
   getViewerImage,
-  deleteCurrentViewerImage,
   selectNextViewerImage,
   selectPrevViewerImage,
 } from "./viewer"
-import {
-  renderViewerCaption,
-  renderViewerKeyboard,
-  renderUploadStatus,
-  renderUploadKeyboard,
-  deleteMessageSafe,
-  getStatusMessageId,
-  setStatusMessageId,
-  clearStatusMessageId,
-  getViewerMessageId,
-  setViewerMessageId,
-  clearViewerMessageId,
-} from "./status"
 
 export function registerUploadCallbacks(bot: Bot<BotContext>): void {
   bot.callbackQuery("upload:view", handleUploadView)
@@ -42,56 +38,53 @@ export function registerUploadCallbacks(bot: Bot<BotContext>): void {
   bot.callbackQuery("viewer:noop", handleViewerNoop)
 }
 
-function cid(ctx: CallbackQueryContext): number {
+function chatId(ctx: CallbackQueryContext): number {
   return ctx.chat!.id
 }
 
 async function handleUploadView(ctx: CallbackQueryContext): Promise<void> {
   const session = ctx.session.upload
+
   if (!session) {
     await ctx.answerCallbackQuery()
     return
   }
 
   const active = getActiveImages(session)
+
   if (active.length === 0) {
-    await ctx.answerCallbackQuery({ text: "Смотреть пока нечего." })
+    await ctx.answerCallbackQuery({
+      text: ctx.t("upload-nothing-to-show"),
+    })
     return
   }
 
-  if (!session.viewerImageId) {
-    const first = active[0]
-    if (first) {
-      session.viewerImageId = first.id
-    }
-  }
+  session.viewerImageId ??= active[0]?.id
 
-  await sendViewer(ctx, session)
   await ctx.answerCallbackQuery()
+  await sendViewer(ctx, session)
 }
 
 async function handleUploadBuild(ctx: CallbackQueryContext): Promise<void> {
   const session = ctx.session.upload
+
   if (!session) {
     await ctx.answerCallbackQuery()
     return
   }
 
   const active = getActiveImages(session)
-  // if (active.length < 2) {
-  //   await ctx.answerCallbackQuery({ text: "Нужно хотя бы 2 картинки." })
-  //   return
-  // }
 
   await ctx.answerCallbackQuery()
-  await ctx.editMessageText(`Собираю из ${active.length} картинок.`)
+  await ctx.editMessageText(ctx.t("upload-building", { count: active.length }))
 
-  const chatId = cid(ctx)
-  await deleteMessageSafe(ctx, chatId, getViewerMessageId(chatId))
-  clearViewerMessageId(chatId)
+  const id = chatId(ctx)
 
-  if (!ctx.session.activeBatchId) {
-    await ctx.reply("Нет активного батча. Начни через /new")
+  await deleteMessageSafe(ctx, id, session.viewerMessageId)
+  session.viewerMessageId = undefined
+
+  if (!ctx.session.activeCompositionId) {
+    await ctx.reply(ctx.t("upload-no-active-composition"))
     return
   }
 
@@ -103,36 +96,43 @@ async function handleUploadDeleteLast(
   ctx: CallbackQueryContext
 ): Promise<void> {
   const session = ctx.session.upload
+
   if (!session) {
     await ctx.answerCallbackQuery()
     return
   }
 
-  const active = getActiveImages(session)
-  if (active.length === 0) {
-    await ctx.answerCallbackQuery()
-    return
-  }
+  const last = getActiveImages(session).at(-1)
 
-  const last = active[active.length - 1]
   if (!last) {
     await ctx.answerCallbackQuery()
     return
   }
+
   last.status = "deleted"
 
-  await ctx.answerCallbackQuery({ text: "Удалил" })
-  await refreshStatus(ctx, session)
+  await ctx.answerCallbackQuery({
+    text: ctx.t("callback-removed"),
+  })
+
+  await refreshBottomStatus(ctx, chatId(ctx))
 }
 
 async function handleUploadClear(ctx: CallbackQueryContext): Promise<void> {
   await ctx.answerCallbackQuery()
-  await ctx.editMessageText("Точно снести весь набор?", {
+
+  await ctx.editMessageText(ctx.t("upload-clear-question"), {
     reply_markup: {
       inline_keyboard: [
         [
-          { text: "да, снести", callback_data: "upload:clear_confirm" },
-          { text: "не надо", callback_data: "upload:clear_cancel" },
+          {
+            text: ctx.t("button-remove-all-confirm"),
+            callback_data: "upload:clear_confirm",
+          },
+          {
+            text: ctx.t("button-cancel"),
+            callback_data: "upload:clear_cancel",
+          },
         ],
       ],
     },
@@ -143,129 +143,142 @@ async function handleUploadClearConfirm(
   ctx: CallbackQueryContext
 ): Promise<void> {
   const session = ctx.session.upload
+
   if (!session) {
     await ctx.answerCallbackQuery()
     return
   }
 
-  for (const img of session.images) {
-    img.status = "deleted"
+  for (const image of session.images) {
+    image.status = "deleted"
   }
 
-  await ctx.answerCallbackQuery()
-  await ctx.editMessageText("Снёс. Можно кидать заново.")
+  session.viewerImageId = undefined
 
-  const chatId = cid(ctx)
-  await deleteMessageSafe(ctx, chatId, getStatusMessageId(chatId))
-  clearStatusMessageId(chatId)
+  await ctx.answerCallbackQuery()
+  await ctx.editMessageText(ctx.t("upload-cleared"))
 }
 
 async function handleUploadClearCancel(
   ctx: CallbackQueryContext
 ): Promise<void> {
   const session = ctx.session.upload
+
   if (!session) {
     await ctx.answerCallbackQuery()
     return
   }
 
   await ctx.answerCallbackQuery()
-  const text = renderUploadStatus(session)
-  const keyboard = renderUploadKeyboard(session)
-  await ctx.editMessageText(text, {
-    reply_markup: { inline_keyboard: keyboard },
+  await ctx.editMessageText(renderUploadStatus(ctx, session), {
+    reply_markup: {
+      inline_keyboard: renderUploadKeyboard(ctx, session),
+    },
   })
 }
 
 async function handleViewerNext(ctx: CallbackQueryContext): Promise<void> {
   const session = ctx.session.upload
+
   if (!session) {
     await ctx.answerCallbackQuery()
     return
   }
 
   selectNextViewerImage(session)
-  await refreshViewer(ctx, session)
+
   await ctx.answerCallbackQuery()
+  await refreshViewer(ctx, session)
 }
 
 async function handleViewerPrev(ctx: CallbackQueryContext): Promise<void> {
   const session = ctx.session.upload
+
   if (!session) {
     await ctx.answerCallbackQuery()
     return
   }
 
   selectPrevViewerImage(session)
-  await refreshViewer(ctx, session)
+
   await ctx.answerCallbackQuery()
+  await refreshViewer(ctx, session)
 }
 
 async function handleViewerDelete(ctx: CallbackQueryContext): Promise<void> {
   const session = ctx.session.upload
+
   if (!session) {
     await ctx.answerCallbackQuery()
     return
   }
 
-  const deleted = deleteCurrentViewerImage(session)
-  if (!deleted) {
+  if (!deleteCurrentViewerImage(session)) {
     await ctx.answerCallbackQuery()
     return
   }
 
-  await ctx.answerCallbackQuery({ text: "Удалил" })
+  await ctx.answerCallbackQuery({
+    text: ctx.t("callback-removed"),
+  })
 
-  const chatId = cid(ctx)
+  const id = chatId(ctx)
   const active = getActiveImages(session)
+
   if (active.length === 0) {
-    const viewerId = getViewerMessageId(chatId)
-    if (viewerId) {
+    if (session.viewerMessageId) {
       try {
-        await ctx.api.editMessageCaption(chatId, viewerId, {
-          caption: "Всё удалил. Набор пустой.",
+        await ctx.api.editMessageCaption(id, session.viewerMessageId, {
+          caption: ctx.t("upload-cleared-empty"),
+          reply_markup: {
+            inline_keyboard: renderViewerKeyboard(ctx, session),
+          },
         })
       } catch {
         // ignore
       }
     }
-    await refreshStatus(ctx, session)
+
+    await refreshBottomStatus(ctx, id)
     return
   }
 
   await refreshViewer(ctx, session)
-  await refreshStatus(ctx, session)
+  await refreshBottomStatus(ctx, id)
 }
 
 async function handleViewerBack(ctx: CallbackQueryContext): Promise<void> {
-  const chatId = cid(ctx)
-  await deleteMessageSafe(ctx, chatId, getViewerMessageId(chatId))
-  clearViewerMessageId(chatId)
-  await ctx.answerCallbackQuery()
-}
-
-async function handleViewerBuild(ctx: CallbackQueryContext): Promise<void> {
   const session = ctx.session.upload
+
   if (!session) {
     await ctx.answerCallbackQuery()
     return
   }
 
-  // const active = getActiveImages(session)
-  // if (active.length < 2) {
-  //   await ctx.answerCallbackQuery({ text: "Нужно хотя бы 2 картинки." })
-  //   return
-  // }
+  await ctx.answerCallbackQuery()
+  await deleteMessageSafe(ctx, chatId(ctx), session.viewerMessageId)
+  session.viewerMessageId = undefined
+}
+
+async function handleViewerBuild(ctx: CallbackQueryContext): Promise<void> {
+  const session = ctx.session.upload
+
+  if (!session) {
+    await ctx.answerCallbackQuery()
+    return
+  }
 
   await ctx.answerCallbackQuery()
-  const chatId = cid(ctx)
-  await deleteMessageSafe(ctx, chatId, getViewerMessageId(chatId))
-  clearViewerMessageId(chatId)
 
-  await refreshStatus(ctx, session)
+  const id = chatId(ctx)
 
-  if (!ctx.session.activeBatchId) {
-    await ctx.reply("Нет активного батча. Начни через /new")
+  await deleteMessageSafe(ctx, id, session.viewerMessageId)
+  session.viewerMessageId = undefined
+
+  await refreshBottomStatus(ctx, id)
+
+  if (!ctx.session.activeCompositionId) {
+    await ctx.reply(ctx.t("upload-no-active-composition"))
     return
   }
 
@@ -281,43 +294,48 @@ async function sendViewer(
   ctx: CallbackQueryContext,
   session: UploadSession
 ): Promise<void> {
-  const img = getViewerImage(session)
-  if (!img) return
+  const image = getViewerImage(session)
+  if (!image) return
 
   const active = getActiveImages(session)
-  const idx = getCurrentViewerIndex(session)
-  const caption = renderViewerCaption(session, idx, active.length)
-  const keyboard = renderViewerKeyboard(session)
-  const chatId = cid(ctx)
+  const index = getCurrentViewerIndex(session)
+  const caption = renderViewerCaption(ctx, session, index, active.length)
+  const keyboard = renderViewerKeyboard(ctx, session)
+  const id = chatId(ctx)
 
-  const existingId = getViewerMessageId(chatId)
-  if (existingId) {
+  if (session.viewerMessageId) {
     try {
       await ctx.api.editMessageMedia(
-        chatId,
-        existingId,
+        id,
+        session.viewerMessageId,
         {
           type: "photo",
-          media: img.fileId,
+          media: image.fileId,
           caption,
-          parse_mode: undefined,
         },
-        { reply_markup: { inline_keyboard: keyboard } }
+        {
+          reply_markup: {
+            inline_keyboard: keyboard,
+          },
+        }
       )
       return
     } catch {
-      // fallback: send new
+      session.viewerMessageId = undefined
     }
   }
 
   try {
-    const msg = await ctx.api.sendPhoto(chatId, img.fileId, {
+    const message = await ctx.api.sendPhoto(id, image.fileId, {
       caption,
-      reply_markup: { inline_keyboard: keyboard },
+      reply_markup: {
+        inline_keyboard: keyboard,
+      },
     })
-    setViewerMessageId(chatId, msg.message_id)
+
+    session.viewerMessageId = message.message_id
   } catch (error) {
-    console.error("Failed to send viewer", error)
+    console.error("Failed to send viewer", { chatId: id, error })
   }
 }
 
@@ -325,69 +343,5 @@ async function refreshViewer(
   ctx: CallbackQueryContext,
   session: UploadSession
 ): Promise<void> {
-  const img = getViewerImage(session)
-  if (!img) return
-
-  const active = getActiveImages(session)
-  const idx = getCurrentViewerIndex(session)
-  const caption = renderViewerCaption(session, idx, active.length)
-  const keyboard = renderViewerKeyboard(session)
-  const chatId = cid(ctx)
-
-  const existingId = getViewerMessageId(chatId)
-  if (existingId) {
-    try {
-      await ctx.api.editMessageMedia(
-        chatId,
-        existingId,
-        {
-          type: "photo",
-          media: img.fileId,
-          caption,
-          parse_mode: undefined,
-        },
-        { reply_markup: { inline_keyboard: keyboard } }
-      )
-      return
-    } catch {
-      // fallback: send new
-    }
-  }
-
-  try {
-    const msg = await ctx.api.sendPhoto(chatId, img.fileId, {
-      caption,
-      reply_markup: { inline_keyboard: keyboard },
-    })
-    setViewerMessageId(chatId, msg.message_id)
-  } catch (error) {
-    console.error("Failed to refresh viewer", error)
-  }
-}
-
-async function refreshStatus(
-  ctx: CallbackQueryContext,
-  session: UploadSession
-): Promise<void> {
-  const text = renderUploadStatus(session)
-  const keyboard = renderUploadKeyboard(session)
-  const chatId = cid(ctx)
-
-  const oldId = getStatusMessageId(chatId)
-  clearStatusMessageId(chatId)
-
-  if (oldId) {
-    await ctx.api.deleteMessage(chatId, oldId).catch((err) => {
-      console.warn("deleteMessage failed", { chatId, messageId: oldId, err })
-    })
-  }
-
-  try {
-    const msg = await ctx.api.sendMessage(chatId, text, {
-      reply_markup: { inline_keyboard: keyboard },
-    })
-    setStatusMessageId(chatId, msg.message_id)
-  } catch (error) {
-    console.error("Failed to send status panel", error)
-  }
+  await sendViewer(ctx, session)
 }

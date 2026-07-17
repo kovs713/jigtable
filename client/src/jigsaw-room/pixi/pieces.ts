@@ -8,7 +8,7 @@ import type {
   PieceEdgePoint,
   PieceEdgeShape,
   PieceId,
-} from "@jigtable/jigsaw-core/jigsaw/types"
+} from "@jigtable/core/types"
 
 const ATLAS_SIZE = 2048
 const MAX_TOTAL_ATLAS_PIXELS = 80_000_000
@@ -52,12 +52,7 @@ export function createPieceViews(
     (a, b) => a.row - b.row || a.col - b.col
   )
   const metrics = createShapeMetrics(state)
-  const atlas = createPieceAtlas(
-    imageTexture,
-    state,
-    definitions,
-    metrics
-  )
+  const atlas = createPieceAtlas(imageTexture, state, definitions, metrics)
   let allHighlighted = false
 
   atlasTextures.push(...atlas.atlasTextures)
@@ -168,7 +163,8 @@ export function createPieceViews(
     )
     view.sprite.alpha = piece.locked ? 1 : 0.97
     view.highlightSprite.alpha = HIGHLIGHT_SPRITE_ALPHA
-    view.highlightSprite.visible = allHighlighted && isPieceHighlightable(pieceId)
+    view.highlightSprite.visible =
+      allHighlighted && isPieceHighlightable(pieceId)
   }
 
   function syncPieces(pieceIds: PieceId[]): void {
@@ -181,7 +177,8 @@ export function createPieceViews(
     allHighlighted = highlighted
 
     for (const view of byId.values()) {
-      view.highlightSprite.visible = highlighted && isPieceHighlightable(view.id)
+      view.highlightSprite.visible =
+        highlighted && isPieceHighlightable(view.id)
     }
   }
 

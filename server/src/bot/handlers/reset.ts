@@ -2,60 +2,57 @@ import { eq } from "drizzle-orm"
 import type { CommandContext } from "grammy"
 
 import type { BotContext } from "@/bot/types"
+import { clearStatusPanel, deleteMessageSafe } from "@/bot/upload"
+import { db } from "@/db"
 import {
-  deleteMessageSafe,
-  getStatusMessageId,
-  clearStatusMessageId,
-  getViewerMessageId,
-  clearViewerMessageId,
-} from "@/bot/upload"
-import { db } from "@/infra/db"
-import {
-  batchesSchema,
-  batchPhotosSchema,
-  PhotoBatchStatus,
-} from "@/infra/db/schemas"
-import { s3Client } from "@/infra/storage"
+  CompositionStatus,
+  compositionSourceImagesSchema,
+  compositionsSchema,
+} from "@/db/schemas"
+import { s3Client } from "@/storage/client"
 
-export async function handleReset(ctx: CommandContext<BotContext>) {
-  if (!ctx.from) {
-    await ctx.reply("ну и иди нахуй")
+export async function handleReset(
+  ctx: CommandContext<BotContext>
+): Promise<void> {
+  const session = ctx.session
+
+  if (!session.upload && !session.activeCompositionId) {
+    await ctx.reply(ctx.t("reset-nothing"))
     return
   }
 
-  const upload = ctx.session.upload
-  if (upload?.statusRefreshTimer) {
-    clearTimeout(upload.statusRefreshTimer)
-  }
-
   const chatId = ctx.chat?.id
+
   if (chatId) {
-    await deleteMessageSafe(ctx, chatId, getStatusMessageId(chatId))
-    clearStatusMessageId(chatId)
-    await deleteMessageSafe(ctx, chatId, getViewerMessageId(chatId))
-    clearViewerMessageId(chatId)
+    await clearStatusPanel(ctx, chatId)
+    await deleteMessageSafe(ctx, chatId, session.upload?.viewerMessageId)
   }
 
-  if (ctx.session.activeBatchId) {
+  if (session.activeCompositionId) {
     const photos = await db
       .select()
-      .from(batchPhotosSchema)
-      .where(eq(batchPhotosSchema.batchId, ctx.session.activeBatchId))
+      .from(compositionSourceImagesSchema)
+      .where(
+        eq(
+          compositionSourceImagesSchema.compositionId,
+          session.activeCompositionId
+        )
+      )
 
     for (const photo of photos) {
-      await s3Client.delete(photo.objectKey)
+      await s3Client.delete(photo.objectKey).catch(() => {})
     }
 
     await db
-      .update(batchesSchema)
-      .set({ status: PhotoBatchStatus.Canceled, updatedAt: new Date() })
-      .where(eq(batchesSchema.batchId, ctx.session.activeBatchId))
+      .update(compositionsSchema)
+      .set({ status: CompositionStatus.Canceled, updatedAt: new Date() })
+      .where(eq(compositionsSchema.compositionId, session.activeCompositionId))
   }
 
-  ctx.session.isStarted = false
-  ctx.session.activeBatchId = undefined
-  ctx.session.photos = []
-  ctx.session.upload = undefined
+  session.isStarted = false
+  session.activeCompositionId = undefined
+  session.photos = []
+  session.upload = undefined
 
-  await ctx.reply("Снёс. Можно кидать заново.")
+  await ctx.reply(ctx.t("reset-done"))
 }

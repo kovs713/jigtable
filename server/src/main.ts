@@ -1,15 +1,11 @@
 import { startApiServer } from "@/api"
 import { createBot, startBot } from "@/bot"
-import { setupTelegramProxy } from "@/bot/proxy"
 
 async function main(): Promise<void> {
-  setupTelegramProxy()
+  const api = startApiServer()
 
   const bot = await createBot()
-
-  startBot(bot)
-
-  startApiServer()
+  await startBot(bot)
 }
 
 void main().catch((error) => {

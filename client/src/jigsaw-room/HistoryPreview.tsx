@@ -8,7 +8,7 @@ import {
   type JigsawConfig,
   type PieceEdgePoint,
   type PieceEdgeShape,
-} from "@jigtable/jigsaw-core"
+} from "@jigtable/core"
 
 const STROKE_COLOR = "rgba(255,255,255,0.36)"
 const STROKE_WIDTH = 1
@@ -176,25 +176,59 @@ function drawEdge(
   for (let index = 1; index < shape.points.length; index += 3) {
     const control1 = edgePointToWorld(
       shape.points[index],
-      x1, y1, unitX, unitY, normalX, normalY, length, perpendicularLength
+      x1,
+      y1,
+      unitX,
+      unitY,
+      normalX,
+      normalY,
+      length,
+      perpendicularLength
     )
     const control2 = edgePointToWorld(
       shape.points[index + 1],
-      x1, y1, unitX, unitY, normalX, normalY, length, perpendicularLength
+      x1,
+      y1,
+      unitX,
+      unitY,
+      normalX,
+      normalY,
+      length,
+      perpendicularLength
     )
     const end = edgePointToWorld(
       shape.points[index + 2],
-      x1, y1, unitX, unitY, normalX, normalY, length, perpendicularLength
+      x1,
+      y1,
+      unitX,
+      unitY,
+      normalX,
+      normalY,
+      length,
+      perpendicularLength
     )
 
-    ctx.bezierCurveTo(control1.x, control1.y, control2.x, control2.y, end.x, end.y)
+    ctx.bezierCurveTo(
+      control1.x,
+      control1.y,
+      control2.x,
+      control2.y,
+      end.x,
+      end.y
+    )
   }
 }
 
 function edgePointToWorld(
   point: PieceEdgePoint,
-  x: number, y: number, unitX: number, unitY: number,
-  normalX: number, normalY: number, length: number, perpendicularLength: number
+  x: number,
+  y: number,
+  unitX: number,
+  unitY: number,
+  normalX: number,
+  normalY: number,
+  length: number,
+  perpendicularLength: number
 ): { x: number; y: number } {
   return {
     x: x + unitX * point.l * length + normalX * point.w * perpendicularLength,

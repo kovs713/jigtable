@@ -1,3 +1,4 @@
+import type { I18nFlavor } from "@grammyjs/i18n"
 import type { Context, Filter, SessionFlavor } from "grammy"
 
 export interface UploadedImage {
@@ -20,16 +21,19 @@ export interface UploadSession {
   statusRefreshTimer?: ReturnType<typeof setInterval>
   lastStatusRefreshAt?: number
   viewerImageId?: string
+  viewerMessageId?: number
 }
 
 export interface SessionData {
+  __language_code?: string
+
   photos: string[]
   isStarted: boolean
-  activeBatchId?: string
+  activeCompositionId?: string
   upload?: UploadSession
 }
 
-export type BotContext = Context & SessionFlavor<SessionData>
+export type BotContext = Context & SessionFlavor<SessionData> & I18nFlavor
 export type PhotoContext = Filter<BotContext, "message:photo">
 export type StickerContext = Filter<BotContext, "message:sticker">
 export type CallbackQueryContext = Filter<BotContext, "callback_query:data">

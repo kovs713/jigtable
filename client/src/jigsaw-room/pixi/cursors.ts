@@ -1,7 +1,7 @@
 import type { Application } from "pixi.js"
 import { Container, Graphics, Text } from "pixi.js"
 
-import type { JigsawPlayerCursor } from "@jigtable/jigsaw-core/multiplayer/protocol"
+import type { PlayerCursor as JigsawPlayerCursor } from "@jigtable/core/protocol"
 
 import type { JigsawMultiplayerClient } from "../multiplayer/client"
 import type { CameraController } from "./camera"

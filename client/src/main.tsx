@@ -8,6 +8,7 @@ import { matchRoute } from "./routes"
 
 import "./index.css"
 
+const LandingPage = lazy(() => import("./LandingPage.tsx"))
 const PrivacyPage = lazy(() => import("./PrivacyPage.tsx"))
 const App = lazy(() => import("./App.tsx"))
 const JigsawProfileApp = lazy(
@@ -38,8 +39,11 @@ export function RootApp() {
     case "room.solve":
       return <JigsawRoomApp roomId={route.roomId} />
 
-    case "home":
+    case "editor":
       return <App />
+
+    case "landing":
+      return <LandingPage />
   }
 }
 

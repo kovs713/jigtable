@@ -1,12 +1,14 @@
 import type {
   ClientToServerMessage,
-  JigsawPlayer,
-  JigsawSession,
+  Player as JigsawPlayer,
+  PlayerSession as JigsawSession,
   ServerToClientMessage,
-} from "@jigtable/jigsaw-core/multiplayer/protocol"
+} from "@jigtable/core/protocol"
+import { apiRoutes } from "@jigtable/shared/api-routes"
 import { isRecord } from "@jigtable/shared/utils"
 
 import { API_BASE_URL, JIGSAW_WS_ENABLED, JIGSAW_WS_URL } from "@/config"
+import { readApiError } from "@/lib/api-response"
 
 const LOCAL_SESSION_STORAGE_KEY = "jigsaw-room-session"
 const LEGACY_PLAYER_STORAGE_KEY = "jigsaw-room-player"
@@ -116,15 +118,18 @@ export async function restoreJigsawSession(
   fallback: JigsawSession,
   roomId?: string
 ): Promise<JigsawSession> {
-  const response = await fetch(`${API_BASE_URL}/api/sessions`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      token: fallback.token,
-      player: fallback.player,
-      roomId,
-    }),
-  })
+  const response = await fetch(
+    `${API_BASE_URL}${apiRoutes.sessions.post.pattern}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        token: fallback.token,
+        player: fallback.player,
+        roomId,
+      }),
+    }
+  )
   const payload = await response.json().catch(() => null)
 
   if (!response.ok) {
@@ -148,14 +153,17 @@ export async function saveJigsawSessionProfile(
   sessionToken: string,
   profile: Pick<JigsawPlayer, "name" | "color">
 ): Promise<JigsawSession> {
-  const response = await fetch(`${API_BASE_URL}/api/sessions/current`, {
-    method: "PATCH",
-    headers: {
-      Authorization: `Bearer ${sessionToken}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ player: profile }),
-  })
+  const response = await fetch(
+    `${API_BASE_URL}${apiRoutes.sessions.patch.current.pattern}`,
+    {
+      method: "PATCH",
+      headers: {
+        Authorization: `Bearer ${sessionToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ player: profile }),
+    }
+  )
   const payload = await response.json().catch(() => null)
 
   if (!response.ok) {
@@ -328,10 +336,6 @@ function createId(prefix: string): string {
   const random = crypto.randomUUID?.() ?? String(Math.random()).slice(2)
 
   return `${prefix}_${random.replace(/-/g, "")}`
-}
-
-function readApiError(value: unknown): string | null {
-  return isRecord(value) && typeof value.error === "string" ? value.error : null
 }
 
 function createDisabledClient(): JigsawMultiplayerClient {

@@ -4,10 +4,11 @@ export type AppRoute =
   | { name: "profile" }
   | { name: "profile.history.item"; roomId: string }
   | { name: "room.solve"; roomId: string }
-  | { name: "home" }
+  | { name: "editor" }
+  | { name: "landing" }
 
 export const paths = {
-  home: () => "/",
+  landing: () => "/",
   privacy: () => "/privacy",
   roomCreate: () => "/rooms/new",
   profile: () => "/profile",
@@ -45,7 +46,7 @@ export function matchRoute(pathname: string): AppRoute {
       return { name: "profile.history.item", roomId }
     }
 
-    return { name: "home" }
+    return { name: "landing" }
   }
 
   if (pathname.startsWith("/rooms/")) {
@@ -56,8 +57,12 @@ export function matchRoute(pathname: string): AppRoute {
       return { name: "room.solve", roomId }
     }
 
-    return { name: "home" }
+    return { name: "landing" }
   }
 
-  return { name: "home" }
+  if (pathname.startsWith("/editor")) {
+    return { name: "editor" }
+  }
+
+  return { name: "landing" }
 }

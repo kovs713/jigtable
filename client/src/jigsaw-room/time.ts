@@ -1,4 +1,4 @@
-import type { JigsawRoomTimer } from "@jigtable/jigsaw-core/multiplayer/protocol"
+import type { RoomTimer as JigsawRoomTimer } from "@jigtable/core/protocol"
 
 export function createInitialTimer(): JigsawRoomTimer {
   return {

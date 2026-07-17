@@ -1,10 +1,11 @@
 {
   "name": "@jigtable/shared",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "private": true,
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
+    "./api-routes": "./src/api-routes.ts",
     "./schemas": "./src/schema.ts",
     "./types": "./src/types.ts",
     "./utils": "./src/utils.ts"

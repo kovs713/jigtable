@@ -2,71 +2,65 @@ import type { CommandContext } from "grammy"
 
 import type { BotContext } from "@/bot/types"
 import {
-  renderUploadKeyboard,
+  clearStatusPanel,
   deleteMessageSafe,
-  getStatusMessageId,
-  setStatusMessageId,
-  clearStatusMessageId,
-  getViewerMessageId,
-  clearViewerMessageId,
-} from "@/bot/upload"
-import { db } from "@/infra/db"
-import { batchesSchema } from "@/infra/db/schemas"
+  rememberStatusMessage,
+  renderUploadKeyboard,
+} from "@/bot/upload/status"
+import { db } from "@/db"
+import { compositionsSchema } from "@/db/schemas"
 
-export async function handleNew(ctx: CommandContext<BotContext>) {
+export async function handleNew(
+  ctx: CommandContext<BotContext>
+): Promise<void> {
   if (!ctx.from) {
-    await ctx.reply("не вижу юзера, не могу начать")
+    await ctx.reply(ctx.t("user-not-found"))
     return
   }
 
   const chatId = ctx.chat?.id
+  const previousUpload = ctx.session.upload
+
   if (chatId) {
-    if (ctx.session.upload?.statusRefreshTimer) {
-      clearTimeout(ctx.session.upload.statusRefreshTimer)
+    await clearStatusPanel(ctx, chatId)
+
+    if (previousUpload?.viewerMessageId) {
+      await deleteMessageSafe(ctx, chatId, previousUpload.viewerMessageId)
     }
-    await deleteMessageSafe(ctx, chatId, getStatusMessageId(chatId))
-    clearStatusMessageId(chatId)
-    await deleteMessageSafe(ctx, chatId, getViewerMessageId(chatId))
-    clearViewerMessageId(chatId)
   }
 
-  const [batch] = await db
-    .insert(batchesSchema)
+  const [composition] = await db
+    .insert(compositionsSchema)
     .values({
       userId: String(ctx.from.id),
       editToken: crypto.randomUUID(),
     })
     .returning()
 
-  if (!batch) {
-    throw new Error("Failed to create photo batch")
+  if (!composition) {
+    throw new Error("Failed to create composition")
   }
 
-  ctx.session.activeBatchId = batch.batchId
+  ctx.session.activeCompositionId = composition.compositionId
   ctx.session.photos = []
   ctx.session.isStarted = true
-
   ctx.session.upload = {
     images: [],
     duplicateCount: 0,
     seenFileUniqueIds: [],
   }
 
-  const text = [
-    "Кидай картинки.",
-    "",
-    "Можно пачкой, можно по одной, можно как попало.",
-    "Я разберусь.",
-  ].join("\n")
-
-  const keyboard = renderUploadKeyboard(ctx.session.upload)
+  const text = ctx.t("new-message")
 
   try {
-    const msg = await ctx.api.sendMessage(ctx.chat!.id, text, {
-      reply_markup: { inline_keyboard: keyboard },
+    const message = await ctx.api.sendMessage(ctx.chat!.id, text, {
+      reply_markup: {
+        inline_keyboard: renderUploadKeyboard(ctx, ctx.session.upload),
+      },
     })
+
     if (chatId) {
-      setStatusMessageId(chatId, msg.message_id)
+      rememberStatusMessage(chatId, message.message_id)
     }
   } catch (error) {
     console.error("Failed to send initial status panel", error)

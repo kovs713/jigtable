@@ -1,48 +1,59 @@
+import { and, count, desc, eq, inArray, or } from "drizzle-orm"
 import { InputFile, type CommandContext } from "grammy"
 import type { InlineKeyboardButton } from "grammy/types"
-import { and, desc, eq, or } from "drizzle-orm"
 
 import type { BotContext, CallbackQueryContext } from "@/bot/types"
-import { clientLayoutUrl } from "@/features/urls"
-import { db } from "@/infra/db"
+import { LIMITS } from "@/config"
+import { db } from "@/db"
 import {
-  batchesSchema,
-  batchPhotosSchema,
-  PhotoBatchStatus,
-} from "@/infra/db/schemas"
-import { s3Client } from "@/infra/storage"
+  CompositionStatus,
+  compositionSourceImagesSchema,
+  compositionsSchema,
+} from "@/db/schemas"
+import { s3Client } from "@/storage/client"
+import { jigsawImageObjectKey, telegramPreviewObjectKey } from "@/storage/utils"
+import { clientLayoutUrl } from "../utils"
 
-const PAGE_SIZE = 3
 const previewFileIds = new Map<string, string>()
 
-type Batch = typeof batchesSchema.$inferSelect
+type Composition = typeof compositionsSchema.$inferSelect
 
 interface ListView {
   caption: string
   keyboard: InlineKeyboardButton[][]
   media?: InputFile | string
-  outputKey?: string
+  previewObjectKey?: string
 }
 
 export async function handleList(
   ctx: CommandContext<BotContext>
 ): Promise<void> {
   if (!ctx.from) {
-    await ctx.reply("не вижу юзера")
+    await ctx.reply(ctx.t("user-not-found"))
     return
   }
 
-  const view = await renderListPage(String(ctx.from.id), 0)
+  const locale = await ctx.i18n.getLocale()
+  const view = await renderListPage(ctx, String(ctx.from.id), 0, locale)
+
   if (!view.media) {
-    await ctx.reply(view.caption)
+    await ctx.reply(view.caption, {
+      reply_markup:
+        view.keyboard.length > 0
+          ? { inline_keyboard: view.keyboard }
+          : undefined,
+    })
     return
   }
 
   const message = await ctx.replyWithPhoto(view.media, {
     caption: view.caption,
-    reply_markup: { inline_keyboard: view.keyboard },
+    reply_markup: {
+      inline_keyboard: view.keyboard,
+    },
   })
-  cachePreviewFileId(view.outputKey, message.photo.at(-1)?.file_id)
+
+  cachePreviewFileId(view.previewObjectKey, message.photo.at(-1)?.file_id)
 }
 
 export async function handleListAction(
@@ -55,59 +66,89 @@ export async function handleListAction(
 
   const data = ctx.callbackQuery.data
   const userId = String(ctx.from.id)
+  const locale = await ctx.i18n.getLocale()
 
   if (data.startsWith("list:page:")) {
-    await editToView(ctx, await renderListPage(userId, parseNumber(data)))
     await ctx.answerCallbackQuery()
+
+    const page = parseNumber(data)
+    const view = await renderListPage(ctx, userId, page, locale)
+
+    await editToView(ctx, view)
     return
   }
 
   if (data.startsWith("list:open:")) {
-    const action = parseBatchAction(data)
-    await editToView(
-      ctx,
-      await renderBatchCard(userId, action.batchId, action.page, action.index)
-    )
     await ctx.answerCallbackQuery()
+
+    const action = parseCompositionAction(data)
+    const view = await renderCompositionCard(
+      ctx,
+      userId,
+      action.compositionId,
+      action.page,
+      action.index
+    )
+
+    await editToView(ctx, view)
     return
   }
 
   if (data.startsWith("list:back:")) {
-    await editToView(ctx, await renderListPage(userId, parseNumber(data)))
     await ctx.answerCallbackQuery()
+
+    const page = parseNumber(data)
+    const view = await renderListPage(ctx, userId, page, locale)
+
+    await editToView(ctx, view)
     return
   }
 
   if (data.startsWith("list:delete:")) {
-    const action = parseBatchAction(data)
-    await editToView(
-      ctx,
-      await renderDeleteConfirm(
-        userId,
-        action.batchId,
-        action.page,
-        action.index
-      )
-    )
     await ctx.answerCallbackQuery()
+
+    const action = parseCompositionAction(data)
+    const view = await renderDeleteConfirm(
+      ctx,
+      userId,
+      action.compositionId,
+      action.page,
+      action.index,
+      locale
+    )
+
+    await editToView(ctx, view)
     return
   }
 
   if (data.startsWith("list:delete_confirm:")) {
-    const action = parseBatchAction(data)
-    await deleteBatch(userId, action.batchId)
-    await editToView(ctx, await renderListPage(userId, action.page))
-    await ctx.answerCallbackQuery({ text: "Удалил" })
+    await ctx.answerCallbackQuery({
+      text: ctx.t("callback-deleting"),
+    })
+
+    const action = parseCompositionAction(data)
+
+    await deleteComposition(userId, action.compositionId)
+
+    const view = await renderListPage(ctx, userId, action.page, locale)
+
+    await editToView(ctx, view)
     return
   }
 
   if (data.startsWith("list:delete_cancel:")) {
-    const action = parseBatchAction(data)
-    await editToView(
-      ctx,
-      await renderBatchCard(userId, action.batchId, action.page, action.index)
-    )
     await ctx.answerCallbackQuery()
+
+    const action = parseCompositionAction(data)
+    const view = await renderCompositionCard(
+      ctx,
+      userId,
+      action.compositionId,
+      action.page,
+      action.index
+    )
+
+    await editToView(ctx, view)
     return
   }
 
@@ -120,12 +161,20 @@ async function editToView(
 ): Promise<void> {
   const chatId = ctx.chat!.id
   const messageId = ctx.callbackQuery.message?.message_id
-  if (!messageId) return
+
+  if (!messageId) {
+    return
+  }
 
   if (!view.media) {
     await ctx.api.editMessageCaption(chatId, messageId, {
       caption: view.caption,
-      reply_markup: undefined,
+      reply_markup:
+        view.keyboard.length > 0
+          ? {
+              inline_keyboard: view.keyboard,
+            }
+          : undefined,
     })
     return
   }
@@ -138,275 +187,453 @@ async function editToView(
       media: view.media,
       caption: view.caption,
     },
-    { reply_markup: { inline_keyboard: view.keyboard } }
+    {
+      reply_markup: {
+        inline_keyboard: view.keyboard,
+      },
+    }
   )
 
   if (typeof edited !== "boolean" && edited.photo) {
-    cachePreviewFileId(view.outputKey, edited.photo.at(-1)?.file_id)
+    cachePreviewFileId(view.previewObjectKey, edited.photo.at(-1)?.file_id)
   }
 }
 
-async function renderListPage(userId: string, page: number): Promise<ListView> {
+async function renderListPage(
+  ctx: BotContext,
+  userId: string,
+  page: number,
+  locale: string
+): Promise<ListView> {
   const safePage = Math.max(0, page)
-  const offset = safePage * PAGE_SIZE
-  const batches = await db
+  const offset = safePage * LIMITS.telegram.pageSize
+
+  const compositions = await db
     .select()
-    .from(batchesSchema)
-    .where(activeUserBatches(userId))
-    .orderBy(desc(batchesSchema.createdAt))
-    .limit(PAGE_SIZE + 1)
+    .from(compositionsSchema)
+    .where(activeUserCompositions(userId))
+    .orderBy(desc(compositionsSchema.createdAt))
+    .limit(LIMITS.telegram.pageSize + 1)
     .offset(offset)
 
-  if (!batches.length) {
+  if (compositions.length === 0) {
     return {
       caption:
-        safePage === 0
-          ? "Пока нет готовых сборок.\n\nСначала закинь картинки через /new."
-          : "Дальше пусто. Всё, приехали.",
+        safePage === 0 ? ctx.t("list-empty-first") : ctx.t("list-empty-page"),
       keyboard: [],
     }
   }
 
-  const visible = batches.slice(0, PAGE_SIZE)
-  const summaries = await Promise.all(
-    visible.map((batch, index) => renderListLine(batch, offset + index))
+  const visible = compositions.slice(0, LIMITS.telegram.pageSize)
+
+  const photoCounts = await getPhotoCounts(
+    visible.map((composition) => composition.compositionId)
   )
-  const coverBatch = visible.find((batch) => batch.outputKey) ?? visible[0]
-  const cover = coverBatch?.outputKey
-    ? await loadPreview(coverBatch.outputKey)
-    : undefined
+
+  const summaries = visible.map((composition, index) =>
+    renderListLine(
+      ctx,
+      composition,
+      offset + index,
+      photoCounts.get(composition.compositionId) ?? 0,
+      locale
+    )
+  )
+
+  const coverComposition = visible.at(0)
+
+  if (!coverComposition) {
+    return {
+      caption: ctx.t("list-empty"),
+      keyboard: [],
+    }
+  }
+
+  const previewObjectKey = telegramPreviewObjectKey(
+    coverComposition.compositionId
+  )
+
+  const cover = await loadPreview(previewObjectKey)
 
   return {
-    caption: ["Твои сборки.", "", ...summaries].join("\n"),
-    keyboard: renderListKeyboard({
+    caption: [ctx.t("list-title"), "", ...summaries].join("\n"),
+
+    keyboard: renderListKeyboard(ctx, {
       offset,
-      batches: visible,
+      compositions: visible,
       page: safePage,
-      hasNext: batches.length > PAGE_SIZE,
+      hasNext: compositions.length > LIMITS.telegram.pageSize,
     }),
-    media: cover ?? undefined,
-    outputKey: coverBatch?.outputKey ?? undefined,
+
+    media: cover,
+    previewObjectKey,
   }
 }
 
-async function renderBatchCard(
+async function renderCompositionCard(
+  ctx: BotContext,
   userId: string,
-  batchId: string,
+  compositionId: string,
   page: number,
   index: number
 ): Promise<ListView> {
-  const batch = await getBatchById(userId, batchId)
-  if (!batch) return notFoundView(page)
+  const composition = await getCompositionById(userId, compositionId)
 
-  const photoCount = await getPhotoCount(batch.batchId)
-  const url = clientLayoutUrl(batch.batchId, batch.editToken)
-  const media = batch.outputKey ? await loadPreview(batch.outputKey) : undefined
+  if (!composition) {
+    return notFoundView(ctx, page)
+  }
+
+  const photoCount = await getPhotoCount(composition.compositionId)
+  const url = clientLayoutUrl(composition.compositionId, composition.editToken)
+  const previewObjectKey = telegramPreviewObjectKey(composition.compositionId)
+  const media = await loadPreview(previewObjectKey)
+
   const caption = [
-    "Превью",
-    `Сборка #${index + 1}`,
-    `${photoCount} картинок`,
-    formatDimensions(batch),
+    ctx.t("list-preview"),
+    ctx.t("list-composition-number", { number: index + 1 }),
+    ctx.t("list-pictures", { count: photoCount }),
+    formatDimensions(ctx, composition),
   ]
 
   if (!isTelegramUrl(url)) {
-    caption.push("", "Ссылка:", url)
+    caption.push("", ctx.t("list-link"), url)
   }
 
   const keyboard: InlineKeyboardButton[][] = []
+
   if (isTelegramUrl(url)) {
-    keyboard.push([{ text: "открыть редактор", url }])
+    keyboard.push([
+      {
+        text: ctx.t("button-open-editor"),
+        url,
+      },
+    ])
   }
+
   keyboard.push([
     {
-      text: "удалить",
-      callback_data: `list:delete:${page}:${index}:${batch.batchId}`,
+      text: ctx.t("button-delete"),
+      callback_data:
+        `list:delete:${page}:` + `${index}:${composition.compositionId}`,
     },
-    { text: "назад", callback_data: `list:back:${page}` },
+    {
+      text: ctx.t("button-back"),
+      callback_data: `list:back:${page}`,
+    },
   ])
 
   return {
     caption: caption.join("\n"),
     keyboard,
-    media: media ?? undefined,
-    outputKey: batch.outputKey ?? undefined,
+    media,
+    previewObjectKey,
   }
 }
 
 async function renderDeleteConfirm(
+  ctx: BotContext,
   userId: string,
-  batchId: string,
+  compositionId: string,
   page: number,
-  index: number
+  index: number,
+  locale: string
 ): Promise<ListView> {
-  const batch = await getBatchById(userId, batchId)
-  if (!batch) return notFoundView(page)
+  const composition = await getCompositionById(userId, compositionId)
 
-  const media = batch.outputKey ? await loadPreview(batch.outputKey) : undefined
+  if (!composition) {
+    return notFoundView(ctx, page)
+  }
+
+  const photoCount = await getPhotoCount(composition.compositionId)
+  const previewObjectKey = telegramPreviewObjectKey(composition.compositionId)
+  const pictures = ctx.t("list-pictures", { count: photoCount })
+
   return {
     caption: [
-      `Снести сборку #${index + 1}?`,
-      `${await getPhotoCount(batch.batchId)} картинок · ${formatDate(batch.createdAt)}`,
+      ctx.t("list-delete-question", { number: index + 1 }),
+      ctx.t("list-delete-details", {
+        pictures,
+        date: formatDate(ctx, composition.createdAt, locale),
+      }),
       "",
-      "Удалю картинки из хранилища и уберу из списка.",
+      ctx.t("list-delete-warning"),
     ].join("\n"),
+
     keyboard: [
       [
         {
-          text: "да, снести",
-          callback_data: `list:delete_confirm:${page}:${index}:${batchId}`,
+          text: ctx.t("button-yes-remove"),
+          callback_data:
+            `list:delete_confirm:${page}:` + `${index}:${compositionId}`,
         },
         {
-          text: "не надо",
-          callback_data: `list:delete_cancel:${page}:${index}:${batchId}`,
+          text: ctx.t("button-no-cancel"),
+          callback_data:
+            `list:delete_cancel:${page}:` + `${index}:${compositionId}`,
         },
       ],
     ],
-    media: media ?? undefined,
-    outputKey: batch.outputKey ?? undefined,
+
+    media: await loadPreview(previewObjectKey),
+    previewObjectKey,
   }
 }
 
-function renderListKeyboard(input: {
-  offset: number
-  batches: Batch[]
-  page: number
-  hasNext: boolean
-}): InlineKeyboardButton[][] {
+function renderListKeyboard(
+  ctx: BotContext,
+  input: {
+    offset: number
+    compositions: Composition[]
+    page: number
+    hasNext: boolean
+  }
+): InlineKeyboardButton[][] {
   const openRow: InlineKeyboardButton[] = []
-  for (const [index, batch] of input.batches.entries()) {
+
+  for (const [index, composition] of input.compositions.entries()) {
     const number = input.offset + index + 1
+
     openRow.push({
-      text: `открыть ${number}`,
-      callback_data: `list:open:${input.page}:${number - 1}:${batch.batchId}`,
+      text: ctx.t("list-open-number", { number }),
+      callback_data:
+        `list:open:${input.page}:` +
+        `${number - 1}:` +
+        composition.compositionId,
     })
   }
 
   const rows: InlineKeyboardButton[][] = [openRow]
-  const nav: InlineKeyboardButton[] = []
+  const navigation: InlineKeyboardButton[] = []
+
   if (input.page > 0) {
-    nav.push({ text: "назад", callback_data: `list:page:${input.page - 1}` })
+    navigation.push({
+      text: ctx.t("button-back"),
+      callback_data: `list:page:${input.page - 1}`,
+    })
   }
+
   if (input.hasNext) {
-    nav.push({ text: "дальше", callback_data: `list:page:${input.page + 1}` })
+    navigation.push({
+      text: ctx.t("button-continue"),
+      callback_data: `list:page:${input.page + 1}`,
+    })
   }
-  if (nav.length > 0) rows.push(nav)
+
+  if (navigation.length > 0) {
+    rows.push(navigation)
+  }
+
   return rows
 }
 
-async function renderListLine(batch: Batch, offset: number): Promise<string> {
-  const photoCount = await getPhotoCount(batch.batchId)
-  return `${offset + 1}. ${photoCount} картинок · ${formatDimensions(batch)} · ${formatRelativeDate(batch.createdAt)}`
+function renderListLine(
+  ctx: BotContext,
+  composition: Composition,
+  offset: number,
+  photoCount: number,
+  locale: string
+): string {
+  return ctx.t("list-line", {
+    number: offset + 1,
+    pictures: ctx.t("list-pictures", { count: photoCount }),
+    dimensions: formatDimensions(ctx, composition),
+    date: formatRelativeDate(ctx, composition.createdAt, locale),
+  })
 }
 
-async function getPhotoCount(batchId: string): Promise<number> {
-  const photos = await db
-    .select({ fileId: batchPhotosSchema.fileId })
-    .from(batchPhotosSchema)
-    .where(eq(batchPhotosSchema.batchId, batchId))
-  return photos.length
+async function getPhotoCount(compositionId: string): Promise<number> {
+  const [row] = await db
+    .select({
+      photoCount: count(compositionSourceImagesSchema.fileId),
+    })
+    .from(compositionSourceImagesSchema)
+    .where(eq(compositionSourceImagesSchema.compositionId, compositionId))
+
+  return Number(row?.photoCount ?? 0)
 }
 
-async function deleteBatch(userId: string, batchId: string): Promise<void> {
-  const batch = await getBatchById(userId, batchId)
-  if (!batch) return
+async function getPhotoCounts(
+  compositionIds: string[]
+): Promise<Map<string, number>> {
+  if (compositionIds.length === 0) {
+    return new Map()
+  }
+
+  const rows = await db
+    .select({
+      compositionId: compositionSourceImagesSchema.compositionId,
+      photoCount: count(compositionSourceImagesSchema.fileId),
+    })
+    .from(compositionSourceImagesSchema)
+    .where(inArray(compositionSourceImagesSchema.compositionId, compositionIds))
+    .groupBy(compositionSourceImagesSchema.compositionId)
+
+  return new Map(rows.map((row) => [row.compositionId, Number(row.photoCount)]))
+}
+
+async function deleteComposition(
+  userId: string,
+  compositionId: string
+): Promise<void> {
+  const composition = await getCompositionById(userId, compositionId)
+
+  if (!composition) {
+    return
+  }
 
   const photos = await db
-    .select()
-    .from(batchPhotosSchema)
-    .where(eq(batchPhotosSchema.batchId, batch.batchId))
+    .select({
+      objectKey: compositionSourceImagesSchema.objectKey,
+    })
+    .from(compositionSourceImagesSchema)
+    .where(
+      eq(compositionSourceImagesSchema.compositionId, composition.compositionId)
+    )
 
   for (const photo of photos) {
     await s3Client.delete(photo.objectKey).catch(() => {})
   }
 
-  if (batch.outputKey) {
-    previewFileIds.delete(batch.outputKey)
-    await s3Client.delete(batch.outputKey).catch(() => {})
+  const previewObjectKey = telegramPreviewObjectKey(composition.compositionId)
+
+  previewFileIds.delete(previewObjectKey)
+
+  await s3Client.delete(previewObjectKey).catch(() => {})
+
+  if (composition.jigsawImageFormat) {
+    const finalObjectKey = jigsawImageObjectKey(
+      composition.compositionId,
+      composition.jigsawImageFormat
+    )
+
+    await s3Client.delete(finalObjectKey).catch(() => {})
   }
 
   await db
-    .update(batchesSchema)
-    .set({ status: PhotoBatchStatus.Canceled, updatedAt: new Date() })
-    .where(eq(batchesSchema.batchId, batch.batchId))
+    .update(compositionsSchema)
+    .set({
+      status: CompositionStatus.Canceled,
+      updatedAt: new Date(),
+    })
+    .where(eq(compositionsSchema.compositionId, composition.compositionId))
 }
 
-async function getBatchById(userId: string, batchId: string) {
-  const [batch] = await db
+async function getCompositionById(userId: string, compositionId: string) {
+  const [composition] = await db
     .select()
-    .from(batchesSchema)
-    .where(and(activeUserBatches(userId), eq(batchesSchema.batchId, batchId)))
+    .from(compositionsSchema)
+    .where(
+      and(
+        activeUserCompositions(userId),
+        eq(compositionsSchema.compositionId, compositionId)
+      )
+    )
     .limit(1)
-  return batch
+
+  return composition
 }
 
 async function loadPreview(
   objectKey: string
-): Promise<InputFile | string | null> {
+): Promise<InputFile | string | undefined> {
   const cachedFileId = previewFileIds.get(objectKey)
-  if (cachedFileId) return cachedFileId
+
+  if (cachedFileId) {
+    return cachedFileId
+  }
 
   try {
-    const buffer = await s3Client.file(objectKey).arrayBuffer()
-    return new InputFile(Buffer.from(buffer), "preview.jpg")
+    const arrayBuffer = await s3Client.file(objectKey).arrayBuffer()
+
+    return new InputFile(Buffer.from(arrayBuffer), "telegram-preview.jpg")
   } catch (error) {
-    console.warn("Failed to load batch preview", { objectKey, error })
-    return null
+    console.warn("Preview does not exist", {
+      objectKey,
+      error,
+    })
+
+    return undefined
   }
 }
 
 function cachePreviewFileId(
-  outputKey: string | undefined,
+  previewObjectKey: string | undefined,
   fileId: string | undefined
 ): void {
-  if (outputKey && fileId) previewFileIds.set(outputKey, fileId)
+  if (!previewObjectKey || !fileId) {
+    return
+  }
+
+  previewFileIds.set(previewObjectKey, fileId)
 }
 
-function notFoundView(page: number): ListView {
+function notFoundView(ctx: BotContext, page: number): ListView {
   return {
-    caption: "Сборка уже исчезла.",
-    keyboard: [[{ text: "назад", callback_data: `list:back:${page}` }]],
+    caption: ctx.t("list-not-found"),
+    keyboard: [
+      [
+        {
+          text: ctx.t("button-back"),
+          callback_data: `list:back:${page}`,
+        },
+      ],
+    ],
   }
 }
 
-function activeUserBatches(userId: string) {
+function activeUserCompositions(userId: string) {
   return and(
-    eq(batchesSchema.userId, userId),
+    eq(compositionsSchema.userId, userId),
     or(
-      eq(batchesSchema.status, PhotoBatchStatus.Ready),
-      eq(batchesSchema.status, PhotoBatchStatus.Completed)
+      eq(compositionsSchema.status, CompositionStatus.Ready),
+      eq(compositionsSchema.status, CompositionStatus.Completed)
     )
   )
 }
 
 function parseNumber(data: string): number {
   const value = Number(data.split(":").at(-1))
+
   return Number.isSafeInteger(value) && value >= 0 ? value : 0
 }
 
-function parseBatchAction(data: string): {
+function parseCompositionAction(data: string): {
   page: number
   index: number
-  batchId: string
+  compositionId: string
 } {
-  const [, , pageValue, indexValue, batchId] = data.split(":")
+  const [, , pageValue, indexValue, compositionId] = data.split(":")
+
   const page = Number(pageValue)
   const index = Number(indexValue)
+
   return {
     page: Number.isSafeInteger(page) && page >= 0 ? page : 0,
     index: Number.isSafeInteger(index) && index >= 0 ? index : 0,
-    batchId: batchId ?? "",
+    compositionId: compositionId ?? "",
   }
 }
 
-function formatDimensions(batch: Batch): string {
-  const canvas = batch.layout?.canvas
-  if (!canvas) return "размер пока не готов"
+function formatDimensions(ctx: BotContext, composition: Composition): string {
+  const canvas = composition.layout?.canvas
+
+  if (!canvas) {
+    return ctx.t("size-not-ready")
+  }
+
   return `${Math.round(canvas.width)}×${Math.round(canvas.height)}`
 }
 
-function formatDate(value: Date | null): string {
-  if (!value) return "без даты"
-  return new Intl.DateTimeFormat("ru-RU", {
+function formatDate(
+  ctx: BotContext,
+  value: Date | null,
+  locale: string
+): string {
+  if (!value) {
+    return ctx.t("date-missing")
+  }
+
+  return new Intl.DateTimeFormat(locale, {
     day: "2-digit",
     month: "2-digit",
     hour: "2-digit",
@@ -414,19 +641,38 @@ function formatDate(value: Date | null): string {
   }).format(value)
 }
 
-function formatRelativeDate(value: Date | null): string {
-  if (!value) return "без даты"
+function formatRelativeDate(
+  ctx: BotContext,
+  value: Date | null,
+  locale: string
+): string {
+  if (!value) {
+    return ctx.t("date-missing")
+  }
+
   const diffMs = Date.now() - value.getTime()
+
   const minute = 60 * 1000
   const hour = 60 * minute
   const day = 24 * hour
 
-  if (diffMs < hour)
-    return `${Math.max(1, Math.round(diffMs / minute))} мин назад`
-  if (diffMs < day) return `${Math.round(diffMs / hour)} ч назад`
-  if (diffMs < 2 * day) return "вчера"
+  if (diffMs < hour) {
+    return ctx.t("relative-minutes", {
+      count: Math.max(1, Math.round(diffMs / minute)),
+    })
+  }
 
-  return formatDate(value)
+  if (diffMs < day) {
+    return ctx.t("relative-hours", {
+      count: Math.round(diffMs / hour),
+    })
+  }
+
+  if (diffMs < 2 * day) {
+    return ctx.t("relative-yesterday")
+  }
+
+  return formatDate(ctx, value, locale)
 }
 
 function isTelegramUrl(value: string): boolean {

@@ -1,11 +1,13 @@
-import type { JigsawConfig } from "@jigtable/jigsaw-core"
+import type { JigsawConfig } from "@jigtable/core"
 import type {
   CreateJigsawRoomResponse,
-  JigsawRoomSnapshot,
-} from "@jigtable/jigsaw-core/multiplayer/protocol"
+  RoomSnapshot as JigsawRoomSnapshot,
+} from "@jigtable/core/protocol"
+import { apiRoutes } from "@jigtable/shared/api-routes"
 import { isRecord } from "@jigtable/shared/utils"
 
 import { API_BASE_URL } from "@/config"
+import { readJsonResponse } from "@/lib/api-response"
 
 export interface CreateJigsawRoomInput {
   imageUrl: string
@@ -14,9 +16,9 @@ export interface CreateJigsawRoomInput {
   sourceHeight?: number
 }
 
-export interface UserBatchItem {
-  batchId: string
-  batchToken: string
+export interface UserCompositionItem {
+  compositionId: string
+  compositionToken: string
   status: string
   createdAt: string | null
   imageCount: number
@@ -27,56 +29,65 @@ export async function createJigsawRoom(
   input: CreateJigsawRoomInput,
   authToken: string
 ): Promise<CreateJigsawRoomResponse> {
-  const response = await fetch(`${API_BASE_URL}/api/rooms`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${authToken}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(input),
-  })
+  const response = await fetch(
+    `${API_BASE_URL}${apiRoutes.rooms.post.pattern}`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${authToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(input),
+    }
+  )
 
   return readJsonResponse<CreateJigsawRoomResponse>(response)
 }
 
-export async function createJigsawRoomFromBatch(
-  batchId: string,
-  batchToken: string,
+export async function createJigsawRoomFromComposition(
+  compositionId: string,
+  compositionToken: string,
   pieceCount: number,
   authToken: string
 ): Promise<CreateJigsawRoomResponse> {
-  const response = await fetch(`${API_BASE_URL}/api/rooms`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${authToken}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ batchId, batchToken, pieceCount }),
-  })
+  const response = await fetch(
+    `${API_BASE_URL}${apiRoutes.rooms.post.pattern}`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${authToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ compositionId, compositionToken, pieceCount }),
+    }
+  )
 
   return readJsonResponse<CreateJigsawRoomResponse>(response)
 }
 
-export async function fetchUserBatches(
+export async function fetchUserCompositions(
   authToken: string
-): Promise<UserBatchItem[]> {
-  const response = await fetch(`${API_BASE_URL}/api/me/batches`, {
-    headers: { Authorization: `Bearer ${authToken}` },
-  })
+): Promise<UserCompositionItem[]> {
+  const response = await fetch(
+    `${API_BASE_URL}${apiRoutes.compositions.get.me.pattern}`,
+    {
+      headers: { Authorization: `Bearer ${authToken}` },
+    }
+  )
   const payload = await readJsonResponse<unknown>(response)
 
-  if (!isRecord(payload) || !Array.isArray(payload.batches)) {
-    throw new Error("Invalid batches response")
+  if (!isRecord(payload) || !Array.isArray(payload.compositions)) {
+    throw new Error("Invalid compositions response")
   }
 
-  return payload.batches as UserBatchItem[]
+  return payload.compositions as UserCompositionItem[]
 }
 
 export async function fetchJigsawRoomSnapshot(
   roomId: string
 ): Promise<JigsawRoomSnapshot> {
   const response = await fetch(
-    `${API_BASE_URL}/api/rooms/${encodeURIComponent(roomId)}`
+    `${API_BASE_URL}${apiRoutes.rooms.get.byRoomId.build(roomId)}`
   )
   const payload = await readJsonResponse<unknown>(response)
 
@@ -107,7 +118,7 @@ export async function fetchJigsawRoomResult(
   roomId: string
 ): Promise<JigsawRoomResult> {
   const response = await fetch(
-    `${API_BASE_URL}/api/rooms/${encodeURIComponent(roomId)}/result`
+    `${API_BASE_URL}${apiRoutes.rooms.get.result.byRoomId.build(roomId)}`
   )
   const payload = await readJsonResponse<unknown>(response)
 
@@ -116,18 +127,4 @@ export async function fetchJigsawRoomResult(
   }
 
   return payload.result as unknown as JigsawRoomResult
-}
-
-export async function readJsonResponse<T>(response: Response): Promise<T> {
-  const payload = await response.json().catch(() => null)
-
-  if (!response.ok) {
-    if (isRecord(payload) && typeof payload.error === "string") {
-      throw new Error(payload.error)
-    }
-
-    throw new Error(`Request failed: ${response.status}`)
-  }
-
-  return payload as T
 }

@@ -1,0 +1,16 @@
+{
+  "name": "@jigtable/core",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./config": "./src/config.ts",
+    "./generate": "./src/generate.ts",
+    "./groups": "./src/groups.ts",
+    "./scatter": "./src/scatter.ts",
+    "./snap": "./src/snap.ts",
+    "./types": "./src/types.ts",
+    "./protocol": "./src/protocol.ts"
+  }
+}
