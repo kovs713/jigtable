@@ -3,6 +3,7 @@ import { describe, expect, test } from "bun:test"
 import { apiRoutes } from "@jigtable/shared/api-routes"
 
 import type { Services } from "@/services"
+import { authSuccess } from "@/services/auth"
 import { errorBoundary } from "./middleware"
 import { createRouter } from "./router"
 import { registerRoutes } from "./routes"
@@ -20,7 +21,7 @@ describe("HTTP routes", () => {
       auth: {
         async signInWithTelegram(_identity: unknown, seed: unknown) {
           calls.push(["sign-in", seed])
-          return {
+          return authSuccess({
             token: "auth-token",
             user: {
               id: "user-1",
@@ -33,7 +34,7 @@ describe("HTTP routes", () => {
               color: "#123abc",
             },
             expiresAt: "2026-02-01T00:00:00.000Z",
-          }
+          })
         },
       },
       playerSessions: {
