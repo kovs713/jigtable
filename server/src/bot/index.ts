@@ -20,12 +20,12 @@ export async function createBot(): Promise<Bot<BotContext>> {
   const bot = new Bot<BotContext>(
     process.env.BOT_TOKEN,
     process.env.DEV
-      ? {
+      ? {}
+      : {
           client: {
             fetch: telegramApiFetch,
           },
         }
-      : {}
   )
 
   bot.use(
