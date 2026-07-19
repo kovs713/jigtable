@@ -28,14 +28,18 @@ async function telegramFetchImplementation(
 }
 
 async function normalizeMultipartBody(init?: FetchInit): Promise<FetchInit> {
-  if (!(init?.body instanceof ReadableStream)) {
+  const contentType = new Headers(init?.headers).get("content-type")
+
+  if (!init?.body || !contentType?.startsWith("multipart/form-data")) {
     return init
   }
 
-  const contentType = new Headers(init.headers).get("content-type")
-  const source = await new Response(init.body, {
-    headers: contentType ? { "content-type": contentType } : undefined,
-  }).formData()
+  const source = await new Response(
+    init.body as ConstructorParameters<typeof Response>[0],
+    {
+      headers: { "content-type": contentType },
+    }
+  ).formData()
   const body = new FormData()
   const directAttachments = new Set<string>()
 
