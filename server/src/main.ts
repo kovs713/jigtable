@@ -5,7 +5,7 @@ import { closeRedis, connectRedis } from "@/services/redis"
 async function main(): Promise<void> {
   await connectRedis()
 
-  const api = startApiServer()
+  startApiServer()
 
   const bot = await createBot()
   await startBot(bot)

@@ -1,18 +1,43 @@
 import { RedisClient } from "bun"
 
+const REDIS_CONNECT_TIMEOUT_MS = 5_000
+
 let client: RedisClient | null = null
 
 export function getRedisClient(): RedisClient {
-  client ??= new RedisClient(readRedisUrl())
+  client ??= new RedisClient(readRedisUrl(), {
+    connectionTimeout: REDIS_CONNECT_TIMEOUT_MS,
+    maxRetries: 2,
+    enableOfflineQueue: false,
+  })
 
   return client
 }
 
 export async function connectRedis(): Promise<void> {
   const redis = getRedisClient()
+  let timeout: ReturnType<typeof setTimeout> | undefined
 
-  await redis.connect()
-  await redis.send("PING", [])
+  try {
+    await Promise.race([
+      redis.connect(),
+      new Promise<never>((_, reject) => {
+        timeout = setTimeout(() => {
+          reject(
+            new Error(
+              `Redis connection timed out after ${REDIS_CONNECT_TIMEOUT_MS}ms`
+            )
+          )
+        }, REDIS_CONNECT_TIMEOUT_MS)
+      }),
+    ])
+    await redis.send("PING", [])
+  } catch (error) {
+    closeRedis()
+    throw error
+  } finally {
+    clearTimeout(timeout)
+  }
 }
 
 export function closeRedis(): void {
