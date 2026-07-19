@@ -1,3 +1,5 @@
+import { HttpError, type Transformer } from "grammy"
+
 type FetchInput = Parameters<typeof fetch>[0]
 type FetchInit = Parameters<typeof fetch>[1]
 
@@ -25,3 +27,24 @@ export const telegramApiFetch: typeof fetch = Object.assign(
     preconnect: nativeFetch.preconnect.bind(nativeFetch),
   }
 )
+
+export function retryTelegramHttpErrors(maxRetryAttempts = 2): Transformer {
+  return async (previous, method, payload, signal) => {
+    for (let attempt = 0; ; attempt++) {
+      try {
+        return await previous(method, payload, signal)
+      } catch (error) {
+        if (
+          method === "getUpdates" ||
+          !(error instanceof HttpError) ||
+          signal?.aborted ||
+          attempt >= maxRetryAttempts
+        ) {
+          throw error
+        }
+
+        await Bun.sleep(1_000 * 2 ** attempt)
+      }
+    }
+  }
+}
