@@ -22,10 +22,14 @@ export interface UploadSession {
   lastStatusRefreshAt?: number
   viewerImageId?: string
   viewerMessageId?: number
+  statusMessageId?: number
 }
 
 export interface SessionData {
   __language_code?: string
+  mainMenuShown?: boolean
+  navigationMessageId?: number
+  staleMessageIds?: number[]
 
   photos: string[]
   isStarted: boolean

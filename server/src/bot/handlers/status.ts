@@ -1,30 +1,22 @@
-import { InputFile, type CommandContext } from "grammy"
+import { InputFile } from "grammy"
 
 import { COOL_IMAGE_S3_FILE_NAME } from "@/bot/constants"
+import { replyWithMainMenu } from "@/bot/menu"
 import type { BotContext } from "@/bot/types"
-import { getActiveImages } from "@/bot/upload"
+import { refreshBottomStatus } from "@/bot/upload"
 
 let coolImageFileId: string | null = null
 
-export async function handleStatus(
-  ctx: CommandContext<BotContext>
-): Promise<void> {
+export async function handleStatus(ctx: BotContext): Promise<void> {
   if (!ctx.session.isStarted) {
-    await ctx.reply(ctx.t("status-not-started"))
+    await replyWithMainMenu(ctx, ctx.t("status-not-started"))
     return
   }
 
   const upload = ctx.session.upload
 
   if (upload) {
-    const active = getActiveImages(upload)
-
-    if (active.length === 0) {
-      await ctx.reply(ctx.t("status-empty-use-new"))
-      return
-    }
-
-    await ctx.reply(ctx.t("status-pictures", { count: active.length }))
+    await refreshBottomStatus(ctx, ctx.chat!.id)
     return
   }
 
@@ -38,9 +30,7 @@ export async function handleStatus(
   await replyWithCoolPhoto(ctx)
 }
 
-async function replyWithCoolPhoto(
-  ctx: CommandContext<BotContext>
-): Promise<void> {
+async function replyWithCoolPhoto(ctx: BotContext): Promise<void> {
   if (coolImageFileId) {
     const message = await tryReplyWithCoolPhoto(ctx, coolImageFileId)
 
@@ -77,7 +67,7 @@ async function replyWithCoolPhoto(
 }
 
 async function tryReplyWithCoolPhoto(
-  ctx: CommandContext<BotContext>,
+  ctx: BotContext,
   photo: string | InputFile
 ) {
   try {

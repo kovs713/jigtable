@@ -1,3 +1,4 @@
+import { clearNavigationMessage, replyWithMainMenu } from "@/bot/menu"
 import type { PhotoContext } from "@/bot/types"
 import { scheduleUploadStatusRefresh } from "@/bot/upload"
 import { LIMITS } from "@/config"
@@ -10,7 +11,7 @@ export async function handlePhoto(ctx: PhotoContext): Promise<void> {
   const photos = ctx.message.photo
 
   if (!ctx.session.isStarted || !ctx.session.activeCompositionId) {
-    await ctx.reply(ctx.t("photo-start-first"))
+    await replyWithMainMenu(ctx, ctx.t("photo-start-first"))
     return
   }
 
@@ -34,6 +35,7 @@ export async function handlePhoto(ctx: PhotoContext): Promise<void> {
   const fileUniqueId = ctx.message.photo.at(-1)?.file_unique_id
   if (fileUniqueId && session.seenFileUniqueIds.includes(fileUniqueId)) {
     session.duplicateCount++
+    await clearNavigationMessage(ctx)
     scheduleUploadStatusRefresh(ctx)
     return
   }
@@ -85,6 +87,8 @@ export async function handlePhoto(ctx: PhotoContext): Promise<void> {
     }
 
     ctx.session.photos.push(photoId)
+
+    await clearNavigationMessage(ctx)
   } catch (error) {
     console.error("Photo upload failed", {
       userId: ctx.from?.id ?? "-",

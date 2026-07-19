@@ -1,9 +1,6 @@
-import type { CommandContext } from "grammy"
-
 import type { BotContext } from "@/bot/types"
+import { replyWithMainMenu } from "@/bot/menu"
 
-export async function handleStart(
-  ctx: CommandContext<BotContext>
-): Promise<void> {
-  await ctx.reply(ctx.t("start-message"))
+export async function handleStart(ctx: BotContext): Promise<void> {
+  await replyWithMainMenu(ctx, ctx.t("start-message"))
 }

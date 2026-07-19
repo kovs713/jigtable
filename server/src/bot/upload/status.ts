@@ -30,21 +30,35 @@ export function rememberStatusMessage(chatId: number, messageId: number): void {
   getStatusPanel(chatId).messageId = messageId
 }
 
+export function getCurrentStatusMessageId(
+  chatId: number,
+  session: UploadSession | undefined
+): number | undefined {
+  return statusPanels.get(chatId)?.messageId ?? session?.statusMessageId
+}
+
 export async function clearStatusPanel(
   ctx: BotContext,
   chatId: number
 ): Promise<void> {
   const state = statusPanels.get(chatId)
+  const messageId = state?.messageId ?? ctx.session.upload?.statusMessageId
+
+  statusPanels.delete(chatId)
 
   if (state?.timer) {
     clearTimeout(state.timer)
   }
 
-  if (state?.messageId) {
-    await deleteMessageSafe(ctx, chatId, state.messageId)
+  if (messageId) {
+    if (!(await deleteMessageSafe(ctx, chatId, messageId))) {
+      rememberFailedMessageDeletion(ctx, messageId)
+    }
   }
 
-  statusPanels.delete(chatId)
+  if (ctx.session.upload) {
+    ctx.session.upload.statusMessageId = undefined
+  }
 }
 
 export function renderUploadStatus(
@@ -85,26 +99,47 @@ export function renderUploadKeyboard(
   session: UploadSession
 ): InlineKeyboardButton[][] {
   const hasImages = getActiveImages(session).length > 0
+  const compositionId = ctx.session.activeCompositionId
 
   return [
     [
       {
         text: ctx.t("button-view"),
-        callback_data: hasImages ? "upload:view" : "viewer:noop",
+        callback_data:
+          hasImages && compositionId
+            ? `upload:view:${compositionId}`
+            : "viewer:noop",
       },
       {
         text: ctx.t("button-build"),
-        callback_data: hasImages ? "upload:build" : "viewer:noop",
+        callback_data:
+          hasImages && compositionId
+            ? `upload:build:${compositionId}`
+            : "viewer:noop",
       },
     ],
     [
       {
         text: ctx.t("button-remove-latest"),
-        callback_data: hasImages ? "upload:delete_last" : "viewer:noop",
+        callback_data:
+          hasImages && compositionId
+            ? `upload:delete_last:${compositionId}`
+            : "viewer:noop",
       },
       {
         text: ctx.t("button-remove-all"),
-        callback_data: hasImages ? "upload:clear" : "viewer:noop",
+        callback_data:
+          hasImages && compositionId
+            ? `upload:clear:${compositionId}`
+            : "viewer:noop",
+      },
+    ],
+    [
+      {
+        text: ctx.t("button-cancel-upload"),
+        callback_data: compositionId
+          ? `upload:cancel:${compositionId}`
+          : "viewer:noop",
       },
     ],
   ]
@@ -135,13 +170,16 @@ export function renderViewerKeyboard(
   session: UploadSession
 ): InlineKeyboardButton[][] {
   const active = getActiveImages(session)
+  const compositionId = ctx.session.activeCompositionId
 
-  if (active.length === 0) {
+  if (active.length === 0 || !compositionId) {
     return [
       [
         {
           text: ctx.t("button-close"),
-          callback_data: "viewer:back",
+          callback_data: compositionId
+            ? `viewer:back:${compositionId}`
+            : "viewer:noop",
         },
       ],
     ]
@@ -155,25 +193,25 @@ export function renderViewerKeyboard(
     [
       {
         text: isFirst ? "·" : ctx.t("button-back"),
-        callback_data: isFirst ? "viewer:noop" : "viewer:prev",
+        callback_data: isFirst ? "viewer:noop" : `viewer:prev:${compositionId}`,
       },
       {
         text: ctx.t("button-remove"),
-        callback_data: "viewer:delete",
+        callback_data: `viewer:delete:${compositionId}`,
       },
       {
         text: isLast ? "·" : ctx.t("button-next"),
-        callback_data: isLast ? "viewer:noop" : "viewer:next",
+        callback_data: isLast ? "viewer:noop" : `viewer:next:${compositionId}`,
       },
     ],
     [
       {
         text: ctx.t("button-close"),
-        callback_data: "viewer:back",
+        callback_data: `viewer:back:${compositionId}`,
       },
       {
         text: ctx.t("button-build"),
-        callback_data: "viewer:build",
+        callback_data: `viewer:build:${compositionId}`,
       },
     ],
   ]
@@ -207,7 +245,7 @@ export function scheduleUploadStatusRefresh(ctx: BotContext): void {
         return
       }
 
-      void refreshBottomStatus(ctx, chatId).catch((error) => {
+      void refreshBottomStatus(ctx, chatId, state).catch((error) => {
         console.error("Failed to refresh status panel", { chatId, error })
       })
     }, delay)
@@ -218,20 +256,28 @@ export function scheduleUploadStatusRefresh(ctx: BotContext): void {
 
 export async function refreshBottomStatus(
   ctx: BotContext,
-  chatId: number
+  chatId: number,
+  expectedState?: StatusPanelRuntime
 ): Promise<void> {
+  if (expectedState && statusPanels.get(chatId) !== expectedState) return
+
   const session = ctx.session.upload
   if (!session) return
 
   const state = getStatusPanel(chatId)
-  const oldMessageId = state.messageId
+  const messageId = state.messageId ?? session.statusMessageId
 
   state.lastRefreshAt = Date.now()
   state.messageId = undefined
+  session.statusMessageId = undefined
 
-  if (oldMessageId) {
-    await deleteMessageSafe(ctx, chatId, oldMessageId)
+  if (messageId) {
+    await deleteMessageSafe(ctx, chatId, messageId)
   }
+
+  if (expectedState && statusPanels.get(chatId) !== expectedState) return
+
+  let sentMessageId: number | undefined
 
   try {
     const message = await ctx.api.sendMessage(
@@ -243,9 +289,19 @@ export async function refreshBottomStatus(
         },
       }
     )
+    sentMessageId = message.message_id
+
+    if (expectedState && statusPanels.get(chatId) !== expectedState) {
+      await deleteMessageSafe(ctx, chatId, message.message_id)
+      return
+    }
 
     state.messageId = message.message_id
+    session.statusMessageId = message.message_id
   } catch (error) {
+    if (sentMessageId) {
+      await deleteMessageSafe(ctx, chatId, sentMessageId)
+    }
     console.error("Failed to send status panel", { chatId, error })
   }
 }
@@ -254,12 +310,39 @@ export async function deleteMessageSafe(
   ctx: BotContext,
   chatId: number,
   messageId: number | undefined
-): Promise<void> {
-  if (!messageId) return
+): Promise<boolean> {
+  if (!messageId) return true
 
   try {
     await ctx.api.deleteMessage(chatId, messageId)
-  } catch {
-    // ignore
+    return true
+  } catch (error) {
+    if (isTerminalDeleteError(error)) return true
+
+    rememberFailedMessageDeletion(ctx, messageId)
+    return false
   }
+}
+
+function isTerminalDeleteError(error: unknown): boolean {
+  if (!(error instanceof Error)) return false
+
+  const message = error.message.toLowerCase()
+
+  return (
+    message.includes("message to delete not found") ||
+    message.includes("message can't be deleted") ||
+    message.includes("message identifier is not specified") ||
+    message.includes("bot was blocked by the user") ||
+    message.includes("chat not found")
+  )
+}
+
+export function rememberFailedMessageDeletion(
+  ctx: BotContext,
+  messageId: number
+): void {
+  const messageIds = new Set(ctx.session.staleMessageIds ?? [])
+  messageIds.add(messageId)
+  ctx.session.staleMessageIds = [...messageIds].slice(-20)
 }

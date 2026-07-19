@@ -1,6 +1,12 @@
 import { asc, eq } from "drizzle-orm"
 
 import type { BotContext } from "@/bot/types"
+import {
+  clearNavigationMessage,
+  nextActionsKeyboard,
+  rememberNavigationMessage,
+  replyWithMainMenu,
+} from "@/bot/menu"
 import { clearStatusPanel, getActiveImages } from "@/bot/upload"
 import { db } from "@/db"
 import {
@@ -14,7 +20,7 @@ import { clientLayoutUrl } from "../utils"
 
 export async function handleCommit(ctx: BotContext): Promise<void> {
   if (!ctx.session.isStarted || !ctx.session.activeCompositionId) {
-    await ctx.reply(ctx.t("commit-not-started"))
+    await replyWithMainMenu(ctx, ctx.t("commit-not-started"))
     return
   }
 
@@ -26,7 +32,8 @@ export async function handleCommit(ctx: BotContext): Promise<void> {
     )
 
   if (!composition) {
-    await ctx.reply(ctx.t("commit-missing"))
+    await clearActiveComposition(ctx)
+    await replyWithMainMenu(ctx, ctx.t("commit-missing"))
     return
   }
 
@@ -57,7 +64,7 @@ export async function handleCommit(ctx: BotContext): Promise<void> {
 
   if (composition.status !== CompositionStatus.Collecting) {
     await clearActiveComposition(ctx)
-    await ctx.reply(ctx.t("commit-not-collecting"))
+    await replyWithMainMenu(ctx, ctx.t("commit-not-collecting"))
     return
   }
 
@@ -80,7 +87,7 @@ export async function handleCommit(ctx: BotContext): Promise<void> {
     : allPhotos
 
   if (photos.length === 0) {
-    await ctx.reply(ctx.t("commit-empty"))
+    await replyWithMainMenu(ctx, ctx.t("commit-empty"))
     return
   }
 
@@ -121,6 +128,12 @@ async function replyWithEditorLink(
   editToken: string,
   photoCount: number
 ): Promise<void> {
+  if (!ctx.session.mainMenuShown) {
+    await replyWithMainMenu(ctx, ctx.t("menu-ready"))
+  }
+
+  await clearNavigationMessage(ctx)
+
   const layoutUrl = clientLayoutUrl(compositionId, editToken)
   const editCode = `${compositionId}:${editToken}`
   const canUseUrlButton = isTelegramUrl(layoutUrl)
@@ -131,18 +144,21 @@ async function replyWithEditorLink(
     editCode: escapeHtml(editCode),
   })
 
-  const replyOptions = canUseUrlButton
-    ? {
-        parse_mode: "HTML" as const,
-        reply_markup: {
-          inline_keyboard: [
-            [{ text: ctx.t("button-open-editor"), url: layoutUrl }],
-          ],
-        },
-      }
-    : { parse_mode: "HTML" as const }
+  const keyboard = nextActionsKeyboard(ctx)
 
-  await ctx.reply(text, replyOptions)
+  if (canUseUrlButton) {
+    keyboard.unshift([{ text: ctx.t("button-open-editor"), url: layoutUrl }])
+  }
+
+  const replyOptions = {
+    parse_mode: "HTML" as const,
+    reply_markup: {
+      inline_keyboard: keyboard,
+    },
+  }
+
+  const message = await ctx.reply(text, replyOptions)
+  rememberNavigationMessage(ctx, message.message_id)
 }
 
 async function clearActiveComposition(ctx: BotContext): Promise<void> {

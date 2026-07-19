@@ -1,6 +1,5 @@
 import { eq } from "drizzle-orm"
-import type { CommandContext } from "grammy"
-
+import { replyWithMainMenu } from "@/bot/menu"
 import type { BotContext } from "@/bot/types"
 import { clearStatusPanel, deleteMessageSafe } from "@/bot/upload"
 import { db } from "@/db"
@@ -11,13 +10,11 @@ import {
 } from "@/db/schemas"
 import { s3Client } from "@/storage/client"
 
-export async function handleReset(
-  ctx: CommandContext<BotContext>
-): Promise<void> {
+export async function handleReset(ctx: BotContext): Promise<void> {
   const session = ctx.session
 
   if (!session.upload && !session.activeCompositionId) {
-    await ctx.reply(ctx.t("reset-nothing"))
+    await replyWithMainMenu(ctx, ctx.t("reset-nothing"))
     return
   }
 
@@ -54,5 +51,5 @@ export async function handleReset(
   session.photos = []
   session.upload = undefined
 
-  await ctx.reply(ctx.t("reset-done"))
+  await replyWithMainMenu(ctx, ctx.t("reset-done"))
 }

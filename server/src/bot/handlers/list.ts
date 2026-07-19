@@ -1,9 +1,15 @@
 import { and, count, desc, eq, inArray, or } from "drizzle-orm"
-import { InputFile, type CommandContext } from "grammy"
+import { InputFile } from "grammy"
 import type { InlineKeyboardButton } from "grammy/types"
 
 import type { BotContext, CallbackQueryContext } from "@/bot/types"
 import { downloadTelegramMedia } from "@/bot/media"
+import {
+  claimNavigationCallback,
+  clearNavigationMessage,
+  rememberNavigationMessage,
+  replyWithMainMenu,
+} from "@/bot/menu"
 import { LIMITS } from "@/config"
 import { db } from "@/db"
 import {
@@ -28,24 +34,29 @@ interface ListView {
   previewCacheKey?: string
 }
 
-export async function handleList(
-  ctx: CommandContext<BotContext>
-): Promise<void> {
+export async function handleList(ctx: BotContext): Promise<void> {
   if (!ctx.from) {
     await ctx.reply(ctx.t("user-not-found"))
     return
   }
 
+  if (!ctx.session.mainMenuShown) {
+    await replyWithMainMenu(ctx, ctx.t("menu-ready"))
+  }
+
+  await clearNavigationMessage(ctx)
+
   const locale = await ctx.i18n.getLocale()
   const view = await renderListPage(ctx, String(ctx.from.id), 0, locale)
 
   if (!view.media) {
-    await ctx.reply(view.caption, {
+    const message = await ctx.reply(view.caption, {
       reply_markup:
         view.keyboard.length > 0
           ? { inline_keyboard: view.keyboard }
           : undefined,
     })
+    rememberNavigationMessage(ctx, message.message_id)
     return
   }
 
@@ -55,6 +66,8 @@ export async function handleList(
       inline_keyboard: view.keyboard,
     },
   })
+
+  rememberNavigationMessage(ctx, message.message_id)
 
   await cacheTelegramPreviewFileId(
     view.previewCacheKey,
@@ -67,6 +80,11 @@ export async function handleListAction(
 ): Promise<void> {
   if (!ctx.from || !ctx.chat) {
     await ctx.answerCallbackQuery()
+    return
+  }
+
+  if (!claimNavigationCallback(ctx)) {
+    await ctx.answerCallbackQuery({ text: ctx.t("callback-outdated") })
     return
   }
 
@@ -229,7 +247,19 @@ async function renderListPage(
     return {
       caption:
         safePage === 0 ? ctx.t("list-empty-first") : ctx.t("list-empty-page"),
-      keyboard: [],
+      keyboard: [
+        ...(safePage > 0
+          ? [
+              [
+                {
+                  text: ctx.t("button-back"),
+                  callback_data: `list:page:${safePage - 1}`,
+                },
+              ],
+            ]
+          : []),
+        renderListMenuRow(ctx),
+      ],
     }
   }
 
@@ -338,6 +368,7 @@ async function renderCompositionCard(
       callback_data: `list:back:${page}`,
     },
   ])
+  keyboard.push(renderListMenuRow(ctx))
 
   return {
     caption: caption.join("\n"),
@@ -393,6 +424,7 @@ async function renderDeleteConfirm(
             `list:delete_cancel:${page}:` + `${index}:${compositionId}`,
         },
       ],
+      renderListMenuRow(ctx),
     ],
 
     media: await loadPreview(previewObjectKey, previewCacheKey),
@@ -444,7 +476,22 @@ function renderListKeyboard(
     rows.push(navigation)
   }
 
+  rows.push(renderListMenuRow(ctx))
+
   return rows
+}
+
+function renderListMenuRow(ctx: BotContext): InlineKeyboardButton[] {
+  return [
+    {
+      text: ctx.t("menu-new"),
+      callback_data: "menu:new",
+    },
+    {
+      text: ctx.t("button-home"),
+      callback_data: "menu:home",
+    },
+  ]
 }
 
 function renderListLine(
@@ -586,6 +633,7 @@ function notFoundView(ctx: BotContext, page: number): ListView {
           callback_data: `list:back:${page}`,
         },
       ],
+      renderListMenuRow(ctx),
     ],
   }
 }

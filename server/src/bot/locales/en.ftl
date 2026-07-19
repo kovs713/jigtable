@@ -8,6 +8,11 @@ command-list = view finished compositions
 
 # Shared
 user-not-found = don't see anyone, can't start.
+menu-new = new composition
+menu-list = my compositions
+menu-help = how it works
+menu-placeholder = choose an action or send pictures
+menu-ready = the main actions are now pinned below.
 button-view = view
 button-build = build
 button-remove = remove
@@ -17,28 +22,45 @@ button-remove-all-confirm = yes, remove all
 button-delete = delete
 button-close = close
 button-back = back
+button-home = home
 button-next = next
 button-cancel = cancel
 button-continue = continue
 button-open-editor = open editor
 button-yes-remove = yes, remove
 button-no-cancel = no, cancel
+button-cancel-upload = cancel upload
+button-cancel-upload-confirm = yes, cancel
 callback-removed = removed
 callback-deleting = deleting...
+callback-outdated = this panel is outdated
 date-missing = w/o date
 size-not-ready = size not ready yet
 
 # Start / new / reset
 start-message =
-    put some pictures.
+    i'll turn your pictures into one composition.
 
-    you can put them all at once, one at a time, or however you like.
-    i'll figure it out.
+    1. tap “new composition”.
+    2. send pictures in a batch or one at a time.
+    3. review the pack and tap “build”.
+
+    the main actions are always available in the menu below.
+help-message =
+    how to build a composition:
+
+    1. tap “new composition”.
+    2. send pictures as photos, without captions.
+    3. tap “view” to review the pack and remove unwanted pictures.
+    4. tap “build”, then open the editor.
+
+    i'll skip duplicates. you can cancel the current upload below its status.
 new-message =
     send some pictures.
 
     you can send them all at once, one at a time, or in any order.
     i'll figure it out.
+new-already-active = you already have an active upload. build or cancel it first.
 reset-done = reset. you can send pictures again.
 reset-nothing = nothing to reset.
 
@@ -49,8 +71,9 @@ upload-building =
         [one] building from { $count } picture.
        *[other] building from { $count } pictures.
     }
-upload-no-active-composition = there is no active composition. start with /new.
+upload-no-active-composition = there is no active composition. create a new one below.
 upload-clear-question = remove every picture?
+upload-cancel-question = cancel the current upload completely?
 upload-cleared = everything has been removed. you can send new pictures.
 upload-cleared-empty = everything has been removed. the pack is empty.
 upload-status-empty =
@@ -70,27 +93,27 @@ viewer-caption =
     { $width }×{ $height }
 
 # Commit
-commit-not-started = you haven't started yet. use /new.
-commit-missing = hmm, try again with /new.
-commit-not-collecting = this composition is no longer collecting pictures. start again with /new.
+commit-not-started = create a new composition with the button below first.
+commit-missing = couldn't find the current composition. create a new one below.
+commit-not-collecting = this composition can no longer be changed. create a new one below.
 commit-empty = nothing to build. send at least one picture.
 commit-ready =
     { $photoCount ->
-        [one] Done. Built from { $photoCount } picture.
-       *[other] Done. Built from { $photoCount } pictures.
+        [one] done. built from { $photoCount } picture.
+       *[other] done. built from { $photoCount } pictures.
     }
 
-    Open the editor:
+    open the editor:
     <code>{ $url }</code>
 
-    Manual code:
+    manual code:
     <code>{ $editCode }</code>
 
 # List
 list-empty-first =
     no ready compositions yet.
 
-    first send some pictures with /new.
+    create the first one with the button below.
 list-empty-page = empty. that's all.
 list-empty = no ready compositions yet.
 list-title = your compositions
@@ -121,9 +144,9 @@ relative-hours =
 relative-yesterday = yesterday
 
 # Photo / status
-photo-start-first = first start with /new.
-status-not-started = nothing has been started yet. use /new.
-status-empty-use-new = the pack is empty. send some pictures with /new.
+photo-start-first = create a new composition with the button below first.
+status-not-started = no upload is active. create a new composition below.
+status-empty-use-new = the pack is empty. just send some pictures.
 status-empty = the pack is empty.
 status-pictures =
     { $count ->

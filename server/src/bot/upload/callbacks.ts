@@ -7,6 +7,7 @@ import type {
 } from "@/bot/types"
 import {
   deleteMessageSafe,
+  getCurrentStatusMessageId,
   refreshBottomStatus,
   renderUploadKeyboard,
   renderUploadStatus,
@@ -23,18 +24,21 @@ import {
 } from "./viewer"
 
 export function registerUploadCallbacks(bot: Bot<BotContext>): void {
-  bot.callbackQuery("upload:view", handleUploadView)
-  bot.callbackQuery("upload:build", handleUploadBuild)
-  bot.callbackQuery("upload:delete_last", handleUploadDeleteLast)
-  bot.callbackQuery("upload:clear", handleUploadClear)
-  bot.callbackQuery("upload:clear_confirm", handleUploadClearConfirm)
-  bot.callbackQuery("upload:clear_cancel", handleUploadClearCancel)
+  bot.callbackQuery(/^upload:view:/, handleUploadView)
+  bot.callbackQuery(/^upload:build:/, handleUploadBuild)
+  bot.callbackQuery(/^upload:delete_last:/, handleUploadDeleteLast)
+  bot.callbackQuery(/^upload:clear:/, handleUploadClear)
+  bot.callbackQuery(/^upload:clear_confirm:/, handleUploadClearConfirm)
+  bot.callbackQuery(/^upload:clear_cancel:/, handleUploadClearCancel)
+  bot.callbackQuery(/^upload:cancel:/, handleUploadCancel)
+  bot.callbackQuery(/^upload:cancel_confirm:/, handleUploadCancelConfirm)
+  bot.callbackQuery(/^upload:cancel_cancel:/, handleUploadCancelCancel)
 
-  bot.callbackQuery("viewer:next", handleViewerNext)
-  bot.callbackQuery("viewer:prev", handleViewerPrev)
-  bot.callbackQuery("viewer:delete", handleViewerDelete)
-  bot.callbackQuery("viewer:back", handleViewerBack)
-  bot.callbackQuery("viewer:build", handleViewerBuild)
+  bot.callbackQuery(/^viewer:next:/, handleViewerNext)
+  bot.callbackQuery(/^viewer:prev:/, handleViewerPrev)
+  bot.callbackQuery(/^viewer:delete:/, handleViewerDelete)
+  bot.callbackQuery(/^viewer:back:/, handleViewerBack)
+  bot.callbackQuery(/^viewer:build:/, handleViewerBuild)
   bot.callbackQuery("viewer:noop", handleViewerNoop)
 }
 
@@ -43,6 +47,11 @@ function chatId(ctx: CallbackQueryContext): number {
 }
 
 async function handleUploadView(ctx: CallbackQueryContext): Promise<void> {
+  if (!isCurrentCompositionCallback(ctx)) {
+    await answerOutdatedCallback(ctx)
+    return
+  }
+
   const session = ctx.session.upload
 
   if (!session) {
@@ -66,6 +75,11 @@ async function handleUploadView(ctx: CallbackQueryContext): Promise<void> {
 }
 
 async function handleUploadBuild(ctx: CallbackQueryContext): Promise<void> {
+  if (!isCurrentCompositionCallback(ctx)) {
+    await answerOutdatedCallback(ctx)
+    return
+  }
+
   const session = ctx.session.upload
 
   if (!session) {
@@ -95,6 +109,11 @@ async function handleUploadBuild(ctx: CallbackQueryContext): Promise<void> {
 async function handleUploadDeleteLast(
   ctx: CallbackQueryContext
 ): Promise<void> {
+  if (!isCurrentCompositionCallback(ctx)) {
+    await answerOutdatedCallback(ctx)
+    return
+  }
+
   const session = ctx.session.upload
 
   if (!session) {
@@ -119,6 +138,13 @@ async function handleUploadDeleteLast(
 }
 
 async function handleUploadClear(ctx: CallbackQueryContext): Promise<void> {
+  if (!isCurrentCompositionCallback(ctx)) {
+    await answerOutdatedCallback(ctx)
+    return
+  }
+
+  const compositionId = ctx.session.activeCompositionId!
+
   await ctx.answerCallbackQuery()
 
   await ctx.editMessageText(ctx.t("upload-clear-question"), {
@@ -127,11 +153,11 @@ async function handleUploadClear(ctx: CallbackQueryContext): Promise<void> {
         [
           {
             text: ctx.t("button-remove-all-confirm"),
-            callback_data: "upload:clear_confirm",
+            callback_data: `upload:clear_confirm:${compositionId}`,
           },
           {
             text: ctx.t("button-cancel"),
-            callback_data: "upload:clear_cancel",
+            callback_data: `upload:clear_cancel:${compositionId}`,
           },
         ],
       ],
@@ -142,6 +168,11 @@ async function handleUploadClear(ctx: CallbackQueryContext): Promise<void> {
 async function handleUploadClearConfirm(
   ctx: CallbackQueryContext
 ): Promise<void> {
+  if (!isCurrentCompositionCallback(ctx)) {
+    await answerOutdatedCallback(ctx)
+    return
+  }
+
   const session = ctx.session.upload
 
   if (!session) {
@@ -156,12 +187,21 @@ async function handleUploadClearConfirm(
   session.viewerImageId = undefined
 
   await ctx.answerCallbackQuery()
-  await ctx.editMessageText(ctx.t("upload-cleared"))
+  await ctx.editMessageText(ctx.t("upload-cleared"), {
+    reply_markup: {
+      inline_keyboard: renderUploadKeyboard(ctx, session),
+    },
+  })
 }
 
 async function handleUploadClearCancel(
   ctx: CallbackQueryContext
 ): Promise<void> {
+  if (!isCurrentCompositionCallback(ctx)) {
+    await answerOutdatedCallback(ctx)
+    return
+  }
+
   const session = ctx.session.upload
 
   if (!session) {
@@ -177,7 +217,130 @@ async function handleUploadClearCancel(
   })
 }
 
+async function handleUploadCancel(ctx: CallbackQueryContext): Promise<void> {
+  if (!isCurrentCompositionCallback(ctx)) {
+    await answerOutdatedCallback(ctx)
+    return
+  }
+
+  const compositionId = ctx.session.activeCompositionId!
+
+  await ctx.answerCallbackQuery()
+
+  await ctx.editMessageText(ctx.t("upload-cancel-question"), {
+    reply_markup: {
+      inline_keyboard: [
+        [
+          {
+            text: ctx.t("button-cancel-upload-confirm"),
+            callback_data: `upload:cancel_confirm:${compositionId}`,
+          },
+          {
+            text: ctx.t("button-back"),
+            callback_data: `upload:cancel_cancel:${compositionId}`,
+          },
+        ],
+      ],
+    },
+  })
+}
+
+async function handleUploadCancelConfirm(
+  ctx: CallbackQueryContext
+): Promise<void> {
+  if (!isCurrentCompositionCallback(ctx)) {
+    await answerOutdatedCallback(ctx)
+    return
+  }
+
+  await ctx.answerCallbackQuery()
+
+  await deleteMessageSafe(
+    ctx,
+    chatId(ctx),
+    ctx.callbackQuery.message?.message_id
+  )
+
+  const { handleReset } = await import("@/bot/handlers/reset")
+  await handleReset(ctx)
+}
+
+async function handleUploadCancelCancel(
+  ctx: CallbackQueryContext
+): Promise<void> {
+  if (!isCurrentCompositionCallback(ctx)) {
+    await answerOutdatedCallback(ctx)
+    return
+  }
+
+  const session = ctx.session.upload
+
+  if (!session) {
+    await ctx.answerCallbackQuery()
+
+    const compositionId = ctx.session.activeCompositionId
+    if (!compositionId) return
+
+    await ctx.editMessageText(ctx.t("new-already-active"), {
+      reply_markup: {
+        inline_keyboard: [
+          [
+            {
+              text: ctx.t("button-build"),
+              callback_data: `menu:build:${compositionId}`,
+            },
+            {
+              text: ctx.t("button-cancel-upload"),
+              callback_data: `upload:cancel:${compositionId}`,
+            },
+          ],
+        ],
+      },
+    })
+    return
+  }
+
+  await ctx.answerCallbackQuery()
+  await ctx.editMessageText(renderUploadStatus(ctx, session), {
+    reply_markup: {
+      inline_keyboard: renderUploadKeyboard(ctx, session),
+    },
+  })
+}
+
+function isCurrentCompositionCallback(ctx: CallbackQueryContext): boolean {
+  if (
+    !ctx.session.activeCompositionId ||
+    ctx.callbackQuery.data.split(":").at(-1) !== ctx.session.activeCompositionId
+  ) {
+    return false
+  }
+
+  const messageId = ctx.callbackQuery.message?.message_id
+  if (!messageId) return false
+
+  const expectedMessageId = ctx.callbackQuery.data.startsWith("viewer:")
+    ? ctx.session.upload?.viewerMessageId
+    : (getCurrentStatusMessageId(chatId(ctx), ctx.session.upload) ??
+      ctx.session.navigationMessageId)
+
+  return messageId === expectedMessageId
+}
+
+async function answerOutdatedCallback(
+  ctx: CallbackQueryContext
+): Promise<void> {
+  await ctx.answerCallbackQuery({
+    text: ctx.t("callback-outdated"),
+  })
+}
+
 async function handleViewerNext(ctx: CallbackQueryContext): Promise<void> {
+  if (!isCurrentCompositionCallback(ctx)) {
+    await answerOutdatedCallback(ctx)
+    return
+  }
+
   const session = ctx.session.upload
 
   if (!session) {
@@ -192,6 +355,11 @@ async function handleViewerNext(ctx: CallbackQueryContext): Promise<void> {
 }
 
 async function handleViewerPrev(ctx: CallbackQueryContext): Promise<void> {
+  if (!isCurrentCompositionCallback(ctx)) {
+    await answerOutdatedCallback(ctx)
+    return
+  }
+
   const session = ctx.session.upload
 
   if (!session) {
@@ -206,6 +374,11 @@ async function handleViewerPrev(ctx: CallbackQueryContext): Promise<void> {
 }
 
 async function handleViewerDelete(ctx: CallbackQueryContext): Promise<void> {
+  if (!isCurrentCompositionCallback(ctx)) {
+    await answerOutdatedCallback(ctx)
+    return
+  }
+
   const session = ctx.session.upload
 
   if (!session) {
@@ -248,6 +421,11 @@ async function handleViewerDelete(ctx: CallbackQueryContext): Promise<void> {
 }
 
 async function handleViewerBack(ctx: CallbackQueryContext): Promise<void> {
+  if (!isCurrentCompositionCallback(ctx)) {
+    await answerOutdatedCallback(ctx)
+    return
+  }
+
   const session = ctx.session.upload
 
   if (!session) {
@@ -261,6 +439,11 @@ async function handleViewerBack(ctx: CallbackQueryContext): Promise<void> {
 }
 
 async function handleViewerBuild(ctx: CallbackQueryContext): Promise<void> {
+  if (!isCurrentCompositionCallback(ctx)) {
+    await answerOutdatedCallback(ctx)
+    return
+  }
+
   const session = ctx.session.upload
 
   if (!session) {
