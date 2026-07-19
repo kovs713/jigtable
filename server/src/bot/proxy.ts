@@ -14,11 +14,28 @@ async function telegramFetchImplementation(
   init?: FetchInit
 ): Promise<Response> {
   const proxyUrl = process.env.TELEGRAM_PROXY_URL
+  const requestInit = proxyUrl ? await bufferRequestBody(init) : init
 
   return nativeFetch(input, {
-    ...init,
+    ...requestInit,
     ...(proxyUrl ? { proxy: proxyUrl } : {}),
   } as BunProxyInit)
+}
+
+async function bufferRequestBody(init?: FetchInit): Promise<FetchInit> {
+  if (!(init?.body instanceof ReadableStream)) {
+    return init
+  }
+
+  const body = await new Response(init.body).arrayBuffer()
+  const headers = new Headers(init.headers)
+  headers.set("content-length", String(body.byteLength))
+
+  return {
+    ...init,
+    body,
+    headers,
+  }
 }
 
 export const telegramApiFetch: typeof fetch = Object.assign(
