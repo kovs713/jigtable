@@ -2,7 +2,8 @@ import type { OverlayOptions } from "sharp"
 import sharp from "sharp"
 
 import type { CompositionLayout } from "@/native/composition-layout-engine"
-import { s3Client } from "@/storage/client"
+import { LIMITS } from "@/config"
+import { downloadObject } from "@/storage/download-object"
 
 sharp.concurrency(1)
 
@@ -82,6 +83,7 @@ async function renderLayoutInternal(
   options: RenderOptions
 ): Promise<RenderResult> {
   validateCanvas(layout)
+  const deadline = Date.now() + LIMITS.layout.renderTimeoutMs
 
   const sourceById = new Map(photos.map((photo) => [photo.fileId, photo]))
 
@@ -113,9 +115,18 @@ async function renderLayoutInternal(
       throw new Error(`Missing source image for ${item.id}`)
     }
 
-    const arrayBuffer = await s3Client.file(source.objectKey).arrayBuffer()
+    const remainingMs = deadline - Date.now()
 
-    const input = await sharp(Buffer.from(arrayBuffer), {
+    if (remainingMs <= 0) {
+      throw new Error("Layout render timed out")
+    }
+
+    const sourceBuffer = await downloadObject(source.objectKey, {
+      maxBytes: LIMITS.uploadPhotoBytes,
+      timeoutMs: Math.min(LIMITS.telegram.mediaFetchTimeoutMs, remainingMs),
+    })
+
+    const input = await sharp(sourceBuffer, {
       failOn: "error",
       limitInputPixels: 40_000_000,
     })

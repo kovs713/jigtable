@@ -2,20 +2,14 @@ import { asc, eq } from "drizzle-orm"
 
 import type { BotContext } from "@/bot/types"
 import { clearStatusPanel, getActiveImages } from "@/bot/upload"
-import { LIMITS } from "@/config"
 import { db } from "@/db"
 import {
   CompositionStatus,
   compositionSourceImagesSchema,
   compositionsSchema,
 } from "@/db/schemas"
-import {
-  generateCompositionLayout,
-  type CompositionLayout,
-} from "@/native/composition-layout-engine"
-import { renderLayout, type RenderPhotoSource } from "@/native/render-layout"
-import { s3Client } from "@/storage/client"
-import { telegramPreviewObjectKey } from "@/storage/utils"
+import { generateCompositionLayout } from "@/native/composition-layout-engine"
+import { writeTelegramPreview } from "@/services/composition/telegram-preview"
 import { clientLayoutUrl } from "../utils"
 
 export async function handleCommit(ctx: BotContext): Promise<void> {
@@ -100,23 +94,7 @@ export async function handleCommit(ctx: BotContext): Promise<void> {
     })),
   })
 
-  const renderPhotos: RenderPhotoSource[] = photos.map((photo) => ({
-    fileId: photo.fileId,
-    objectKey: photo.objectKey,
-  }))
-
-  const previewLayout = scaleLayout(layout, LIMITS.telegram.previewMaxSide)
-
-  const preview = await renderLayout(previewLayout, renderPhotos, "jpg", {
-    jpegQuality: 68,
-    jpegProgressive: false,
-  })
-
-  const previewObjectKey = telegramPreviewObjectKey(composition.compositionId)
-
-  await s3Client.write(previewObjectKey, preview.buffer, {
-    type: preview.contentType,
-  })
+  await writeTelegramPreview(composition.compositionId, layout, photos)
 
   await db
     .update(compositionsSchema)
@@ -135,35 +113,6 @@ export async function handleCommit(ctx: BotContext): Promise<void> {
   )
 
   await clearActiveComposition(ctx)
-}
-
-function scaleLayout(
-  layout: CompositionLayout,
-  maxSide: number
-): CompositionLayout {
-  const longestSide = Math.max(layout.canvas.width, layout.canvas.height)
-
-  if (longestSide <= maxSide) {
-    return layout
-  }
-
-  const scale = maxSide / longestSide
-
-  return {
-    canvas: {
-      width: Math.round(layout.canvas.width * scale),
-      height: Math.round(layout.canvas.height * scale),
-    },
-
-    items: layout.items.map((item) => ({
-      ...item,
-      x: Math.round(item.x * scale),
-      y: Math.round(item.y * scale),
-      width: Math.max(1, Math.round(item.width * scale)),
-      height: Math.max(1, Math.round(item.height * scale)),
-      scale: item.scale * scale,
-    })),
-  }
 }
 
 async function replyWithEditorLink(

@@ -1,8 +1,9 @@
 import { and, count, desc, eq, inArray, or } from "drizzle-orm"
-import { type CommandContext } from "grammy"
+import { InputFile, type CommandContext } from "grammy"
 import type { InlineKeyboardButton } from "grammy/types"
 
 import type { BotContext, CallbackQueryContext } from "@/bot/types"
+import { downloadTelegramMedia } from "@/bot/media"
 import { LIMITS } from "@/config"
 import { db } from "@/db"
 import {
@@ -11,18 +12,20 @@ import {
   compositionsSchema,
   type Composition,
 } from "@/db/schemas"
-import { getRedisClient, RedisCache } from "@/services/redis"
+import {
+  cacheTelegramPreviewFileId,
+  deleteCachedTelegramPreviewFileId,
+  getCachedTelegramPreviewFileId,
+} from "@/services/composition/telegram-preview"
 import { s3Client } from "@/storage/client"
 import { jigsawImageObjectKey, telegramPreviewObjectKey } from "@/storage/utils"
 import { clientLayoutUrl } from "../utils"
 
-let previewFileIds: RedisCache | null = null
-
 interface ListView {
   caption: string
   keyboard: InlineKeyboardButton[][]
-  media?: string
-  previewObjectKey?: string
+  media?: string | InputFile
+  previewCacheKey?: string
 }
 
 export async function handleList(
@@ -53,7 +56,10 @@ export async function handleList(
     },
   })
 
-  await cachePreviewFileId(view.previewObjectKey, message.photo.at(-1)?.file_id)
+  await cacheTelegramPreviewFileId(
+    view.previewCacheKey,
+    message.photo.at(-1)?.file_id
+  )
 }
 
 export async function handleListAction(
@@ -195,8 +201,8 @@ async function editToView(
   )
 
   if (typeof edited !== "boolean" && edited.photo) {
-    await cachePreviewFileId(
-      view.previewObjectKey,
+    await cacheTelegramPreviewFileId(
+      view.previewCacheKey,
       edited.photo.at(-1)?.file_id
     )
   }
@@ -255,8 +261,12 @@ async function renderListPage(
   const previewObjectKey = telegramPreviewObjectKey(
     coverComposition.compositionId
   )
+  const previewCacheKey = telegramPreviewCacheKey(
+    previewObjectKey,
+    coverComposition.updatedAt
+  )
 
-  const cover = await loadPreview(previewObjectKey)
+  const cover = await loadPreview(previewObjectKey, previewCacheKey)
 
   return {
     caption: [ctx.t("list-title"), "", ...summaries].join("\n"),
@@ -269,7 +279,7 @@ async function renderListPage(
     }),
 
     media: cover,
-    previewObjectKey,
+    previewCacheKey,
   }
 }
 
@@ -289,7 +299,11 @@ async function renderCompositionCard(
   const photoCount = await getPhotoCount(composition.compositionId)
   const url = clientLayoutUrl(composition.compositionId, composition.editToken)
   const previewObjectKey = telegramPreviewObjectKey(composition.compositionId)
-  const media = await loadPreview(previewObjectKey)
+  const previewCacheKey = telegramPreviewCacheKey(
+    previewObjectKey,
+    composition.updatedAt
+  )
+  const media = await loadPreview(previewObjectKey, previewCacheKey)
 
   const caption = [
     ctx.t("list-preview"),
@@ -329,7 +343,7 @@ async function renderCompositionCard(
     caption: caption.join("\n"),
     keyboard,
     media,
-    previewObjectKey,
+    previewCacheKey,
   }
 }
 
@@ -349,6 +363,10 @@ async function renderDeleteConfirm(
 
   const photoCount = await getPhotoCount(composition.compositionId)
   const previewObjectKey = telegramPreviewObjectKey(composition.compositionId)
+  const previewCacheKey = telegramPreviewCacheKey(
+    previewObjectKey,
+    composition.updatedAt
+  )
   const pictures = ctx.t("list-pictures", { count: photoCount })
 
   return {
@@ -377,8 +395,8 @@ async function renderDeleteConfirm(
       ],
     ],
 
-    media: await loadPreview(previewObjectKey),
-    previewObjectKey,
+    media: await loadPreview(previewObjectKey, previewCacheKey),
+    previewCacheKey,
   }
 }
 
@@ -499,7 +517,9 @@ async function deleteComposition(
 
   const previewObjectKey = telegramPreviewObjectKey(composition.compositionId)
 
-  await getPreviewFileIds().delete(previewObjectKey)
+  await deleteCachedTelegramPreviewFileId(
+    telegramPreviewCacheKey(previewObjectKey, composition.updatedAt)
+  )
 
   await s3Client.delete(previewObjectKey).catch(() => {})
 
@@ -536,37 +556,24 @@ async function getCompositionById(userId: string, compositionId: string) {
   return composition
 }
 
-async function loadPreview(objectKey: string): Promise<string> {
-  const cachedFileId = await getPreviewFileIds().get(objectKey)
+async function loadPreview(
+  objectKey: string,
+  cacheKey: string
+): Promise<string | InputFile> {
+  const cachedFileId = await getCachedTelegramPreviewFileId(cacheKey)
 
   if (cachedFileId) {
     return cachedFileId
   }
 
-  return s3Client.presign(objectKey, {
-    expiresIn: 10 * 60,
-  })
+  return downloadTelegramMedia(objectKey)
 }
 
-async function cachePreviewFileId(
-  previewObjectKey: string | undefined,
-  fileId: string | undefined
-): Promise<void> {
-  if (!previewObjectKey || !fileId) {
-    return
-  }
-
-  await getPreviewFileIds().set(previewObjectKey, fileId)
-}
-
-function getPreviewFileIds(): RedisCache {
-  previewFileIds ??= new RedisCache(
-    getRedisClient(),
-    "telegram-preview",
-    7 * 24 * 60 * 60
-  )
-
-  return previewFileIds
+function telegramPreviewCacheKey(
+  objectKey: string,
+  updatedAt: Date | null
+): string {
+  return `${objectKey}:${updatedAt?.getTime() ?? 0}`
 }
 
 function notFoundView(ctx: BotContext, page: number): ListView {

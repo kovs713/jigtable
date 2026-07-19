@@ -13,6 +13,10 @@ import {
 } from "@/db/schemas"
 import { renderLayout, resolveRenderFormat } from "@/native/render-layout"
 import type { TelegramIdentity } from "@/services/auth"
+import {
+  writeTelegramPreview,
+  writeTelegramPreviewFromImage,
+} from "@/services/composition/telegram-preview"
 import { createAssetReference } from "@/services/history"
 import type { CreateRoomInput } from "@/services/room"
 import {
@@ -564,6 +568,12 @@ export function registerRoutes(router: Router): void {
         sourceImages
       )
 
+      await writeTelegramPreview(
+        composition.compositionId,
+        layout,
+        sourceImages
+      )
+
       await db
         .update(compositionsSchema)
         .set({
@@ -671,6 +681,11 @@ export function registerRoutes(router: Router): void {
         await s3Client.write(objectKey, rendered.buffer, {
           type: rendered.contentType,
         })
+
+        await writeTelegramPreviewFromImage(
+          composition.compositionId,
+          rendered.buffer
+        )
       } catch (error) {
         await db
           .update(compositionsSchema)

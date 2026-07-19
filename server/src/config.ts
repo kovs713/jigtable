@@ -38,6 +38,10 @@ export const LIMITS = {
   telegram: {
     previewMaxSide: 1200,
     previewQuality: 40,
+    mediaFetchTimeoutMs: 60_000,
+    mediaMaxBytes: 10 * 1024 * 1024,
+    backfillSourceFetchTimeoutMs: 5 * 60 * 1000,
+    backfillSourceMaxBytes: 50 * 1024 * 1024,
     pageSize: 3,
     statusRefreshDebounceMs: 1200,
     statusRefrechThrottleMs: 2500,
@@ -47,6 +51,7 @@ export const LIMITS = {
     maxCanvasWidth: 10_000,
     maxCanvasHeight: 10_000,
     maxCanvasArea: 70_000_000,
+    renderTimeoutMs: 5 * 60 * 1000,
 
     maxItems: 100,
     maxItemWidth: 5_000,
