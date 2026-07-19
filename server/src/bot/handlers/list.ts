@@ -1,5 +1,5 @@
 import { and, count, desc, eq, inArray, or } from "drizzle-orm"
-import { InputFile, type CommandContext } from "grammy"
+import { type CommandContext } from "grammy"
 import type { InlineKeyboardButton } from "grammy/types"
 
 import type { BotContext, CallbackQueryContext } from "@/bot/types"
@@ -9,6 +9,7 @@ import {
   CompositionStatus,
   compositionSourceImagesSchema,
   compositionsSchema,
+  type Composition,
 } from "@/db/schemas"
 import { s3Client } from "@/storage/client"
 import { jigsawImageObjectKey, telegramPreviewObjectKey } from "@/storage/utils"
@@ -16,12 +17,10 @@ import { clientLayoutUrl } from "../utils"
 
 const previewFileIds = new Map<string, string>()
 
-type Composition = typeof compositionsSchema.$inferSelect
-
 interface ListView {
   caption: string
   keyboard: InlineKeyboardButton[][]
-  media?: InputFile | string
+  media?: string
   previewObjectKey?: string
 }
 
@@ -253,7 +252,7 @@ async function renderListPage(
     coverComposition.compositionId
   )
 
-  const cover = await loadPreview(previewObjectKey)
+  const cover = loadPreview(previewObjectKey)
 
   return {
     caption: [ctx.t("list-title"), "", ...summaries].join("\n"),
@@ -286,7 +285,7 @@ async function renderCompositionCard(
   const photoCount = await getPhotoCount(composition.compositionId)
   const url = clientLayoutUrl(composition.compositionId, composition.editToken)
   const previewObjectKey = telegramPreviewObjectKey(composition.compositionId)
-  const media = await loadPreview(previewObjectKey)
+  const media = loadPreview(previewObjectKey)
 
   const caption = [
     ctx.t("list-preview"),
@@ -374,7 +373,7 @@ async function renderDeleteConfirm(
       ],
     ],
 
-    media: await loadPreview(previewObjectKey),
+    media: loadPreview(previewObjectKey),
     previewObjectKey,
   }
 }
@@ -533,27 +532,16 @@ async function getCompositionById(userId: string, compositionId: string) {
   return composition
 }
 
-async function loadPreview(
-  objectKey: string
-): Promise<InputFile | string | undefined> {
+function loadPreview(objectKey: string): string {
   const cachedFileId = previewFileIds.get(objectKey)
 
   if (cachedFileId) {
     return cachedFileId
   }
 
-  try {
-    const arrayBuffer = await s3Client.file(objectKey).arrayBuffer()
-
-    return new InputFile(Buffer.from(arrayBuffer), "telegram-preview.jpg")
-  } catch (error) {
-    console.warn("Preview does not exist", {
-      objectKey,
-      error,
-    })
-
-    return undefined
-  }
+  return s3Client.presign(objectKey, {
+    expiresIn: 10 * 60,
+  })
 }
 
 function cachePreviewFileId(
