@@ -7,6 +7,11 @@ type BunProxyInit = RequestInit & {
   proxy?: string
 }
 
+type GrammyFetchInit = NonNullable<FetchInit> & {
+  agent?: unknown
+  compress?: unknown
+}
+
 const nativeFetch = globalThis.fetch
 
 async function telegramFetchImplementation(
@@ -66,9 +71,14 @@ async function normalizeMultipartBody(init?: FetchInit): Promise<FetchInit> {
   headers.delete("connection")
   headers.delete("content-length")
   headers.delete("content-type")
+  const {
+    agent: _agent,
+    compress: _compress,
+    ...requestInit
+  } = init as GrammyFetchInit
 
   return {
-    ...init,
+    ...requestInit,
     body,
     headers,
   }
