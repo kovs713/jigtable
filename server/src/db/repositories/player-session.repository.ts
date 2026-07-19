@@ -1,16 +1,21 @@
 import { eq } from "drizzle-orm"
 
 import { db as defaultDb } from "@/db"
-import { jigsawSessionsSchema } from "@/db/schemas"
 import {
   parseStoredPlayerSession,
   toStoredPlayerSessionValue,
 } from "@/db/mappers/player-session-mapper"
-import type { PlayerSessionRepository } from "@/services/player-session/contracts"
+import { jigsawSessionsSchema } from "@/db/schemas"
 import { playerSessionStorageKey } from "@/services/player-session/player-session-token"
-import type { StoredPlayerSession } from "@/services/player-session/player-session-types"
+import type { StoredPlayerSession } from "@/services/player-session/player-session.types"
 
 type Database = typeof defaultDb
+
+export interface PlayerSessionRepository {
+  findByToken(token: string): Promise<StoredPlayerSession | null>
+
+  save(session: StoredPlayerSession): Promise<void>
+}
 
 export class DrizzlePlayerSessionRepository implements PlayerSessionRepository {
   private readonly cache = new Map<string, StoredPlayerSession>()

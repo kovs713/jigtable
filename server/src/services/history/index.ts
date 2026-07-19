@@ -4,12 +4,11 @@ export {
 } from "./asset-reference"
 
 export type {
-  HistoryRepository,
   UpdateParticipantProfileInput,
   UpsertParticipantInput,
 } from "./contracts"
 
-export { HistoryService } from "./history-service"
+export { HistoryService } from "./history.service"
 
 export type {
   AssetReference,

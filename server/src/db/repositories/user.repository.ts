@@ -2,12 +2,20 @@ import { eq } from "drizzle-orm"
 
 import { db } from "@/db"
 import { usersSchema } from "@/db/schemas"
-import type {
-  UpdateUserProfileInput,
-  User,
-  UserRepository,
-} from "@/services/auth"
+import type { UpdateUserProfileInput, User } from "@/services/auth"
 import type { UpsertTelegramUserInput } from "@/services/auth/contracts"
+
+export interface UserRepository {
+  findById(userId: string): Promise<User | null>
+
+  upsertTelegramUser(input: UpsertTelegramUserInput): Promise<User>
+
+  updateProfile(
+    userId: string,
+    input: UpdateUserProfileInput,
+    updatedAt: Date
+  ): Promise<User | null>
+}
 
 export class DrizzleUserRepository implements UserRepository {
   async findById(userId: string): Promise<User | null> {

@@ -1,6 +1,6 @@
 import { SHA256 } from "bun"
 
-import type { HistoryRepository } from "./contracts"
+import type { HistoryRepository } from "@/db/repositories"
 import type {
   HistoryEntry,
   ParticipantSession,

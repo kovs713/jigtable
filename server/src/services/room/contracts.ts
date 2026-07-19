@@ -1,6 +1,6 @@
 import type { ParticipantSession, RoomCompletion } from "@/services/history"
 
-import type { Player, RoomStats } from "./room-types"
+import type { Player, RoomStats } from "./room.types"
 
 export type PlayerSession = ParticipantSession
 

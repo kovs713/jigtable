@@ -9,16 +9,13 @@ import {
 } from "@jigtable/shared/schemas"
 
 import { LIMITS } from "@/config"
-import type { compositionSourceImagesSchema } from "@/db/schemas"
+import type { CompositionSourceImage } from "@/db/schemas"
+import { ApiError } from "@/http/errors"
+import { parseApiSchema } from "@/http/request"
 import type {
   CompositionLayout,
   CompositionLayoutItem,
 } from "@/native/composition-layout-engine"
-import { ApiError } from "@/http/errors"
-import { parseApiSchema } from "@/http/request"
-
-export type CompositionSourceImageRow =
-  typeof compositionSourceImagesSchema.$inferSelect
 
 const PositiveNumberSchema: Schema<number> = {
   parse(value, path = "value") {
@@ -50,7 +47,7 @@ const CompositionLayoutSchema = object({
 
 export function normalizeCompositionLayout(
   raw: unknown,
-  sourceImages: CompositionSourceImageRow[]
+  sourceImages: CompositionSourceImage[]
 ): CompositionLayout {
   const value = parseApiSchema(
     CompositionLayoutSchema,

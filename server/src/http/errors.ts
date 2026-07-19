@@ -1,8 +1,4 @@
-import {
-  AuthAccessDeniedError,
-  TelegramAuthVerificationError,
-  UserNotFoundError,
-} from "@/services/auth"
+import type { AuthFailureCode, AuthResult } from "@/services/auth"
 
 export class ApiError extends Error {
   readonly status: number
@@ -67,19 +63,28 @@ export function handleError(error: unknown): Response {
     )
   }
 
-  if (error instanceof TelegramAuthVerificationError) {
-    return errorResponse(error.message, 401, error.code)
-  }
-
-  if (error instanceof AuthAccessDeniedError) {
-    return errorResponse(error.message, 401, error.code)
-  }
-
-  if (error instanceof UserNotFoundError) {
-    return errorResponse(error.message, 404, error.code)
-  }
-
   console.error(error)
 
   return errorResponse("Internal Server Error", 500)
+}
+
+export function unwrapAuthResult<T>(result: AuthResult<T>) {
+  if (!result.ok) {
+    throw mapAuthFailure(result.code)
+  }
+
+  return result.value
+}
+
+export function mapAuthFailure(code: AuthFailureCode) {
+  switch (code) {
+    case "telegram_user_verification_denied":
+      return new ApiError("Telegram user verification denied", 401)
+
+    case "auth_access_denied":
+      return new ApiError("Auth access denied", 403)
+
+    case "user_not_found":
+      return new ApiError("User not found", 404)
+  }
 }

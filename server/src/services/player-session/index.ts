@@ -1,5 +1,3 @@
-export type { PlayerSessionRepository } from "./contracts"
-
 export {
   createPlayerProfile,
   normalizePlayerColor,
@@ -7,7 +5,7 @@ export {
   updatePlayerProfile,
 } from "./player-profile"
 
-export { PlayerSessionService } from "./player-session-service"
+export { PlayerSessionService } from "./player-session.service"
 
 export {
   createPlayerId,
@@ -22,4 +20,4 @@ export type {
   RestorePlayerSessionInput,
   StoredPlayerSession,
   UpdatePlayerProfileInput,
-} from "./player-session-types"
+} from "./player-session.types"

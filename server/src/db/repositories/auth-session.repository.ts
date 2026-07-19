@@ -3,10 +3,22 @@ import { and, eq, gt } from "drizzle-orm"
 import { db } from "@/db"
 import { authSessionsSchema } from "@/db/schemas"
 import type {
-  AuthSessionRepository,
   CreateAuthSessionInput,
   StoredAuthSession,
 } from "@/services/auth/contracts"
+
+export interface AuthSessionRepository {
+  create(input: CreateAuthSessionInput): Promise<void>
+
+  findActiveByTokenHash(
+    tokenHash: string,
+    now: Date
+  ): Promise<StoredAuthSession | null>
+
+  touch(tokenHash: string, updatedAt: Date): Promise<void>
+
+  deleteByTokenHash(tokenHash: string): Promise<void>
+}
 
 export class DrizzleAuthSessionRepository implements AuthSessionRepository {
   async create(input: CreateAuthSessionInput): Promise<void> {

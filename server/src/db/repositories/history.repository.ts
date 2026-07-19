@@ -2,9 +2,9 @@ import { and, desc, eq, inArray } from "drizzle-orm"
 
 import { db as defaultDb } from "@/db"
 import {
-  toStoredAssetReference,
   toHistoryEntry,
   toRoomResult,
+  toStoredAssetReference,
 } from "@/db/mappers/history-result-mapper"
 import {
   jigsawRoomParticipantsSchema,
@@ -12,7 +12,6 @@ import {
   usersSchema,
 } from "@/db/schemas"
 import type {
-  HistoryRepository,
   UpdateParticipantProfileInput,
   UpsertParticipantInput,
 } from "@/services/history/contracts"
@@ -24,6 +23,32 @@ import type {
 } from "@/services/history/types"
 
 type Database = typeof defaultDb
+
+export type HistoryRepository = {
+  upsertParticipant(input: UpsertParticipantInput): Promise<void>
+
+  markParticipantLeft(input: {
+    roomId: string
+    playerId: string
+    leftAt: Date
+  }): Promise<void>
+
+  updateParticipantProfile(input: UpdateParticipantProfileInput): Promise<void>
+
+  linkSessionToUser(input: {
+    sessionHash: string
+    userId: string
+    linkedAt: Date
+  }): Promise<void>
+
+  saveCompletion(completion: RoomCompletion): Promise<void>
+
+  listUserHistory(userId: string): Promise<HistoryEntry[]>
+
+  findRoomResult(roomId: string): Promise<RoomResult | null>
+
+  findUserColors(userIds: readonly string[]): Promise<Map<string, string>>
+}
 
 export class DrizzleHistoryRepository implements HistoryRepository {
   constructor(private readonly db: Database = defaultDb) {}

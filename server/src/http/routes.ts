@@ -28,8 +28,7 @@ import { readJigsawProfileInput } from "@/shared/schemas/jigsaw"
 import { normalizeCompositionLayout } from "@/shared/schemas/layout"
 import { s3Client } from "@/storage/client"
 import { jigsawImageObjectKey } from "@/storage/utils"
-import { getCompositionAndImagesByIdAndToken } from "./composition-access"
-import { ApiError } from "./errors"
+import { ApiError, unwrapAuthResult } from "./errors"
 import { CORS_HEADERS } from "./headers"
 import { readRemoteImageSize } from "./image-metadata"
 import {
@@ -303,11 +302,17 @@ export function registerRoutes(router: Router): void {
       }
 
       if (compositionId && compositionToken) {
-        const { composition, sourceImages } =
-          await getCompositionAndImagesByIdAndToken(
+        const compositionWithSourceImages =
+          await context.services.composition.getCompositionWithSorceImages(
             compositionId,
             compositionToken
           )
+
+        if (!compositionWithSourceImages) {
+          throw new ApiError("Composition not found", 404)
+        }
+
+        const { composition, sourceImages } = compositionWithSourceImages
 
         if (!composition.layout) {
           throw new ApiError("Composition layout is not ready", 400)
@@ -512,10 +517,14 @@ export function registerRoutes(router: Router): void {
       const compositionId = context.params.compositionId ?? ""
       const editToken = context.query.get("editToken") ?? ""
 
-      const { composition } = await getCompositionAndImagesByIdAndToken(
+      const composition = await context.services.composition.getComposition(
         compositionId,
         editToken
       )
+
+      if (!composition) {
+        throw new ApiError("Composition not found", 404)
+      }
 
       if (!composition.layout) {
         throw new ApiError("Layout is not ready", 404)
@@ -538,8 +547,17 @@ export function registerRoutes(router: Router): void {
       const compositionId = context.params.compositionId ?? ""
       const editToken = context.query.get("editToken") ?? ""
 
-      const { composition, sourceImages } =
-        await getCompositionAndImagesByIdAndToken(compositionId, editToken)
+      const compositionWithSourceImages =
+        await context.services.composition.getCompositionWithSorceImages(
+          compositionId,
+          editToken
+        )
+
+      if (!compositionWithSourceImages) {
+        throw new ApiError("Composition not found", 404)
+      }
+
+      const { composition, sourceImages } = compositionWithSourceImages
 
       const layout = normalizeCompositionLayout(
         await readJsonLimited(context.request),
@@ -570,10 +588,15 @@ export function registerRoutes(router: Router): void {
           ? context.auth.session.token
           : "")
 
-      const { sourceImages } = await getCompositionAndImagesByIdAndToken(
-        compositionId,
-        editToken
-      )
+      const sourceImages =
+        await context.services.composition.getEditableSourceImages(
+          compositionId,
+          editToken
+        )
+
+      if (!sourceImages) {
+        throw new ApiError("Composition not found", 404)
+      }
 
       const photo = sourceImages.find((item) => item.fileId === fileId)
 
@@ -604,8 +627,17 @@ export function registerRoutes(router: Router): void {
       const compositionId = context.params.compositionId ?? ""
       const editToken = context.query.get("editToken") ?? ""
 
-      const { composition, sourceImages } =
-        await getCompositionAndImagesByIdAndToken(compositionId, editToken)
+      const compositionWithSourceImages =
+        await context.services.composition.getCompositionWithSorceImages(
+          compositionId,
+          editToken
+        )
+
+      if (!compositionWithSourceImages) {
+        throw new ApiError("Composition not found", 404)
+      }
+
+      const { composition, sourceImages } = compositionWithSourceImages
 
       const body = await readJsonLimited(context.request)
 
@@ -684,10 +716,14 @@ export function registerRoutes(router: Router): void {
           ? context.auth.session.token
           : "")
 
-      const { composition } = await getCompositionAndImagesByIdAndToken(
+      const composition = await context.services.composition.getComposition(
         compositionId,
         token
       )
+
+      if (!composition) {
+        throw new ApiError("Composition not found", 404)
+      }
 
       const format = resolveRenderFormat(composition.jigsawImageFormat)
 
@@ -732,10 +768,12 @@ async function authorizeTelegramIdentity(
   const anonSession = anonSessionToken
     ? await context.services.playerSessions.get(anonSessionToken)
     : null
-  const auth = await context.services.auth.signInWithTelegram(identity, {
-    displayName: anonSession?.player.name,
-    color: anonSession?.player.color,
-  })
+  const auth = unwrapAuthResult(
+    await context.services.auth.signInWithTelegram(identity, {
+      displayName: anonSession?.player.name,
+      color: anonSession?.player.color,
+    })
+  )
 
   if (anonSessionToken) {
     await context.services.playerSessions.linkToUser(

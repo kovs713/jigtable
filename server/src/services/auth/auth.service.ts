@@ -1,11 +1,6 @@
-import type {
-  AuthSessionRepository,
-  AuthTokenCodec,
-  Clock,
-  TelegramAccessPolicy,
-  UserRepository,
-} from "./contracts"
-import { AuthAccessDeniedError, UserNotFoundError } from "./errors"
+import type { AuthSessionRepository, UserRepository } from "@/db/repositories"
+import type { AuthTokenCodec, Clock, TelegramAccessPolicy } from "./contracts"
+import { authFailure, authSuccess, type AuthResult } from "./errors"
 import { normalizeProfileUpdate } from "./profile"
 import { resolveTelegramUserProfile } from "./telegram/profile"
 import type { TelegramIdentity } from "./telegram/types"
@@ -39,11 +34,11 @@ export class AuthService {
   async signInWithTelegram(
     identity: TelegramIdentity,
     profileSeed?: ProfileSeed
-  ): Promise<AuthSession> {
+  ): Promise<AuthResult<AuthSession>> {
     if (
       !(await this.dependencies.telegramAccess.isAllowed(identity.telegramId))
     ) {
-      throw new AuthAccessDeniedError("Telegram user is not whitelisted")
+      return authFailure("telegram_user_verification_denied")
     }
 
     const now = this.clock.now()
@@ -53,10 +48,12 @@ export class AuthService {
       now,
     })
 
-    return this.issueSession(user, now)
+    const session = await this.createSession(user, now)
+
+    return authSuccess<AuthSession>(session)
   }
 
-  async authenticate(token: string): Promise<AuthSession | null> {
+  async authenticate(token: string): Promise<AuthResult<AuthSession> | null> {
     const tokenHash = this.dependencies.tokens.hash(token)
     const now = this.clock.now()
     const session = await this.dependencies.sessions.findActiveByTokenHash(
@@ -85,11 +82,11 @@ export class AuthService {
 
     await this.dependencies.sessions.touch(tokenHash, now)
 
-    return {
+    return authSuccess<AuthSession>({
       token,
       user,
       expiresAt: session.expiresAt.toISOString(),
-    }
+    })
   }
 
   async revokeSession(token: string): Promise<void> {
@@ -101,7 +98,7 @@ export class AuthService {
   async updateProfile(
     userId: string,
     input: UpdateUserProfileInput
-  ): Promise<User> {
+  ): Promise<AuthResult<User>> {
     const user = await this.dependencies.users.updateProfile(
       userId,
       normalizeProfileUpdate(input),
@@ -109,13 +106,15 @@ export class AuthService {
     )
 
     if (!user) {
-      throw new UserNotFoundError()
+      return authFailure("user_not_found")
     }
 
-    return user
+    return authSuccess<User>(user)
   }
 
-  async signInDevelopmentUser(identityId?: string): Promise<AuthSession> {
+  async signInDevelopmentUser(
+    identityId?: string
+  ): Promise<AuthResult<AuthSession>> {
     const now = this.clock.now()
     const telegramId = identityId?.trim() || `dev_${crypto.randomUUID()}`
     const identity: TelegramIdentity = {
@@ -131,10 +130,12 @@ export class AuthService {
       now,
     })
 
-    return this.issueSession(user, now)
+    const session = await this.createSession(user, now)
+
+    return authSuccess(session)
   }
 
-  private async issueSession(user: User, now: Date): Promise<AuthSession> {
+  private async createSession(user: User, now: Date): Promise<AuthSession> {
     const token = this.dependencies.tokens.create()
     const expiresAt = new Date(now.getTime() + this.sessionTtlMs)
 

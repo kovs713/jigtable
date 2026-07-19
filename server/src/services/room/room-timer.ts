@@ -1,4 +1,4 @@
-import type { Player, Room, RoomTimer } from "./room-types"
+import type { Player, Room, RoomTimer } from "./room.types"
 
 export function getTimerElapsedMs(timer: RoomTimer, now = Date.now()): number {
   if (timer.paused) {

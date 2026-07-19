@@ -1,4 +1,4 @@
-import type { Room, RoomStats } from "./room-types"
+import type { Room, RoomStats } from "./room.types"
 
 export function getRoomStats(room: Room): RoomStats {
   return {

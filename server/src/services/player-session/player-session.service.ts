@@ -1,4 +1,4 @@
-import type { PlayerSessionRepository } from "./contracts"
+import type { PlayerSessionRepository } from "@/db/repositories"
 import { createPlayerProfile, updatePlayerProfile } from "./player-profile"
 import {
   createPlayerSessionToken,
@@ -8,7 +8,7 @@ import type {
   RestorePlayerSessionInput,
   StoredPlayerSession,
   UpdatePlayerProfileInput,
-} from "./player-session-types"
+} from "./player-session.types"
 
 type PlayerSessionServiceOptions = {
   now?: () => number

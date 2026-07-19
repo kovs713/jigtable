@@ -8,7 +8,7 @@ import { scatterAllPieces } from "@jigtable/core/scatter"
 import { LIMITS } from "@/config"
 
 import { createRoomId } from "./room-id"
-import type { CreateRoomInput, Room } from "./room-types"
+import type { CreateRoomInput, Room } from "./room.types"
 
 export function createRoom(input: CreateRoomInput, now = Date.now()): Room {
   const pieceCount = clampPieceCount(input.pieceCount)

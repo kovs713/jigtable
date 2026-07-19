@@ -9,6 +9,9 @@ import {
 
 import { compositionsSchema } from "./compositions"
 
+export type CompositionSourceImage =
+  typeof compositionSourceImagesSchema.$inferSelect
+
 export const compositionSourceImagesSchema = pgTable(
   "composition_source_images",
   {

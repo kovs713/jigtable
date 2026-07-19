@@ -33,4 +33,4 @@ export type {
   RoomStats,
   RoomTimer,
   ToggleLock,
-} from "./room-types"
+} from "./room.types"

@@ -31,7 +31,7 @@ import type {
   PlayerCursor,
   Room,
   ToggleLock,
-} from "./room-types"
+} from "./room.types"
 
 type RoomCommandsOptions = {
   publisher: RoomPublisher

@@ -1,5 +1,6 @@
 import {
   DrizzleAuthSessionRepository,
+  DrizzleCompositionRepository,
   DrizzleHistoryRepository,
   DrizzlePlayerSessionRepository,
   DrizzleTelegramAccessRepository,
@@ -11,6 +12,7 @@ import {
   WhitelistTelegramAccessPolicy,
   authTokenCodec,
 } from "./auth"
+import { CompositionService } from "./composition/composition.service"
 import { HistoryService } from "./history"
 import { PlayerSessionService } from "./player-session"
 import type { RoomMetrics, RoomPublisher } from "./room"
@@ -47,11 +49,13 @@ export function createServices({
   const telegramAuth = new TelegramAuthVerifier({
     botToken: process.env.BOT_TOKEN,
   })
+  const composition = new CompositionService(new DrizzleCompositionRepository())
 
   return {
     playerSessions,
     history,
     rooms,
+    composition,
     auth,
     telegramAuth,
   }
@@ -61,6 +65,7 @@ export type Services = {
   playerSessions: PlayerSessionService
   history: HistoryService
   rooms: RoomManager
+  composition: CompositionService
   auth: AuthService
   telegramAuth: TelegramAuthVerifier
 }

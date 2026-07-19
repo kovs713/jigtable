@@ -2,7 +2,10 @@ import { eq } from "drizzle-orm"
 
 import { db } from "@/db"
 import { whitelistUsersSchema } from "@/db/schemas"
-import type { TelegramAccessRepository } from "@/services/auth"
+
+export interface TelegramAccessRepository {
+  contains(telegramUserId: number): Promise<boolean>
+}
 
 export class DrizzleTelegramAccessRepository implements TelegramAccessRepository {
   async contains(telegramUserId: number): Promise<boolean> {

@@ -15,6 +15,8 @@ export const CompositionStatus = {
 export type CompositionStatus =
   (typeof CompositionStatus)[keyof typeof CompositionStatus]
 
+export type Composition = typeof compositionsSchema.$inferSelect
+
 export const compositionsSchema = pgTable("compositions", {
   compositionId: uuid("composition_id").primaryKey().defaultRandom(),
   userId: text("user_id").notNull(),

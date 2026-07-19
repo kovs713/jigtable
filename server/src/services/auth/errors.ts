@@ -1,17 +1,28 @@
-export class AuthAccessDeniedError extends Error {
-  readonly code = "auth_access_denied"
+export type AuthResult<T> = AuthSuccess<T> | AuthFailure
 
-  constructor(message = "Authentication is not allowed for this user") {
-    super(message)
-    this.name = "AuthAccessDeniedError"
+export type AuthSuccess<T> = {
+  ok: true
+  value: T
+}
+
+export function authSuccess<T>(value: T): AuthSuccess<T> {
+  return {
+    ok: true,
+    value,
   }
 }
 
-export class UserNotFoundError extends Error {
-  readonly code = "user_not_found"
+export type AuthFailureCode =
+  "telegram_user_verification_denied" | "auth_access_denied" | "user_not_found"
 
-  constructor() {
-    super("User not found")
-    this.name = "UserNotFoundError"
+export type AuthFailure = {
+  ok: false
+  code: AuthFailureCode
+}
+
+export function authFailure(code: AuthFailureCode): AuthFailure {
+  return {
+    ok: false,
+    code,
   }
 }

@@ -5,7 +5,7 @@ import {
   normalizePlayerName,
 } from "@/services/player-session/player-profile"
 import { normalizePlayerSessionToken } from "@/services/player-session/player-session-token"
-import type { StoredPlayerSession } from "@/services/player-session/player-session-types"
+import type { StoredPlayerSession } from "@/services/player-session/player-session.types"
 
 export function parseStoredPlayerSession({
   fallbackToken,

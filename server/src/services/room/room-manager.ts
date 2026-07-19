@@ -24,7 +24,7 @@ import type {
   Player,
   Room,
   RoomSnapshot,
-} from "./room-types"
+} from "./room.types"
 
 type RoomManagerDependencies = {
   sessions: PlayerSessionReader

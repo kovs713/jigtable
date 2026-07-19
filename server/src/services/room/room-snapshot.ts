@@ -7,7 +7,7 @@ import type {
 } from "@jigtable/core/types"
 
 import { getRoomStats } from "./room-stats"
-import type { Room, RoomSnapshot, ToggleLock } from "./room-types"
+import type { Room, RoomSnapshot, ToggleLock } from "./room.types"
 
 export function toRoomSnapshot(room: Room): RoomSnapshot {
   const locks: ToggleLock[] = [...room.toggleLocks.values()]

@@ -1,4 +1,4 @@
-export * from "./auth-service"
+export * from "./auth.service"
 export type * from "./contracts"
 export * from "./errors"
 export * from "./profile"
