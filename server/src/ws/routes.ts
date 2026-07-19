@@ -31,19 +31,19 @@ export function registerWsRoutes(ws: WsRouter): void {
   })
 
   ws.on("session:pause", {
-    handler: ({ socket, roomController }) => {
-      roomController.handleSessionPause(socket)
+    handler: async ({ socket, roomController }) => {
+      await roomController.handleSessionPause(socket)
     },
   })
 
   ws.on("session:resume", {
-    handler: ({ socket, roomController }) => {
-      roomController.handleSessionResume(socket)
+    handler: async ({ socket, roomController }) => {
+      await roomController.handleSessionResume(socket)
     },
   })
 
   ws.on("group:grab", {
-    handler: ({ socket, roomController, message }) => {
+    handler: async ({ socket, roomController, message }) => {
       const input = parseGroupIdInput(message)
 
       if (!input) {
@@ -51,12 +51,12 @@ export function registerWsRoutes(ws: WsRouter): void {
         return
       }
 
-      roomController.handleGroupGrab(socket, input)
+      await roomController.handleGroupGrab(socket, input)
     },
   })
 
   ws.on("group:move", {
-    handler: ({ socket, roomController, message }) => {
+    handler: async ({ socket, roomController, message }) => {
       const input = parseGroupMoveInput(message)
 
       if (!input) {
@@ -64,12 +64,12 @@ export function registerWsRoutes(ws: WsRouter): void {
         return
       }
 
-      roomController.handleGroupMove(socket, input)
+      await roomController.handleGroupMove(socket, input)
     },
   })
 
   ws.on("group:drop", {
-    handler: ({ socket, roomController, message }) => {
+    handler: async ({ socket, roomController, message }) => {
       const input = parseGroupMoveInput(message)
 
       if (!input) {
@@ -77,12 +77,12 @@ export function registerWsRoutes(ws: WsRouter): void {
         return
       }
 
-      roomController.handleGroupDrop(socket, input)
+      await roomController.handleGroupDrop(socket, input)
     },
   })
 
   ws.on("group:release", {
-    handler: ({ socket, roomController, message }) => {
+    handler: async ({ socket, roomController, message }) => {
       const input = parseGroupIdInput(message)
 
       if (!input) {
@@ -90,12 +90,12 @@ export function registerWsRoutes(ws: WsRouter): void {
         return
       }
 
-      roomController.handleGroupRelease(socket, input)
+      await roomController.handleGroupRelease(socket, input)
     },
   })
 
   ws.on("groups:arrange", {
-    handler: ({ socket, roomController, message }) => {
+    handler: async ({ socket, roomController, message }) => {
       const input = parseArrangeGroupsInput(message)
 
       if (!input) {
@@ -103,12 +103,12 @@ export function registerWsRoutes(ws: WsRouter): void {
         return
       }
 
-      roomController.handleGroupsArrange(socket, input)
+      await roomController.handleGroupsArrange(socket, input)
     },
   })
 
   ws.on("room:lock-toggle", {
-    handler: ({ socket, roomController, message }) => {
+    handler: async ({ socket, roomController, message }) => {
       const input = parseLockToggleInput(message)
 
       if (!input) {
@@ -116,7 +116,7 @@ export function registerWsRoutes(ws: WsRouter): void {
         return
       }
 
-      roomController.handleRoomLockToggle(socket, input)
+      await roomController.handleRoomLockToggle(socket, input)
     },
   })
 

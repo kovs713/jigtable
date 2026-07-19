@@ -74,7 +74,7 @@ export class RoomCommands {
       return
     }
 
-    const existingLock = room.dragLocks.get(groupId)
+    const existingLock = room.dragLocks[groupId]
 
     if (existingLock && existingLock.playerId !== player.id) {
       this.publisher.error(connectionId, "group_locked", "Group locked")
@@ -88,7 +88,7 @@ export class RoomCommands {
       lockedAt: this.now(),
     } satisfies GroupDragLock
 
-    room.dragLocks.set(groupId, lock)
+    room.dragLocks[groupId] = lock
     room.updatedAt = this.now()
 
     this.publisher.broadcast(room.roomId, {
@@ -229,13 +229,13 @@ export class RoomCommands {
   }
 
   releaseGroup(room: Room, player: Player, groupId: GroupId): void {
-    const lock = room.dragLocks.get(groupId)
+    const lock = room.dragLocks[groupId]
 
     if (!lock || lock.playerId !== player.id) {
       return
     }
 
-    room.dragLocks.delete(groupId)
+    delete room.dragLocks[groupId]
     room.updatedAt = this.now()
 
     this.publisher.broadcast(room.roomId, {
@@ -290,11 +290,11 @@ export class RoomCommands {
     }
 
     const key = lockKey(input.targetType, input.targetId)
-    const existingLock = room.toggleLocks.get(key)
+    const existingLock = room.toggleLocks[key]
 
     if (existingLock) {
       if (existingLock.playerId === player.id) {
-        room.toggleLocks.delete(key)
+        delete room.toggleLocks[key]
         room.updatedAt = this.now()
 
         this.publisher.broadcast(room.roomId, {
@@ -327,7 +327,7 @@ export class RoomCommands {
       connectionId,
     } satisfies ToggleLock
 
-    room.toggleLocks.set(key, lock)
+    room.toggleLocks[key] = lock
     room.updatedAt = this.now()
 
     this.publisher.broadcast(room.roomId, {

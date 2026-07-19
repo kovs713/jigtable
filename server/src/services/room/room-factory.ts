@@ -33,8 +33,8 @@ export function createRoom(input: CreateRoomInput, now = Date.now()): Room {
     players: new Map(),
     connections: new Map(),
     cursors: new Map(),
-    dragLocks: new Map(),
-    toggleLocks: new Map(),
+    dragLocks: {},
+    toggleLocks: {},
     pingCooldowns: new Map(),
     timer: {
       elapsedMs: 0,

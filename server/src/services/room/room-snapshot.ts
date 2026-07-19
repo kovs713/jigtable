@@ -10,7 +10,7 @@ import { getRoomStats } from "./room-stats"
 import type { Room, RoomSnapshot, ToggleLock } from "./room.types"
 
 export function toRoomSnapshot(room: Room): RoomSnapshot {
-  const locks: ToggleLock[] = [...room.toggleLocks.values()]
+  const locks: ToggleLock[] = Object.values(room.toggleLocks)
 
   return {
     roomId: room.roomId,

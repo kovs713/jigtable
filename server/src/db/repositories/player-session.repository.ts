@@ -6,6 +6,7 @@ import {
   toStoredPlayerSessionValue,
 } from "@/db/mappers/player-session-mapper"
 import { jigsawSessionsSchema } from "@/db/schemas"
+import type { RedisCache } from "@/services/redis"
 import { playerSessionStorageKey } from "@/services/player-session/player-session-token"
 import type { StoredPlayerSession } from "@/services/player-session/player-session.types"
 
@@ -18,12 +19,13 @@ export interface PlayerSessionRepository {
 }
 
 export class DrizzlePlayerSessionRepository implements PlayerSessionRepository {
-  private readonly cache = new Map<string, StoredPlayerSession>()
-
-  constructor(private readonly db: Database = defaultDb) {}
+  constructor(
+    private readonly cache: Pick<RedisCache, "get" | "set" | "delete">,
+    private readonly db: Database = defaultDb
+  ) {}
 
   async findByToken(token: string): Promise<StoredPlayerSession | null> {
-    const cached = this.cache.get(token)
+    const cached = await this.readCached(token)
 
     if (cached) {
       return cached
@@ -49,7 +51,7 @@ export class DrizzlePlayerSessionRepository implements PlayerSessionRepository {
     })
 
     if (session) {
-      this.cache.set(session.token, session)
+      await this.cache.set(session.token, JSON.stringify(session))
     }
 
     return session
@@ -73,6 +75,32 @@ export class DrizzlePlayerSessionRepository implements PlayerSessionRepository {
         },
       })
 
-    this.cache.set(session.token, session)
+    await this.cache.set(session.token, JSON.stringify(session))
+  }
+
+  private async readCached(token: string): Promise<StoredPlayerSession | null> {
+    const cached = await this.cache.get(token)
+
+    if (!cached) {
+      return null
+    }
+
+    try {
+      const session = parseStoredPlayerSession({
+        fallbackToken: token,
+        fallbackTimestamp: Date.now(),
+        value: JSON.parse(cached),
+      })
+
+      if (session) {
+        return session
+      }
+    } catch {
+      // Invalid cache values fall through to PostgreSQL.
+    }
+
+    await this.cache.delete(token)
+
+    return null
   }
 }

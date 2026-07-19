@@ -3,6 +3,8 @@ import { describe, expect, test } from "bun:test"
 import type { ParticipantSession, RoomCompletion } from "@/services/history"
 import { RoomManager } from "./room-manager"
 import type { RoomErrorCode, RoomEvent, RoomPublisher } from "./room-events"
+import type { RoomStore } from "./redis-room-store"
+import type { Room } from "./room.types"
 
 const session: ParticipantSession = {
   token: "session-1",
@@ -25,7 +27,7 @@ describe("RoomManager", () => {
         },
       },
     })
-    const state = manager.createRoom(createRoomInput())
+    const state = await manager.createRoom(createRoomInput())
 
     const result = await manager.joinRoom("connection-1", {
       roomId: state.roomId,
@@ -34,7 +36,7 @@ describe("RoomManager", () => {
     await flushPromises()
 
     expect(result?.player).toEqual(session.player)
-    expect(manager.getRoomSnapshot(state.roomId)?.players).toEqual([
+    expect((await manager.getRoomSnapshot(state.roomId))?.players).toEqual([
       session.player,
     ])
     expect(errors).toHaveLength(1)
@@ -42,7 +44,7 @@ describe("RoomManager", () => {
 
   test("keeps current room when a new target is invalid", async () => {
     const manager = createManager(createHistory())
-    const state = manager.createRoom(createRoomInput())
+    const state = await manager.createRoom(createRoomInput())
 
     await manager.joinRoom("connection-1", {
       roomId: state.roomId,
@@ -54,7 +56,7 @@ describe("RoomManager", () => {
     })
 
     expect(result).toBeNull()
-    expect(manager.getRoomSnapshot(state.roomId)?.players).toEqual([
+    expect((await manager.getRoomSnapshot(state.roomId))?.players).toEqual([
       session.player,
     ])
   })
@@ -71,7 +73,7 @@ describe("RoomManager", () => {
         },
       },
     })
-    const state = manager.createRoom(createRoomInput())
+    const state = await manager.createRoom(createRoomInput())
     const joining = manager.joinRoom("connection-1", {
       roomId: state.roomId,
       sessionToken: session.token,
@@ -81,7 +83,7 @@ describe("RoomManager", () => {
     resolveSession(session)
 
     expect(await joining).toBeNull()
-    expect(manager.getRoomSnapshot(state.roomId)?.players).toEqual([])
+    expect((await manager.getRoomSnapshot(state.roomId))?.players).toEqual([])
   })
 
   test("publishes leave before state when reconnect overlaps history", async () => {
@@ -103,7 +105,7 @@ describe("RoomManager", () => {
     const manager = createManager(history, {
       publisher: createPublisher(events),
     })
-    const state = manager.createRoom(createRoomInput())
+    const state = await manager.createRoom(createRoomInput())
 
     await manager.joinRoom("connection-1", {
       roomId: state.roomId,
@@ -122,10 +124,27 @@ describe("RoomManager", () => {
     expect(eventTypes.lastIndexOf("player:left")).toBeLessThan(
       eventTypes.lastIndexOf("room:state")
     )
-    expect(manager.getRoomSnapshot(state.roomId)?.players).toEqual([
+    expect((await manager.getRoomSnapshot(state.roomId))?.players).toEqual([
       session.player,
     ])
     expect(persistence).toEqual(["sync", "leave:start", "leave:end", "sync"])
+  })
+
+  test("restores a room after manager restart", async () => {
+    const store = new MemoryRoomStore()
+    const firstManager = createManager(createHistory(), { store })
+    const state = await firstManager.createRoom(createRoomInput())
+    const secondManager = createManager(createHistory(), { store })
+
+    const result = await secondManager.joinRoom("connection-1", {
+      roomId: state.roomId,
+      sessionToken: session.token,
+    })
+
+    expect(result?.roomId).toBe(state.roomId)
+    expect(
+      (await secondManager.getRoomSnapshot(state.roomId))?.players
+    ).toEqual([session.player])
   })
 })
 
@@ -139,6 +158,7 @@ function createManager(
     logger?: {
       error(message: string, error: unknown): void
     }
+    store?: RoomStore
   } = {}
 ): RoomManager {
   return new RoomManager({
@@ -153,8 +173,25 @@ function createManager(
       setActiveRooms() {},
       setActivePlayers() {},
     },
+    store: options.store ?? new MemoryRoomStore(),
     logger: options.logger,
   })
+}
+
+class MemoryRoomStore {
+  private readonly rooms = new Map<string, Room>()
+
+  async get(roomId: string) {
+    return this.rooms.get(roomId) ?? null
+  }
+
+  async save(room: Room): Promise<void> {
+    this.rooms.set(room.roomId, room)
+  }
+
+  async delete(roomId: string): Promise<void> {
+    this.rooms.delete(roomId)
+  }
 }
 
 function createHistory() {

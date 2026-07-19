@@ -1,4 +1,4 @@
-import type { GroupId, JigsawState as PuzzleState } from "@jigtable/core"
+import type { JigsawState as PuzzleState } from "@jigtable/core"
 import type {
   JigsawGroupLock as GroupDragLock,
   Player,
@@ -37,8 +37,8 @@ export type Room = {
   players: Map<string, Player>
   connections: Map<string, RoomConnection>
   cursors: Map<string, PlayerCursor>
-  dragLocks: Map<GroupId, GroupDragLock>
-  toggleLocks: Map<string, ToggleLock>
+  dragLocks: Record<string, GroupDragLock>
+  toggleLocks: Record<string, ToggleLock>
   pingCooldowns: Map<string, number>
   timer: RoomTimer
   completedAt?: number

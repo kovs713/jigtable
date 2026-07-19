@@ -169,7 +169,7 @@ export function registerRoutes(router: Router): void {
 
       if (
         !authUser &&
-        (!roomId || !context.services.rooms.getRoomSnapshot(roomId))
+        (!roomId || !(await context.services.rooms.getRoomSnapshot(roomId)))
       ) {
         throw new ApiError("Valid room invite required", 401)
       }
@@ -402,7 +402,7 @@ export function registerRoutes(router: Router): void {
         pieceCount,
       } satisfies CreateRoomInput
 
-      const state = context.services.rooms.createRoom(input)
+      const state = await context.services.rooms.createRoom(input)
 
       return Response.json({
         roomId: state.roomId,
@@ -416,9 +416,9 @@ export function registerRoutes(router: Router): void {
   })
 
   router.get(apiRoutes.rooms.get.byRoomId.pattern, {
-    handler: (context) => {
+    handler: async (context) => {
       const roomId = context.params.roomId ?? ""
-      const state = context.services.rooms.getRoomSnapshot(roomId)
+      const state = await context.services.rooms.getRoomSnapshot(roomId)
 
       if (!state) {
         throw new ApiError("Room not found or expired", 404)

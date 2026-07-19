@@ -18,6 +18,7 @@ export type {
 export { clampPieceCount, createRoom } from "./room-factory"
 
 export { RoomManager } from "./room-manager"
+export { RedisRoomStore, type RoomStore } from "./redis-room-store"
 
 export type { JoinRoomResult } from "./room-manager"
 

@@ -24,6 +24,8 @@ declare module "bun" {
     DB_DATABASE: string
     DB_PORT: string
     DB_URL: string
+
+    REDIS_URL: string
   }
 }
 

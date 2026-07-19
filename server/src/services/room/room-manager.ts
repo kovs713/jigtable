@@ -12,6 +12,7 @@ import type {
 import { RoomCommands } from "./room-commands"
 import type { RoomPublisher } from "./room-events"
 import { createRoom } from "./room-factory"
+import type { RoomStore } from "./redis-room-store"
 import {
   releaseConnectionLocks,
   releasePlayerLocks,
@@ -31,6 +32,7 @@ type RoomManagerDependencies = {
   history: RoomHistory
   publisher: RoomPublisher
   metrics: RoomMetrics
+  store: RoomStore
   logger?: RoomLogger
   now?: () => number
 }
@@ -42,8 +44,7 @@ export type JoinRoomResult = {
 }
 
 export class RoomManager {
-  private readonly rooms = new Map<string, Room>()
-  private readonly connectionRooms = new Map<string, string>()
+  private readonly connectionRooms = new Map<string, Room>()
   private readonly pendingJoins = new Map<string, symbol>()
   private readonly participantHistoryOperations = new Map<
     string,
@@ -52,7 +53,7 @@ export class RoomManager {
   private readonly commands: RoomCommands
   private readonly now: () => number
   private readonly logger: RoomLogger
-  private cleanupTimer: ReturnType<typeof setInterval> | null = null
+  private persistenceTimer: ReturnType<typeof setInterval> | null = null
 
   constructor(private readonly dependencies: RoomManagerDependencies) {
     this.now = dependencies.now ?? Date.now
@@ -61,36 +62,35 @@ export class RoomManager {
   }
 
   start(): void {
-    if (this.cleanupTimer) {
+    if (this.persistenceTimer) {
       return
     }
 
-    this.cleanupTimer = setInterval(
-      () => this.cleanupExpiredRooms(),
-      LIMITS.jigsaw.cleanupIntervalMs
-    )
+    this.persistenceTimer = setInterval(() => {
+      void this.persistActiveRooms()
+    }, LIMITS.jigsaw.cleanupIntervalMs)
   }
 
   stop(): void {
-    if (!this.cleanupTimer) {
+    if (!this.persistenceTimer) {
       return
     }
 
-    clearInterval(this.cleanupTimer)
-    this.cleanupTimer = null
+    clearInterval(this.persistenceTimer)
+    this.persistenceTimer = null
   }
 
-  createRoom(input: CreateRoomInput): RoomSnapshot {
+  async createRoom(input: CreateRoomInput): Promise<RoomSnapshot> {
     const room = createRoom(input, this.now())
 
-    this.rooms.set(room.roomId, room)
-    this.syncMetrics()
+    await this.dependencies.store.save(room)
 
     return toRoomSnapshot(room)
   }
 
-  getRoomSnapshot(roomId: string): RoomSnapshot | null {
-    const room = this.rooms.get(roomId)
+  async getRoomSnapshot(roomId: string): Promise<RoomSnapshot | null> {
+    const room =
+      this.findActiveRoom(roomId) ?? (await this.dependencies.store.get(roomId))
 
     return room ? toRoomSnapshot(room) : null
   }
@@ -121,7 +121,13 @@ export class RoomManager {
         return null
       }
 
-      const room = this.rooms.get(input.roomId)
+      const storedRoom = await this.dependencies.store.get(input.roomId)
+
+      if (this.pendingJoins.get(connectionId) !== attempt) {
+        return null
+      }
+
+      const room = this.findActiveRoom(input.roomId) ?? storedRoom
 
       if (!room) {
         this.dependencies.publisher.error(
@@ -132,9 +138,9 @@ export class RoomManager {
         return null
       }
 
-      const previousRoomId = this.connectionRooms.get(connectionId)
+      const previousRoom = this.connectionRooms.get(connectionId)
 
-      if (previousRoomId) {
+      if (previousRoom) {
         await this.disconnect(connectionId)
 
         if (this.pendingJoins.get(connectionId) !== attempt) {
@@ -150,9 +156,11 @@ export class RoomManager {
         sessionToken: session.token,
         playerId: player.id,
       })
-      this.connectionRooms.set(connectionId, room.roomId)
+      this.connectionRooms.set(connectionId, room)
       room.players.set(player.id, player)
       room.updatedAt = this.now()
+
+      await this.dependencies.store.save(room)
 
       this.enqueueParticipantHistory(
         room.roomId,
@@ -207,23 +215,25 @@ export class RoomManager {
     })
   }
 
-  pause(connectionId: string): void {
+  async pause(connectionId: string): Promise<void> {
     const joined = this.getJoinedRoom(connectionId)
 
     if (joined) {
       this.commands.pause(joined.room, joined.player)
+      await this.dependencies.store.save(joined.room)
     }
   }
 
-  resume(connectionId: string): void {
+  async resume(connectionId: string): Promise<void> {
     const joined = this.getJoinedRoom(connectionId)
 
     if (joined) {
       this.commands.resume(joined.room)
+      await this.dependencies.store.save(joined.room)
     }
   }
 
-  grabGroup(connectionId: string, groupId: string): void {
+  async grabGroup(connectionId: string, groupId: string): Promise<void> {
     const joined = this.getJoinedRoom(connectionId)
 
     if (joined) {
@@ -233,17 +243,18 @@ export class RoomManager {
         joined.player,
         groupId as GroupId
       )
+      await this.dependencies.store.save(joined.room)
     }
   }
 
-  moveGroup(
+  async moveGroup(
     connectionId: string,
     input: {
       groupId: string
       x: number
       y: number
     }
-  ): void {
+  ): Promise<void> {
     const joined = this.getJoinedRoom(connectionId)
 
     if (joined) {
@@ -254,14 +265,14 @@ export class RoomManager {
     }
   }
 
-  dropGroup(
+  async dropGroup(
     connectionId: string,
     input: {
       groupId: string
       x: number
       y: number
     }
-  ): void {
+  ): Promise<void> {
     const joined = this.getJoinedRoom(connectionId)
 
     if (!joined) {
@@ -272,6 +283,8 @@ export class RoomManager {
       ...input,
       groupId: input.groupId as GroupId,
     })
+
+    await this.dependencies.store.save(joined.room)
 
     if (!completion) {
       return
@@ -293,33 +306,39 @@ export class RoomManager {
       })
   }
 
-  releaseGroup(connectionId: string, groupId: string): void {
+  async releaseGroup(connectionId: string, groupId: string): Promise<void> {
     const joined = this.getJoinedRoom(connectionId)
 
     if (joined) {
       this.commands.releaseGroup(joined.room, joined.player, groupId as GroupId)
+      await this.dependencies.store.save(joined.room)
     }
   }
 
-  arrangeGroups(connectionId: string, mode: ArrangeLoosePiecesMode): void {
+  async arrangeGroups(
+    connectionId: string,
+    mode: ArrangeLoosePiecesMode
+  ): Promise<void> {
     const joined = this.getJoinedRoom(connectionId)
 
     if (joined) {
       this.commands.arrangeGroups(joined.room, mode)
+      await this.dependencies.store.save(joined.room)
     }
   }
 
-  toggleLock(
+  async toggleLock(
     connectionId: string,
     input: {
       targetType: "piece" | "group"
       targetId: string
     }
-  ): void {
+  ): Promise<void> {
     const joined = this.getJoinedRoom(connectionId)
 
     if (joined) {
       this.commands.toggleLock(connectionId, joined.room, joined.player, input)
+      await this.dependencies.store.save(joined.room)
     }
   }
 
@@ -367,19 +386,13 @@ export class RoomManager {
   }
 
   async disconnect(connectionId: string): Promise<void> {
-    const roomId = this.connectionRooms.get(connectionId)
-
-    if (!roomId) {
-      return
-    }
-
-    const room = this.rooms.get(roomId)
-
-    this.connectionRooms.delete(connectionId)
+    const room = this.connectionRooms.get(connectionId)
 
     if (!room) {
       return
     }
+
+    this.connectionRooms.delete(connectionId)
 
     const connection = room.connections.get(connectionId)
 
@@ -388,6 +401,7 @@ export class RoomManager {
     releaseConnectionLocks(room, connectionId, this.dependencies.publisher)
 
     if (!connection) {
+      await this.dependencies.store.save(room)
       this.syncMetrics()
       return
     }
@@ -397,6 +411,7 @@ export class RoomManager {
     )
 
     if (playerStillConnected) {
+      await this.dependencies.store.save(room)
       this.syncMetrics()
       return
     }
@@ -405,6 +420,8 @@ export class RoomManager {
     room.cursors.delete(connection.playerId)
     releasePlayerLocks(room, connection.playerId, this.dependencies.publisher)
     room.updatedAt = this.now()
+
+    await this.dependencies.store.save(room)
 
     this.dependencies.publisher.broadcast(room.roomId, {
       type: "cursor:hidden",
@@ -443,7 +460,7 @@ export class RoomManager {
   }: UpdateSessionPlayerInput): Promise<void> {
     const session = await this.dependencies.sessions.get(sessionToken)
 
-    for (const room of this.rooms.values()) {
+    for (const room of new Set(this.connectionRooms.values())) {
       const matchingConnections = [...room.connections.values()].filter(
         (connection) => connection.sessionToken === sessionToken
       )
@@ -475,6 +492,8 @@ export class RoomManager {
 
       room.updatedAt = this.now()
 
+      await this.dependencies.store.save(room)
+
       this.enqueueParticipantHistory(
         room.roomId,
         player.id,
@@ -500,8 +519,7 @@ export class RoomManager {
   }
 
   private getJoinedRoom(connectionId: string): JoinedRoom | null {
-    const roomId = this.connectionRooms.get(connectionId)
-    const room = roomId ? this.rooms.get(roomId) : null
+    const room = this.connectionRooms.get(connectionId)
     const connection = room?.connections.get(connectionId)
     const player = connection ? room?.players.get(connection.playerId) : null
 
@@ -546,33 +564,35 @@ export class RoomManager {
       })
   }
 
-  private cleanupExpiredRooms(): void {
-    const now = this.now()
-    let changed = false
-
-    for (const [roomId, room] of this.rooms) {
-      if (
-        room.connections.size === 0 &&
-        now - room.updatedAt > LIMITS.jigsaw.roomTtlMs
-      ) {
-        this.rooms.delete(roomId)
-        changed = true
-      }
-    }
-
-    if (changed) {
-      this.syncMetrics()
-    }
-  }
-
   private syncMetrics(): void {
     let players = 0
+    const rooms = new Set(this.connectionRooms.values())
 
-    for (const room of this.rooms.values()) {
+    for (const room of rooms) {
       players += room.players.size
     }
 
-    this.dependencies.metrics.setActiveRooms(this.rooms.size)
+    this.dependencies.metrics.setActiveRooms(rooms.size)
     this.dependencies.metrics.setActivePlayers(players)
+  }
+
+  private findActiveRoom(roomId: string): Room | null {
+    for (const room of this.connectionRooms.values()) {
+      if (room.roomId === roomId) {
+        return room
+      }
+    }
+
+    return null
+  }
+
+  private async persistActiveRooms(): Promise<void> {
+    await Promise.all(
+      [...new Set(this.connectionRooms.values())].map((room) =>
+        this.dependencies.store.save(room)
+      )
+    ).catch((error: unknown) => {
+      this.logger.error("Active room persistence failed", error)
+    })
   }
 }

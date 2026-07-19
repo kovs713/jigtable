@@ -4,22 +4,22 @@ import type { LockTargetType, RoomPublisher } from "./room-events"
 import type { Player, Room } from "./room.types"
 
 export function updatePlayerLocks(room: Room, player: Player): void {
-  for (const [groupId, lock] of room.dragLocks) {
+  for (const [groupId, lock] of Object.entries(room.dragLocks)) {
     if (lock.playerId === player.id) {
-      room.dragLocks.set(groupId, {
+      room.dragLocks[groupId] = {
         ...lock,
         playerName: player.name,
-      })
+      }
     }
   }
 
-  for (const [key, lock] of room.toggleLocks) {
+  for (const [key, lock] of Object.entries(room.toggleLocks)) {
     if (lock.playerId === player.id) {
-      room.toggleLocks.set(key, {
+      room.toggleLocks[key] = {
         ...lock,
         playerName: player.name,
         playerColor: player.color,
-      })
+      }
     }
   }
 }
@@ -29,7 +29,7 @@ export function playerOwnsDragLock(
   playerId: string,
   groupId: GroupId
 ): boolean {
-  return room.dragLocks.get(groupId)?.playerId === playerId
+  return room.dragLocks[groupId]?.playerId === playerId
 }
 
 export function isGroupToggleLocked(
@@ -43,14 +43,14 @@ export function isGroupToggleLocked(
     return false
   }
 
-  const groupLock = room.toggleLocks.get(lockKey("group", groupId))
+  const groupLock = room.toggleLocks[lockKey("group", groupId)]
 
   if (groupLock && groupLock.playerId !== playerId) {
     return true
   }
 
   return group.pieceIds.some((pieceId) => {
-    const lock = room.toggleLocks.get(lockKey("piece", pieceId))
+    const lock = room.toggleLocks[lockKey("piece", pieceId)]
 
     return lock !== undefined && lock.playerId !== playerId
   })
@@ -61,12 +61,12 @@ export function releaseConnectionLocks(
   connectionId: string,
   publisher: RoomPublisher
 ): void {
-  for (const [key, lock] of room.toggleLocks) {
+  for (const [key, lock] of Object.entries(room.toggleLocks)) {
     if (lock.connectionId !== connectionId) {
       continue
     }
 
-    room.toggleLocks.delete(key)
+    delete room.toggleLocks[key]
 
     publisher.broadcast(room.roomId, {
       type: "room:lock-updated",
@@ -82,12 +82,12 @@ export function releasePlayerLocks(
   playerId: string,
   publisher: RoomPublisher
 ): void {
-  for (const [groupId, lock] of room.dragLocks) {
+  for (const [groupId, lock] of Object.entries(room.dragLocks)) {
     if (lock.playerId !== playerId) {
       continue
     }
 
-    room.dragLocks.delete(groupId)
+    delete room.dragLocks[groupId]
 
     publisher.broadcast(room.roomId, {
       type: "group:unlocked",
@@ -96,12 +96,12 @@ export function releasePlayerLocks(
     })
   }
 
-  for (const [key, lock] of room.toggleLocks) {
+  for (const [key, lock] of Object.entries(room.toggleLocks)) {
     if (lock.playerId !== playerId) {
       continue
     }
 
-    room.toggleLocks.delete(key)
+    delete room.toggleLocks[key]
 
     publisher.broadcast(room.roomId, {
       type: "room:lock-updated",
@@ -113,8 +113,8 @@ export function releasePlayerLocks(
 }
 
 export function releaseAllLocks(room: Room, publisher: RoomPublisher): void {
-  for (const [groupId, lock] of room.dragLocks) {
-    room.dragLocks.delete(groupId)
+  for (const [groupId, lock] of Object.entries(room.dragLocks)) {
+    delete room.dragLocks[groupId]
 
     publisher.broadcast(room.roomId, {
       type: "group:unlocked",
@@ -123,8 +123,8 @@ export function releaseAllLocks(room: Room, publisher: RoomPublisher): void {
     })
   }
 
-  for (const [key, lock] of room.toggleLocks) {
-    room.toggleLocks.delete(key)
+  for (const [key, lock] of Object.entries(room.toggleLocks)) {
+    delete room.toggleLocks[key]
 
     publisher.broadcast(room.roomId, {
       type: "room:lock-updated",
@@ -148,21 +148,21 @@ export function transferMergedGroupLocks({
 }): void {
   for (const removedGroupId of removedGroupIds) {
     const removedKey = lockKey("group", removedGroupId)
-    const removedLock = room.toggleLocks.get(removedKey)
+    const removedLock = room.toggleLocks[removedKey]
 
     if (!removedLock) {
       continue
     }
 
-    room.toggleLocks.delete(removedKey)
+    delete room.toggleLocks[removedKey]
 
     const keptKey = lockKey("group", keptGroupId)
 
-    if (!room.toggleLocks.has(keptKey)) {
-      room.toggleLocks.set(keptKey, {
+    if (!room.toggleLocks[keptKey]) {
+      room.toggleLocks[keptKey] = {
         ...removedLock,
         targetId: keptGroupId,
-      })
+      }
     }
 
     publisher.broadcast(room.roomId, {

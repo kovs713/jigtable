@@ -46,16 +46,16 @@ export class RoomController {
     this.rooms.requestState(this.requireConnectionId(socket))
   }
 
-  handleSessionPause(socket: WsSocket): void {
-    this.rooms.pause(this.requireConnectionId(socket))
+  handleSessionPause(socket: WsSocket): Promise<void> {
+    return this.rooms.pause(this.requireConnectionId(socket))
   }
 
-  handleSessionResume(socket: WsSocket): void {
-    this.rooms.resume(this.requireConnectionId(socket))
+  handleSessionResume(socket: WsSocket): Promise<void> {
+    return this.rooms.resume(this.requireConnectionId(socket))
   }
 
-  handleGroupGrab(socket: WsSocket, input: { groupId: string }): void {
-    this.rooms.grabGroup(this.requireConnectionId(socket), input.groupId)
+  handleGroupGrab(socket: WsSocket, input: { groupId: string }): Promise<void> {
+    return this.rooms.grabGroup(this.requireConnectionId(socket), input.groupId)
   }
 
   handleGroupMove(
@@ -65,8 +65,8 @@ export class RoomController {
       x: number
       y: number
     }
-  ): void {
-    this.rooms.moveGroup(this.requireConnectionId(socket), input)
+  ): Promise<void> {
+    return this.rooms.moveGroup(this.requireConnectionId(socket), input)
   }
 
   handleGroupDrop(
@@ -76,12 +76,18 @@ export class RoomController {
       x: number
       y: number
     }
-  ): void {
-    this.rooms.dropGroup(this.requireConnectionId(socket), input)
+  ): Promise<void> {
+    return this.rooms.dropGroup(this.requireConnectionId(socket), input)
   }
 
-  handleGroupRelease(socket: WsSocket, input: { groupId: string }): void {
-    this.rooms.releaseGroup(this.requireConnectionId(socket), input.groupId)
+  handleGroupRelease(
+    socket: WsSocket,
+    input: { groupId: string }
+  ): Promise<void> {
+    return this.rooms.releaseGroup(
+      this.requireConnectionId(socket),
+      input.groupId
+    )
   }
 
   handleGroupsArrange(
@@ -89,8 +95,11 @@ export class RoomController {
     input: {
       mode: ArrangeLoosePiecesMode
     }
-  ): void {
-    this.rooms.arrangeGroups(this.requireConnectionId(socket), input.mode)
+  ): Promise<void> {
+    return this.rooms.arrangeGroups(
+      this.requireConnectionId(socket),
+      input.mode
+    )
   }
 
   handleRoomLockToggle(
@@ -99,8 +108,8 @@ export class RoomController {
       targetType: "piece" | "group"
       targetId: string
     }
-  ): void {
-    this.rooms.toggleLock(this.requireConnectionId(socket), input)
+  ): Promise<void> {
+    return this.rooms.toggleLock(this.requireConnectionId(socket), input)
   }
 
   handleRoomPing(

@@ -1,3 +1,4 @@
+import { LIMITS } from "@/config"
 import {
   DrizzleAuthSessionRepository,
   DrizzleCompositionRepository,
@@ -15,8 +16,13 @@ import {
 import { CompositionService } from "./composition/composition.service"
 import { HistoryService } from "./history"
 import { PlayerSessionService } from "./player-session"
-import type { RoomMetrics, RoomPublisher } from "./room"
-import { RoomManager } from "./room"
+import { getRedisClient, RedisCache } from "./redis"
+import {
+  RedisRoomStore,
+  RoomManager,
+  type RoomMetrics,
+  type RoomPublisher,
+} from "./room"
 
 export type CreateServicesDependencies = {
   roomPublisher: RoomPublisher
@@ -27,15 +33,23 @@ export function createServices({
   roomPublisher,
   roomMetrics,
 }: CreateServicesDependencies): Services {
+  const redis = getRedisClient()
   const playerSessions = new PlayerSessionService(
-    new DrizzlePlayerSessionRepository()
+    new DrizzlePlayerSessionRepository(
+      new RedisCache(redis, "player-session", 30 * 24 * 60 * 60)
+    )
   )
   const history = new HistoryService(new DrizzleHistoryRepository())
+  const roomStore = new RedisRoomStore(
+    redis,
+    Math.ceil(LIMITS.jigsaw.roomTtlMs / 1000)
+  )
   const rooms = new RoomManager({
     sessions: playerSessions,
     history,
     publisher: roomPublisher,
     metrics: roomMetrics,
+    store: roomStore,
   })
   const auth = new AuthService({
     users: new DrizzleUserRepository(),
