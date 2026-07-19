@@ -77,16 +77,21 @@ export function resolveAuth(): Middleware {
       return next()
     }
 
-    const session = await context.services.auth.authenticate(token)
-
-    context.auth = session
-      ? {
-          status: "authenticated",
-          session,
-        }
-      : {
-          status: "anonymous",
-        }
+    const result = await context.services.auth.authenticate(token)
+    if (!result)
+      context.auth = {
+        status: "anonymous",
+      }
+    else {
+      context.auth = result.ok
+        ? {
+            status: "authenticated",
+            session: result.value,
+          }
+        : {
+            status: "anonymous",
+          }
+    }
 
     return next()
   }
