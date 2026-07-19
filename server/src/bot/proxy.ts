@@ -43,7 +43,7 @@ async function normalizeMultipartBody(init?: FetchInit): Promise<FetchInit> {
   for (const [key, value] of source) {
     if (typeof value !== "string") {
       if (!directAttachments.has(key)) {
-        body.set(key, value)
+        body.set(key, await copyMultipartFile(value))
       }
       continue
     }
@@ -55,7 +55,7 @@ async function normalizeMultipartBody(init?: FetchInit): Promise<FetchInit> {
         throw new Error("Telegram multipart attachment is missing")
       }
 
-      body.set(key, attachment)
+      body.set(key, await copyMultipartFile(attachment))
       continue
     }
 
@@ -72,6 +72,12 @@ async function normalizeMultipartBody(init?: FetchInit): Promise<FetchInit> {
     body,
     headers,
   }
+}
+
+async function copyMultipartFile(file: Blob): Promise<File> {
+  const name = "name" in file ? String(file.name) : "media"
+
+  return new File([await file.arrayBuffer()], name, { type: file.type })
 }
 
 export const telegramApiFetch: typeof fetch = Object.assign(
