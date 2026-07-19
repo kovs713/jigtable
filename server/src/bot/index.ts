@@ -1,4 +1,5 @@
-import { Bot, session, type Context } from "grammy"
+import { autoRetry } from "@grammyjs/auto-retry"
+import { Bot, GrammyError, HttpError, session, type Context } from "grammy"
 
 import { registerHandlers } from "@/bot/handlers"
 import { telegramApiFetch } from "@/bot/proxy"
@@ -28,6 +29,13 @@ export async function createBot(): Promise<Bot<BotContext>> {
         }
   )
 
+  bot.api.config.use(
+    autoRetry({
+      maxRetryAttempts: 2,
+      maxDelaySeconds: 10,
+    })
+  )
+
   bot.use(
     session({
       initial: initialSession,
@@ -40,11 +48,31 @@ export async function createBot(): Promise<Bot<BotContext>> {
 
   await registerHandlers(bot)
 
-  bot.catch((err) => {
-    console.error("Bot error", err)
+  bot.catch(({ ctx, error }) => {
+    const details: Record<string, unknown> = {
+      updateId: ctx.update.update_id,
+      error: error instanceof Error ? error.message : String(error),
+    }
+
+    if (error instanceof GrammyError) {
+      details.method = error.method
+      details.code = error.error_code
+    } else if (error instanceof HttpError) {
+      details.code = networkErrorCode(error.error)
+    }
+
+    console.error("Bot update failed", details)
   })
 
   return bot
+}
+
+function networkErrorCode(error: unknown): unknown {
+  if (typeof error !== "object" || error === null || !("code" in error)) {
+    return undefined
+  }
+
+  return error.code
 }
 
 export async function startBot(bot: Bot<BotContext>): Promise<void> {
