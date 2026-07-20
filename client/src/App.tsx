@@ -1498,7 +1498,7 @@ export function App() {
                       : "Select build"}
                   </SelectValue>
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="editor-header__select-content">
                   {compositions.map((composition, index) => (
                     <SelectItem
                       key={composition.compositionId}

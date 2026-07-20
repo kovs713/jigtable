@@ -149,7 +149,7 @@
 .editor-header__auth-status--mono,
 .editor-header__select,
 .editor-header__input {
-  font-family: var(--editor-font-mono);
+  font-family: var(--font-mono);
 }
 
 .editor-header__content {
@@ -191,8 +191,13 @@
 
 .editor-header__select {
   width: 100%;
-  font-size: 0.875rem;
-  line-height: 1.25rem;
+  font-size: 0.78rem;
+  line-height: 1.2rem;
+}
+
+.editor-header__select-content {
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
 }
 
 .editor-header__input {
