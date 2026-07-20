@@ -11,14 +11,16 @@
 
 .app-navigation__trigger {
   display: grid;
-  grid-template-columns: 2rem auto auto;
-  align-items: center;
-  min-width: 7.25rem;
-  min-height: 3rem;
+  grid-template-columns: 2.75rem auto auto;
+  align-items: stretch;
+  width: max-content;
+  min-width: 0;
+  min-height: 2.75rem;
   overflow: hidden;
   border-color: color-mix(in oklch, var(--border), var(--primary) 16%);
   color: var(--foreground);
-  box-shadow: 0 12px 36px color-mix(in oklch, var(--foreground), transparent 84%);
+  box-shadow: 0 12px 36px
+    color-mix(in oklch, var(--foreground), transparent 84%);
   cursor: pointer;
   list-style: none;
   transition:
@@ -37,6 +39,11 @@
   background: color-mix(in oklch, var(--card), var(--primary) 5%);
 }
 
+.app-navigation__menu[open] .app-navigation__trigger {
+  width: min(17rem, calc(100vw - 1.5rem));
+  grid-template-columns: 2.75rem 1fr auto;
+}
+
 .app-navigation__trigger:active {
   transform: translateY(1px);
 }
@@ -50,15 +57,18 @@
   display: grid;
   align-self: stretch;
   place-items: center;
+  width: 2.75rem;
   color: var(--primary-foreground);
   font-family: var(--font-mono);
-  font-size: 0.75rem;
+  font-size: 0.875rem;
   font-weight: 750;
   background: var(--primary);
 }
 
 .app-navigation__trigger-label,
 .app-navigation__trigger-arrow {
+  display: flex;
+  align-items: center;
   font-family: var(--font-mono);
   font-size: 0.6rem;
   font-weight: 650;
@@ -67,11 +77,11 @@
 }
 
 .app-navigation__trigger-label {
-  padding-inline: 0.65rem 0.45rem;
+  padding-inline: 0.55rem 0.25rem;
 }
 
 .app-navigation__trigger-arrow {
-  padding-right: 0.65rem;
+  padding-inline: 0.6rem;
   color: var(--muted-foreground);
   transition: transform 160ms ease;
 }
@@ -87,7 +97,8 @@
   width: min(17rem, calc(100vw - 1.5rem));
   overflow: hidden;
   color: var(--card-foreground);
-  box-shadow: 0 20px 60px color-mix(in oklch, var(--foreground), transparent 80%);
+  box-shadow: 0 20px 60px
+    color-mix(in oklch, var(--foreground), transparent 80%);
   transform-origin: bottom left;
   animation: app-navigation-open 160ms ease-out;
 }
@@ -203,7 +214,7 @@
 
 @media (max-width: 30rem) {
   .app-navigation__trigger {
-    min-width: 6.5rem;
+    min-width: 0;
   }
 }
 
