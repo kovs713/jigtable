@@ -152,6 +152,13 @@ export class RoomController {
     this.rooms.hideCursor(this.requireConnectionId(socket))
   }
 
+  handleChatSend(
+    socket: WsSocket,
+    input: { text: string; x?: number; y?: number }
+  ): void {
+    this.rooms.sendChatMessage(this.requireConnectionId(socket), input)
+  }
+
   async handleClose(socket: WsSocket): Promise<void> {
     const connectionId = socket.data.connectionId
 

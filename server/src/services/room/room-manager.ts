@@ -723,6 +723,30 @@ export class RoomManager {
     }
   }
 
+  sendChatMessage(
+    connectionId: string,
+    input: { text: string; x?: number; y?: number }
+  ): void {
+    const joined = this.getJoinedRoom(connectionId)
+
+    if (!joined) {
+      return
+    }
+
+    this.dependencies.publisher.broadcast(joined.room.roomId, {
+      type: "chat:message",
+      message: {
+        id: crypto.randomUUID(),
+        player: joined.player,
+        text: input.text,
+        createdAt: this.now(),
+        ...(input.x !== undefined && input.y !== undefined
+          ? { cursor: { x: input.x, y: input.y } }
+          : {}),
+      },
+    })
+  }
+
   async disconnect(connectionId: string): Promise<void> {
     await this.runRoomCommand(connectionId, () =>
       this.disconnectCommand(connectionId)

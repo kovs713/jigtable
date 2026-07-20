@@ -1,4 +1,7 @@
-import type { ClientToServerMessage } from "@jigtable/core/protocol"
+import {
+  CHAT_MESSAGE_MAX_LENGTH,
+  type ClientToServerMessage,
+} from "@jigtable/core/protocol"
 import type { ArrangeLoosePiecesMode } from "@jigtable/core/scatter"
 import { string } from "@jigtable/shared/schemas"
 import { isRecord } from "@jigtable/shared/utils"
@@ -128,6 +131,23 @@ export function parseCursorMoveInput(
   const y = readCoordinate(message.y)
 
   return x !== null && y !== null ? { x, y } : null
+}
+
+export function parseChatSendInput(
+  message: unknown
+): InputFor<"chat:send"> | null {
+  if (!isRecord(message) || typeof message.text !== "string") return null
+
+  const text = message.text.trim()
+
+  if (!text || text.length > CHAT_MESSAGE_MAX_LENGTH) return null
+
+  if (message.x === undefined && message.y === undefined) return { text }
+
+  const x = readCoordinate(message.x)
+  const y = readCoordinate(message.y)
+
+  return x !== null && y !== null ? { text, x, y } : null
 }
 
 function isArrangeMode(value: unknown): value is ArrangeLoosePiecesMode {

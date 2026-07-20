@@ -235,6 +235,10 @@ export function JigsawProfileApp() {
             <dd>{stats.solved}</dd>
           </div>
           <div>
+            <dt>XP</dt>
+            <dd>{authSession?.user.xpTotal ?? 0}</dd>
+          </div>
+          <div>
             <dt>Pieces</dt>
             <dd>{stats.pieces}</dd>
           </div>
@@ -284,7 +288,7 @@ export function JigsawProfileApp() {
                   <div className="jigsaw-room__history-people">
                     {item.participants.map((participant, index) => (
                       <span
-                        key={`${item.roomId}-${participant.telegramId ?? participant.name}-${index}`}
+                        key={`${item.roomId}-${participant.playerId ?? participant.telegramId ?? participant.name}-${index}`}
                         className="jigsaw-room__participant-chip"
                         style={{
                           borderLeftColor: participant.color,

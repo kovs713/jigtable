@@ -108,6 +108,7 @@ export interface JigsawRoomResult {
   snapCount: number
   completedAt: string
   participants: Array<{
+    playerId?: string
     userId?: string
     telegramId?: string
     name: string

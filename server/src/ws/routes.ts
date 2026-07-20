@@ -2,6 +2,7 @@ import { isRecord } from "@jigtable/shared/utils"
 
 import {
   parseArrangeGroupsInput,
+  parseChatSendInput,
   parseCommandInput,
   parseCursorMoveInput,
   parseGroupDropInput,
@@ -165,6 +166,18 @@ export async function routeWsMessage(context: WsContext): Promise<void> {
 
     case "cursor:hide": {
       roomController.handleCursorHide(socket)
+      return
+    }
+
+    case "chat:send": {
+      const input = parseChatSendInput(message)
+
+      if (!input) {
+        sendWsError(socket, "invalid_message", "Invalid chat message")
+        return
+      }
+
+      roomController.handleChatSend(socket, input)
       return
     }
 

@@ -203,6 +203,34 @@ describe("RoomManager", () => {
       eventStore.events.find((event) => event.commandId === noopId)?.eventType
     ).toBe("command_noop")
   })
+
+  test("attributes and broadcasts chat messages", async () => {
+    const events: RoomEvent[] = []
+    const manager = createManager(createHistory(), {
+      publisher: createPublisher(events),
+    })
+    const state = await manager.createRoom(createRoomInput())
+    await manager.joinRoom("connection-1", {
+      roomId: state.roomId,
+      sessionToken: session.token,
+    })
+
+    manager.sendChatMessage("connection-1", {
+      text: "hello room",
+      x: 20,
+      y: 30,
+    })
+
+    const event = events.find((item) => item.type === "chat:message")
+    expect(event).toMatchObject({
+      type: "chat:message",
+      message: {
+        player: session.player,
+        text: "hello room",
+        cursor: { x: 20, y: 30 },
+      },
+    })
+  })
 })
 
 function createManager(

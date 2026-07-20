@@ -21,6 +21,19 @@ export interface PlayerSession {
   updatedAt: number
 }
 
+export const CHAT_MESSAGE_MAX_LENGTH = 300
+
+export interface ChatMessage {
+  id: string
+  player: Player
+  text: string
+  createdAt: number
+  cursor?: {
+    x: number
+    y: number
+  }
+}
+
 export interface JigsawGroupLock {
   groupId: GroupId
   playerId: string
@@ -122,6 +135,7 @@ export type ClientToServerMessage =
   | { type: "session:resume" }
   | { type: "room:preview:open"; commandId: string }
   | { type: "room:preview:close"; commandId: string }
+  | { type: "chat:send"; text: string; x?: number; y?: number }
 
 export type ServerToClientMessage =
   | { type: "room:state"; state: RoomSnapshot }
@@ -190,6 +204,7 @@ export type ServerToClientMessage =
       y: number
       createdAt: number
     }
+  | { type: "chat:message"; message: ChatMessage }
   | { type: "error"; code: string; message: string }
 
 export type ClientMessageType = ClientToServerMessage["type"]
@@ -219,6 +234,7 @@ export const CLIENT_MESSAGE_TYPES = defineMessageTypes<ClientToServerMessage>()(
     "session:resume",
     "room:preview:open",
     "room:preview:close",
+    "chat:send",
   ]
 )
 
@@ -242,6 +258,7 @@ export const SERVER_MESSAGE_TYPES = defineMessageTypes<ServerToClientMessage>()(
     "groups:arranged",
     "stats:updated",
     "room:pinged",
+    "chat:message",
     "error",
   ]
 )

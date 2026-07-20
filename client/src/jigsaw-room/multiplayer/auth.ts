@@ -18,6 +18,8 @@ export interface AuthUser {
   photoUrl: string | null
   displayName: string
   color: string
+  xpTotal: number
+  xpUpdatedAt: string | null
 }
 
 export interface AuthSession {
@@ -39,6 +41,7 @@ export interface JigsawHistoryItem {
     label: string
   }
   participants: Array<{
+    playerId?: string
     userId?: string
     telegramId?: string
     name: string
@@ -288,6 +291,11 @@ function parseAuthUser(value: unknown): AuthUser | null {
     photoUrl: readNullableString(value.photoUrl),
     displayName: value.displayName,
     color: value.color,
+    xpTotal:
+      typeof value.xpTotal === "number" && Number.isFinite(value.xpTotal)
+        ? Math.max(0, Math.floor(value.xpTotal))
+        : 0,
+    xpUpdatedAt: readDateString(value.xpUpdatedAt),
   }
 }
 

@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test"
 
 import {
   parseArrangeGroupsInput,
+  parseChatSendInput,
   parseCursorMoveInput,
   parseGroupDropInput,
   parseGroupMoveInput,
@@ -50,5 +51,19 @@ describe("WebSocket inputs", () => {
     expect(
       parseGroupDropInput({ ...input, commandId: "not-a-uuid" })
     ).toBeNull()
+  })
+
+  test("normalizes and limits chat messages", () => {
+    expect(parseChatSendInput({ text: "  hello room  " })).toEqual({
+      text: "hello room",
+    })
+    expect(parseChatSendInput({ text: "here", x: 10, y: -5 })).toEqual({
+      text: "here",
+      x: 10,
+      y: -5,
+    })
+    expect(parseChatSendInput({ text: "missing coordinate", x: 10 })).toBeNull()
+    expect(parseChatSendInput({ text: "   " })).toBeNull()
+    expect(parseChatSendInput({ text: "x".repeat(301) })).toBeNull()
   })
 })

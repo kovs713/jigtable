@@ -1,22 +1,30 @@
 import type { Application } from "pixi.js"
 import { Container, Graphics, Text } from "pixi.js"
 
-import type { PlayerCursor as JigsawPlayerCursor } from "@jigtable/core/protocol"
+import type {
+  ChatMessage,
+  PlayerCursor as JigsawPlayerCursor,
+} from "@jigtable/core/protocol"
 
 import type { JigsawMultiplayerClient } from "../multiplayer/client"
 import type { CameraController } from "./camera"
 
 // multiplayer cursor broadcast throttle — 40 events/sec
 const CURSOR_SEND_INTERVAL_MS = 25
+const CHAT_BUBBLE_DURATION_MS = 3_800
+const CHAT_BUBBLE_FADE_MS = 500
+const CHAT_BUBBLE_MAX_LENGTH = 120
 
 export interface RemoteCursorViewSet {
   applyCursor: (cursor: JigsawPlayerCursor) => void
   syncCursors: (cursors: JigsawPlayerCursor[], localPlayerId: string) => void
+  showChatMessage: (message: ChatMessage) => void
   removeCursor: (playerId: string) => void
   destroy: () => void
 }
 
 export interface CursorBroadcastController {
+  getLastPosition: () => { x: number; y: number } | null
   destroy: () => void
 }
 
@@ -25,6 +33,11 @@ interface RemoteCursorView {
   pointer: Graphics
   label: Text
   labelBackground: Graphics
+  chatBubble: Container
+  chatBubbleBackground: Graphics
+  chatBubbleText: Text
+  chatBubbleShownAt: number | null
+  active: boolean
   playerName: string
   color: number
 }
@@ -43,8 +56,36 @@ export function createRemoteCursorViews(
   function updateScales(): void {
     const scale = 1 / camera.zoom
 
-    for (const view of views.values()) {
+    const now = performance.now()
+
+    for (const [playerId, view] of views) {
       view.container.scale.set(scale)
+
+      if (view.chatBubbleShownAt === null) continue
+
+      const elapsed = now - view.chatBubbleShownAt
+
+      if (elapsed >= CHAT_BUBBLE_DURATION_MS) {
+        view.chatBubble.visible = false
+        view.chatBubbleShownAt = null
+
+        if (!view.active) {
+          views.delete(playerId)
+          view.container.destroy({ children: true })
+        }
+
+        continue
+      }
+
+      const entrance = Math.min(elapsed / 180, 1)
+      const fade = Math.min(
+        (CHAT_BUBBLE_DURATION_MS - elapsed) / CHAT_BUBBLE_FADE_MS,
+        1
+      )
+
+      view.chatBubble.alpha = Math.min(entrance, fade)
+      view.chatBubble.scale.set(0.92 + entrance * 0.08)
+      view.chatBubble.y = view.chatBubble.height * -1 - 11 - (1 - entrance) * 6
     }
   }
 
@@ -57,6 +98,7 @@ export function createRemoteCursorViews(
     view.container.position.set(cursor.x, cursor.y)
     view.container.scale.set(1 / camera.zoom)
     view.container.visible = true
+    view.active = true
   }
 
   function syncCursors(
@@ -88,8 +130,51 @@ export function createRemoteCursorViews(
       return
     }
 
-    views.delete(playerId)
-    view.container.destroy({ children: true })
+    view.active = false
+
+    if (view.chatBubbleShownAt === null) {
+      views.delete(playerId)
+      view.container.destroy({ children: true })
+    }
+  }
+
+  function showChatMessage(message: ChatMessage): void {
+    let view = views.get(message.player.id)
+
+    if (!view && message.cursor) {
+      view = getOrCreateCursorView(
+        {
+          playerId: message.player.id,
+          playerName: message.player.name,
+          color: message.player.color,
+          x: message.cursor.x,
+          y: message.cursor.y,
+          updatedAt: message.createdAt,
+        },
+        app
+      )
+      view.container.position.set(message.cursor.x, message.cursor.y)
+      view.container.scale.set(1 / camera.zoom)
+      view.container.visible = true
+    }
+
+    if (!view) return
+
+    if (message.cursor) {
+      view.container.position.set(message.cursor.x, message.cursor.y)
+    }
+
+    const text =
+      message.text.length > CHAT_BUBBLE_MAX_LENGTH
+        ? `${message.text.slice(0, CHAT_BUBBLE_MAX_LENGTH - 1)}…`
+        : message.text
+
+    view.chatBubbleText.text = text
+    drawChatBubble(view)
+    view.chatBubble.alpha = 0
+    view.chatBubble.scale.set(0.92)
+    view.chatBubble.visible = true
+    view.chatBubbleShownAt = performance.now()
   }
 
   function getOrCreateCursorView(
@@ -112,6 +197,7 @@ export function createRemoteCursorViews(
   return {
     applyCursor,
     syncCursors,
+    showChatMessage,
     removeCursor,
     destroy() {
       app.ticker.remove(updateScales)
@@ -132,8 +218,11 @@ export function setupCursorBroadcast({
 }): CursorBroadcastController {
   const canvas = app.canvas as HTMLCanvasElement
   let lastSentAt = 0
+  let lastPosition: { x: number; y: number } | null = null
 
   function onPointerMove(event: PointerEvent): void {
+    lastPosition = camera.screenToWorld(event.clientX, event.clientY)
+
     const connection = getConnection()
 
     if (!connection?.isConnected()) {
@@ -146,9 +235,12 @@ export function setupCursorBroadcast({
       return
     }
 
-    const world = camera.screenToWorld(event.clientX, event.clientY)
     lastSentAt = now
-    connection.send({ type: "cursor:move", x: world.x, y: world.y })
+    connection.send({
+      type: "cursor:move",
+      x: lastPosition.x,
+      y: lastPosition.y,
+    })
   }
 
   function onPointerLeave(): void {
@@ -159,6 +251,9 @@ export function setupCursorBroadcast({
   canvas.addEventListener("pointerleave", onPointerLeave)
 
   return {
+    getLastPosition() {
+      return lastPosition ? { ...lastPosition } : null
+    },
     destroy() {
       canvas.removeEventListener("pointermove", onPointerMove)
       canvas.removeEventListener("pointerleave", onPointerLeave)
@@ -185,17 +280,40 @@ function createCursorView(
     },
   })
   const labelBackground = new Graphics()
+  const chatBubble = new Container()
+  const chatBubbleBackground = new Graphics()
+  const chatBubbleText = new Text({
+    text: "",
+    resolution: app.renderer.resolution,
+    style: {
+      fill: 0xffffff,
+      fontFamily: "Satoshi, system-ui, sans-serif",
+      fontSize: 13,
+      fontWeight: "600",
+      leading: 3,
+      wordWrap: true,
+      wordWrapWidth: 210,
+    },
+  })
 
   label.position.set(26, 16)
+  chatBubbleText.position.set(11, 8)
+  chatBubble.addChild(chatBubbleBackground, chatBubbleText)
+  chatBubble.visible = false
 
   container.eventMode = "none"
-  container.addChild(pointer, labelBackground, label)
+  container.addChild(pointer, labelBackground, label, chatBubble)
 
   const view = {
     container,
     pointer,
     label,
     labelBackground,
+    chatBubble,
+    chatBubbleBackground,
+    chatBubbleText,
+    chatBubbleShownAt: null,
+    active: false,
     playerName: cursor.playerName,
     color,
   } satisfies RemoteCursorView
@@ -203,6 +321,22 @@ function createCursorView(
   drawCursorView(view)
 
   return view
+}
+
+function drawChatBubble(view: RemoteCursorView): void {
+  const width = view.chatBubbleText.width + 22
+  const height = view.chatBubbleText.height + 16
+
+  view.chatBubbleBackground
+    .clear()
+    .roundRect(0, 0, width, height, 5)
+    .fill({ color: 0x0a1018, alpha: 0.9 })
+    .stroke({ width: 1, color: view.color, alpha: 0.8 })
+    .moveTo(14, height)
+    .lineTo(21, height + 7)
+    .lineTo(27, height)
+    .closePath()
+    .fill({ color: 0x0a1018, alpha: 0.9 })
 }
 
 function updateCursorView(

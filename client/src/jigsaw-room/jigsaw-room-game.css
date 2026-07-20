@@ -14,7 +14,9 @@
 /* Base Panel Style */
 .jigsaw-room__toolbar,
 .jigsaw-room__pause-banner,
-.jigsaw-room__loading {
+.jigsaw-room__loading,
+.jigsaw-room__chat-launcher,
+.jigsaw-room__chat-panel {
   position: relative;
   z-index: 2;
   border: 0.5px solid var(--jigsaw-panel-border);
@@ -23,6 +25,282 @@
   backdrop-filter: blur(var(--panel-blur)) saturate(var(--panel-saturate));
   -webkit-backdrop-filter: blur(var(--panel-blur))
     saturate(var(--panel-saturate));
+}
+
+/* Room chat */
+.jigsaw-room__chat-launcher,
+.jigsaw-room__chat-panel {
+  position: absolute;
+  right: 14px;
+  bottom: 14px;
+  z-index: 3;
+}
+
+.jigsaw-room__chat-launcher {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-height: 46px;
+  padding: 0 14px;
+  border-radius: 0;
+  color: var(--foreground);
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  background-color: color-mix(in oklch, var(--jigsaw-panel), transparent 18%);
+  cursor: pointer;
+}
+
+.jigsaw-room__chat-launcher:hover {
+  background: color-mix(in oklch, var(--jigsaw-panel), var(--primary) 10%);
+}
+
+.jigsaw-room__chat-launcher-mark {
+  color: var(--primary);
+  font-family: var(--font-mono);
+  letter-spacing: -0.22em;
+}
+
+.jigsaw-room__chat-unread {
+  display: grid;
+  min-width: 20px;
+  height: 20px;
+  padding-inline: 4px;
+  place-items: center;
+  color: var(--primary-foreground);
+  background: var(--primary);
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  letter-spacing: 0;
+}
+
+.jigsaw-room__chat-panel {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  width: min(380px, calc(100vw - 28px));
+  height: min(480px, calc(100vh - 96px));
+  overflow: hidden;
+  background-color: color-mix(in oklch, var(--jigsaw-panel), transparent 28%);
+  backdrop-filter: blur(calc(var(--panel-blur) * 1.4))
+    saturate(var(--panel-saturate));
+  -webkit-backdrop-filter: blur(calc(var(--panel-blur) * 1.4))
+    saturate(var(--panel-saturate));
+}
+
+.jigsaw-room__chat-header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: stretch;
+  border-bottom: 0.5px solid var(--jigsaw-panel-border);
+  background: color-mix(in oklch, var(--jigsaw-panel-strong), transparent 22%);
+}
+
+.jigsaw-room__chat-header > div {
+  display: grid;
+  gap: 2px;
+  padding: 14px 16px;
+}
+
+.jigsaw-room__chat-kicker {
+  color: var(--jigsaw-panel-muted);
+  font-family: var(--font-mono);
+  font-size: 0.56rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.jigsaw-room__chat-header strong {
+  font-size: 0.78rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.jigsaw-room__chat-connection {
+  align-self: center;
+  margin-right: 10px;
+  padding: 3px 6px;
+  border: 0.5px solid var(--jigsaw-panel-border);
+  color: var(--jigsaw-panel-muted);
+  font-family: var(--font-mono);
+  font-size: 0.56rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.jigsaw-room__chat-connection--live {
+  border-color: color-mix(in oklch, var(--primary), transparent 45%);
+  color: var(--primary);
+}
+
+.jigsaw-room__chat-header button {
+  min-width: 62px;
+  border: 0;
+  border-left: 0.5px solid var(--jigsaw-panel-border);
+  border-radius: 0;
+  color: var(--foreground);
+  background: transparent;
+  font: inherit;
+  font-size: 0.58rem;
+  font-weight: 750;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.jigsaw-room__chat-header button:hover {
+  background: color-mix(in oklch, var(--primary), transparent 88%);
+}
+
+.jigsaw-room__chat-feed {
+  min-height: 0;
+  padding: 8px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+}
+
+.jigsaw-room__chat-message {
+  display: grid;
+  gap: 8px;
+  padding: 14px 15px;
+  border: 0.5px solid var(--jigsaw-panel-border);
+  background: color-mix(in oklch, var(--jigsaw-panel), transparent 36%);
+}
+
+.jigsaw-room__chat-message + .jigsaw-room__chat-message {
+  margin-top: 7px;
+}
+
+.jigsaw-room__chat-message--own {
+  box-shadow: inset 2px 0 var(--primary);
+  background: color-mix(
+    in oklch,
+    color-mix(in oklch, var(--jigsaw-panel), var(--primary) 7%),
+    transparent 28%
+  );
+}
+
+.jigsaw-room__chat-message-meta {
+  display: grid;
+  grid-template-columns: 7px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 7px;
+}
+
+.jigsaw-room__chat-player-dot {
+  width: 7px;
+  height: 7px;
+  box-shadow: 0 0 8px currentColor;
+}
+
+.jigsaw-room__chat-message-meta strong {
+  overflow: hidden;
+  font-size: 0.67rem;
+  letter-spacing: 0.04em;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.jigsaw-room__chat-message-meta time {
+  color: var(--jigsaw-panel-muted);
+  font-family: var(--font-mono);
+  font-size: 0.56rem;
+}
+
+.jigsaw-room__chat-message p {
+  margin: 0;
+  overflow-wrap: anywhere;
+  font-size: 0.75rem;
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+
+.jigsaw-room__chat-empty {
+  display: grid;
+  height: 100%;
+  min-height: 180px;
+  padding: 30px;
+  place-content: center;
+  text-align: center;
+}
+
+.jigsaw-room__chat-empty span {
+  color: var(--jigsaw-panel-muted);
+  font-family: var(--font-mono);
+  font-size: 0.66rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.jigsaw-room__chat-empty p {
+  max-width: 220px;
+  margin: 8px 0 0;
+  color: var(--muted-foreground);
+  font-size: 0.7rem;
+  line-height: 1.5;
+}
+
+.jigsaw-room__chat-form {
+  display: grid;
+  gap: 8px;
+  padding: 13px;
+  border-top: 0.5px solid var(--jigsaw-panel-border);
+  background: color-mix(in oklch, var(--jigsaw-panel-strong), transparent 20%);
+}
+
+.jigsaw-room__chat-form label {
+  color: var(--jigsaw-panel-muted);
+  font-family: var(--font-mono);
+  font-size: 0.55rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.jigsaw-room__chat-form > div {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.jigsaw-room__chat-form input {
+  min-width: 0;
+  height: 42px;
+  padding: 0 12px;
+  border: 0.5px solid var(--jigsaw-panel-border);
+  border-radius: 0;
+  color: var(--foreground);
+  background: transparent;
+  font: inherit;
+  font-size: 0.72rem;
+  outline: none;
+}
+
+.jigsaw-room__chat-form input:focus {
+  border-color: color-mix(in oklch, var(--primary), transparent 35%);
+  box-shadow: inset 0 0 0 1px
+    color-mix(in oklch, var(--primary), transparent 75%);
+}
+
+.jigsaw-room__chat-form button {
+  min-width: 64px;
+  border: 0;
+  border-radius: 0;
+  color: var(--primary-foreground);
+  background: var(--primary);
+  font: inherit;
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.jigsaw-room__chat-form button:disabled,
+.jigsaw-room__chat-form input:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
 }
 
 .jigsaw-room__toolbar,
@@ -410,8 +688,6 @@
   animation: jigsaw-solved-flash 12s ease both;
 }
 
-
-
 .jigsaw-room__solved-card {
   position: relative;
   z-index: 2;
@@ -432,21 +708,64 @@
     var(--primary);
   box-shadow:
     0 28px 120px color-mix(in oklch, var(--primary), transparent 24%),
-    inset 0 0 0 1px color-mix(in oklch, var(--primary-foreground), transparent 82%);
+    inset 0 0 0 1px
+      color-mix(in oklch, var(--primary-foreground), transparent 82%);
   animation: jigsaw-solved-card 12s ease both;
 }
 
-.jigsaw-room__solved-card span {
+.jigsaw-room__solved-card > span {
   font-size: clamp(0.9rem, 1.6vw, 1.25rem);
   font-weight: 850;
   letter-spacing: 0.24em;
 }
 
-.jigsaw-room__solved-card strong {
+.jigsaw-room__solved-card > strong {
   font-family: var(--font-mono);
   font-size: clamp(1.8rem, 5vw, 3.4rem);
   line-height: 1;
   letter-spacing: 0.08em;
+}
+
+.jigsaw-room__solved-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin: 10px -12px -6px;
+  border: 0.5px solid
+    color-mix(in oklch, var(--primary-foreground), transparent 68%);
+  background: color-mix(in oklch, var(--primary), black 12%);
+}
+
+.jigsaw-room__solved-stats > div {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+  padding: 10px 12px;
+  border-right: 0.5px solid
+    color-mix(in oklch, var(--primary-foreground), transparent 72%);
+}
+
+.jigsaw-room__solved-stats > div:last-child {
+  border-right: 0;
+}
+
+.jigsaw-room__solved-stats dt {
+  overflow: hidden;
+  font-family: var(--font-mono);
+  font-size: 0.54rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  opacity: 0.72;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.jigsaw-room__solved-stats dd {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 0.9rem;
+  font-weight: 850;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
 }
 
 .jigsaw-room__fireworks {
@@ -464,7 +783,8 @@
   left: 50%;
   width: var(--size);
   height: var(--size);
-  border: 0.5px solid color-mix(in oklch, var(--primary-foreground), transparent 50%);
+  border: 0.5px solid
+    color-mix(in oklch, var(--primary-foreground), transparent 50%);
   background: var(--primary);
   box-shadow:
     0 -76px 0 0 var(--primary),
@@ -477,7 +797,9 @@
     -54px -54px 0 0 color-mix(in oklch, var(--primary), var(--background) 20%);
   opacity: 0;
   transform: translate(-50%, -50%) scale(0);
-  filter: drop-shadow(0 0 24px color-mix(in oklch, var(--primary), transparent 22%));
+  filter: drop-shadow(
+    0 0 24px color-mix(in oklch, var(--primary), transparent 22%)
+  );
   animation: jigsaw-firework 1.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
@@ -498,8 +820,6 @@
     opacity: 0;
   }
 }
-
-
 
 @keyframes jigsaw-solved-card {
   0% {
@@ -589,6 +909,17 @@
 
 /* Responsive */
 @media (max-width: 760px) {
+  .jigsaw-room__chat-launcher,
+  .jigsaw-room__chat-panel {
+    right: 8px;
+    bottom: 8px;
+  }
+
+  .jigsaw-room__chat-panel {
+    width: calc(100vw - 16px);
+    height: min(420px, calc(100vh - 118px));
+  }
+
   .jigsaw-room__toolbar {
     top: 8px;
     right: 8px;

@@ -185,7 +185,7 @@
 /* Scoreboard - теперь на всю ширину */
 .jigsaw-room__profile-scoreboard {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   grid-column: 1; /* Сбросили на 1 колонку */
   grid-row: auto;
   margin: 0;
@@ -436,6 +436,10 @@
 
   .jigsaw-room__profile-scoreboard div:nth-child(2n) {
     border-right: 0;
+  }
+
+  .jigsaw-room__profile-scoreboard div:nth-child(n + 3) {
+    border-top: 0.5px solid var(--jigsaw-panel-border);
   }
 
   .jigsaw-room__profile-scoreboard div:last-child {
