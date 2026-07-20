@@ -18,7 +18,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { Separator } from "@/components/ui/separator"
 import { Slider } from "@/components/ui/slider"
 import { Toggle } from "@/components/ui/toggle"
 import { API_BASE_URL } from "@/config"
@@ -1415,29 +1414,22 @@ export function App() {
       {/* header */}
       <header className="editor-header glass corner-brackets">
         <div className="editor-header__brand">
-          <div className="editor-header__logo">J</div>
-          <div>
-            <h1 className="editor-header__title">jigsaw editor</h1>
+          <span className="editor-header__kicker">workspace / editor</span>
+          <div className="editor-header__heading">
+            <h1 className="editor-header__title">composition editor</h1>
             <p className="editor-header__meta">
               {layout.items.length
-                ? `${layout.items.length} images loaded`
-                : "Waiting for images"}
+                ? `${String(layout.items.length).padStart(2, "0")} images`
+                : "no images"}
             </p>
           </div>
         </div>
 
-        <Separator
-          orientation="vertical"
-          className="editor-header__separator"
-        />
-
         <div className="editor-header__content">
-          <div>
-            <Button asChild size="sm" disabled={!authSession}>
-              <a href="/profile">/profile</a>
-            </Button>
-          </div>
-          <div className="editor-header__actions">
+          <section
+            className="editor-header__group editor-header__source"
+            aria-label="Composition source"
+          >
             {compositions.length ? (
               <Select
                 value={selectedComposition?.compositionId ?? ""}
@@ -1480,33 +1472,40 @@ export function App() {
               </Select>
             ) : null}
 
-            <Input
-              className="editor-header__input"
-              placeholder="paste bot link or code"
-              type="text"
-              value={loadCode}
-              onChange={(event) => setLoadCode(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === "Enter") {
-                  void loadLayoutFromCode()
-                }
-              }}
-            />
-            <Button
-              className="editor-header__control"
-              disabled={!authSession}
-              size="sm"
-              variant="secondary"
-              onClick={() => void loadLayoutFromCode()}
-            >
-              load layout
-            </Button>
+            <div className="editor-header__load">
+              <Input
+                className="editor-header__input"
+                placeholder="paste bot link or code"
+                type="text"
+                value={loadCode}
+                onChange={(event) => setLoadCode(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") {
+                    void loadLayoutFromCode()
+                  }
+                }}
+              />
+              <Button
+                className="editor-header__control"
+                disabled={!authSession}
+                size="sm"
+                variant="secondary"
+                onClick={() => void loadLayoutFromCode()}
+              >
+                load
+              </Button>
+            </div>
+          </section>
 
+          <section
+            className="editor-header__group editor-header__account"
+            aria-label="Account"
+          >
             <Button
               className="editor-header__control"
               disabled={authLoading}
               size="sm"
-              variant={authSession ? "outline" : "default"}
+              variant={authSession ? "ghost" : "default"}
               onClick={() => void loginWithTelegram()}
             >
               {authLoading
@@ -1530,24 +1529,23 @@ export function App() {
                 className="editor-header__telegram-widget"
               />
             ) : null}
+          </section>
 
-            <Separator
-              orientation="vertical"
-              className="editor-header__separator"
-            />
-
+          <section
+            className="editor-header__group editor-header__outputs"
+            aria-label="Composition actions"
+          >
             <Button
               className="editor-header__control"
               disabled={!remoteComposition || !authSession}
               size="sm"
-              variant="outline"
               onClick={saveRemoteLayout}
             >
               save edits
             </Button>
 
             {remoteComposition ? (
-              <Button asChild size="sm">
+              <Button asChild size="sm" variant="secondary">
                 <a href={jigsawCreateFromComposition()}>create room</a>
               </Button>
             ) : null}
@@ -1556,13 +1554,13 @@ export function App() {
               <Button
                 disabled={!authSession}
                 size="sm"
-                variant="outline"
+                variant="ghost"
                 onClick={downloadImage}
               >
                 download
               </Button>
             ) : null}
-          </div>
+          </section>
         </div>
       </header>
 
