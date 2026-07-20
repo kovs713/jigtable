@@ -7,8 +7,8 @@ import {
   toStoredAssetReference,
 } from "@/db/mappers"
 import {
-  jigsawRoomParticipantsSchema,
-  jigsawRoomResultsSchema,
+  roomParticipantsSchema,
+  roomResultsSchema,
   usersSchema,
 } from "@/db/schemas"
 import type {
@@ -54,13 +54,13 @@ export class DrizzleHistoryRepository implements HistoryRepository {
   async upsertParticipant(input: UpsertParticipantInput): Promise<void> {
     const [existing] = await this.db
       .select({
-        id: jigsawRoomParticipantsSchema.id,
+        id: roomParticipantsSchema.id,
       })
-      .from(jigsawRoomParticipantsSchema)
+      .from(roomParticipantsSchema)
       .where(
         and(
-          eq(jigsawRoomParticipantsSchema.roomId, input.roomId),
-          eq(jigsawRoomParticipantsSchema.playerId, input.playerId)
+          eq(roomParticipantsSchema.roomId, input.roomId),
+          eq(roomParticipantsSchema.playerId, input.playerId)
         )
       )
       .limit(1)
@@ -76,14 +76,14 @@ export class DrizzleHistoryRepository implements HistoryRepository {
 
     if (existing) {
       await this.db
-        .update(jigsawRoomParticipantsSchema)
+        .update(roomParticipantsSchema)
         .set(values)
-        .where(eq(jigsawRoomParticipantsSchema.id, existing.id))
+        .where(eq(roomParticipantsSchema.id, existing.id))
 
       return
     }
 
-    await this.db.insert(jigsawRoomParticipantsSchema).values({
+    await this.db.insert(roomParticipantsSchema).values({
       roomId: input.roomId,
       playerId: input.playerId,
       ...values,
@@ -101,15 +101,15 @@ export class DrizzleHistoryRepository implements HistoryRepository {
     leftAt: Date
   }): Promise<void> {
     await this.db
-      .update(jigsawRoomParticipantsSchema)
+      .update(roomParticipantsSchema)
       .set({
         leftAt,
         lastSeenAt: leftAt,
       })
       .where(
         and(
-          eq(jigsawRoomParticipantsSchema.roomId, roomId),
-          eq(jigsawRoomParticipantsSchema.playerId, playerId)
+          eq(roomParticipantsSchema.roomId, roomId),
+          eq(roomParticipantsSchema.playerId, playerId)
         )
       )
   }
@@ -118,16 +118,14 @@ export class DrizzleHistoryRepository implements HistoryRepository {
     input: UpdateParticipantProfileInput
   ): Promise<void> {
     await this.db
-      .update(jigsawRoomParticipantsSchema)
+      .update(roomParticipantsSchema)
       .set({
         userId: input.userId,
         name: input.name,
         color: input.color,
         lastSeenAt: input.seenAt,
       })
-      .where(
-        eq(jigsawRoomParticipantsSchema.anonSessionHash, input.sessionHash)
-      )
+      .where(eq(roomParticipantsSchema.anonSessionHash, input.sessionHash))
   }
 
   async linkSessionToUser({
@@ -140,19 +138,19 @@ export class DrizzleHistoryRepository implements HistoryRepository {
     linkedAt: Date
   }): Promise<void> {
     await this.db
-      .update(jigsawRoomParticipantsSchema)
+      .update(roomParticipantsSchema)
       .set({
         userId,
         lastSeenAt: linkedAt,
       })
-      .where(eq(jigsawRoomParticipantsSchema.anonSessionHash, sessionHash))
+      .where(eq(roomParticipantsSchema.anonSessionHash, sessionHash))
   }
 
   async saveCompletion(completion: RoomCompletion): Promise<void> {
     const participants = await this.readResultParticipants(completion.roomId)
 
     await this.db
-      .insert(jigsawRoomResultsSchema)
+      .insert(roomResultsSchema)
       .values({
         roomId: completion.roomId,
         assetRef: toStoredAssetReference(completion.assetRef),
@@ -165,17 +163,17 @@ export class DrizzleHistoryRepository implements HistoryRepository {
         completedAt: completion.completedAt,
       })
       .onConflictDoNothing({
-        target: jigsawRoomResultsSchema.roomId,
+        target: roomResultsSchema.roomId,
       })
   }
 
   async listUserHistory(userId: string): Promise<HistoryEntry[]> {
     const participantRows = await this.db
       .select({
-        roomId: jigsawRoomParticipantsSchema.roomId,
+        roomId: roomParticipantsSchema.roomId,
       })
-      .from(jigsawRoomParticipantsSchema)
-      .where(eq(jigsawRoomParticipantsSchema.userId, userId))
+      .from(roomParticipantsSchema)
+      .where(eq(roomParticipantsSchema.userId, userId))
 
     const roomIds = [...new Set(participantRows.map((row) => row.roomId))]
 
@@ -185,9 +183,9 @@ export class DrizzleHistoryRepository implements HistoryRepository {
 
     const rows = await this.db
       .select()
-      .from(jigsawRoomResultsSchema)
-      .where(inArray(jigsawRoomResultsSchema.roomId, roomIds))
-      .orderBy(desc(jigsawRoomResultsSchema.completedAt))
+      .from(roomResultsSchema)
+      .where(inArray(roomResultsSchema.roomId, roomIds))
+      .orderBy(desc(roomResultsSchema.completedAt))
 
     return rows.flatMap((row) => {
       const entry = toHistoryEntry({
@@ -209,8 +207,8 @@ export class DrizzleHistoryRepository implements HistoryRepository {
   async findRoomResult(roomId: string): Promise<RoomResult | null> {
     const [row] = await this.db
       .select()
-      .from(jigsawRoomResultsSchema)
-      .where(eq(jigsawRoomResultsSchema.roomId, roomId))
+      .from(roomResultsSchema)
+      .where(eq(roomResultsSchema.roomId, roomId))
       .limit(1)
 
     if (!row) {
@@ -253,8 +251,8 @@ export class DrizzleHistoryRepository implements HistoryRepository {
   ): Promise<ResultParticipant[]> {
     const participants = await this.db
       .select()
-      .from(jigsawRoomParticipantsSchema)
-      .where(eq(jigsawRoomParticipantsSchema.roomId, roomId))
+      .from(roomParticipantsSchema)
+      .where(eq(roomParticipantsSchema.roomId, roomId))
 
     const userIds = [
       ...new Set(

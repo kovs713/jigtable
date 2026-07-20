@@ -2,7 +2,7 @@ import { string } from "@jigtable/shared/schemas"
 import { isRecord } from "@jigtable/shared/utils"
 
 import { summarizeAssetReference } from "@/services/history/asset-reference"
-import type { StoredAssetReference } from "@/db/schemas/jigsaw-room-results"
+import type { StoredAssetReference } from "@/db/schemas/room-results"
 import type {
   AssetReference,
   HistoryEntry,

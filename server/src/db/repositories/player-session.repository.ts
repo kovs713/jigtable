@@ -5,7 +5,7 @@ import {
   parseStoredPlayerSession,
   toStoredPlayerSessionValue,
 } from "@/db/mappers"
-import { jigsawSessionsSchema } from "@/db/schemas"
+import { playerSessionsSchema } from "@/db/schemas"
 import {
   type StoredPlayerSession,
   playerSessionStorageKey,
@@ -35,11 +35,11 @@ export class DrizzlePlayerSessionRepository implements PlayerSessionRepository {
 
     const [row] = await this.db
       .select({
-        value: jigsawSessionsSchema.value,
-        updatedAt: jigsawSessionsSchema.updatedAt,
+        value: playerSessionsSchema.value,
+        updatedAt: playerSessionsSchema.updatedAt,
       })
-      .from(jigsawSessionsSchema)
-      .where(eq(jigsawSessionsSchema.key, playerSessionStorageKey(token)))
+      .from(playerSessionsSchema)
+      .where(eq(playerSessionsSchema.key, playerSessionStorageKey(token)))
       .limit(1)
 
     if (!row) {
@@ -63,14 +63,14 @@ export class DrizzlePlayerSessionRepository implements PlayerSessionRepository {
     const updatedAt = new Date(session.updatedAt)
 
     await this.db
-      .insert(jigsawSessionsSchema)
+      .insert(playerSessionsSchema)
       .values({
         key: playerSessionStorageKey(session.token),
         value: toStoredPlayerSessionValue(session),
         updatedAt,
       })
       .onConflictDoUpdate({
-        target: jigsawSessionsSchema.key,
+        target: playerSessionsSchema.key,
         set: {
           value: toStoredPlayerSessionValue(session),
           updatedAt,
