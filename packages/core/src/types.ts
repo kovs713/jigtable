@@ -92,3 +92,17 @@ export interface JigsawState {
   neighbors: NeighborRelation[]
   snapCount: number
 }
+
+export interface PiecePathSink {
+  moveTo(x: number, y: number): void
+  lineTo(x: number, y: number): void
+  bezierCurveTo(
+    control1X: number,
+    control1Y: number,
+    control2X: number,
+    control2Y: number,
+    x: number,
+    y: number
+  ): void
+  closePath(): void
+}

@@ -1,4 +1,66 @@
+import { DEFAULT_JIGSAW_CONFIG, getJigsawBounds } from "@jigtable/core/config"
+import { createJigsawState } from "@jigtable/core/generate"
+import { countPlacedPieces, translateGroup } from "@jigtable/core/groups"
+import { tracePiecePath } from "@jigtable/core/piece-path"
+import type {
+  JigsawConfig,
+  PieceDefinition,
+  PiecePathSink,
+} from "@jigtable/core/types"
+
 import "./landing-page.css"
+
+const PREVIEW_JIGSAW_CONFIG = {
+  ...DEFAULT_JIGSAW_CONFIG,
+  rows: 4,
+  cols: 5,
+  pieceWidth: 80,
+  pieceHeight: 80,
+} satisfies JigsawConfig
+
+function getPiecePath(definition: PieceDefinition): string {
+  const commands: string[] = []
+  const sink: PiecePathSink = {
+    moveTo(x, y) {
+      commands.push(`M ${x} ${y}`)
+    },
+    lineTo(x, y) {
+      commands.push(`L ${x} ${y}`)
+    },
+    bezierCurveTo(control1X, control1Y, control2X, control2Y, x, y) {
+      commands.push(
+        `C ${control1X} ${control1Y} ${control2X} ${control2Y} ${x} ${y}`
+      )
+    },
+    closePath() {
+      commands.push("Z")
+    },
+  }
+
+  tracePiecePath(definition, sink)
+  return commands.join(" ")
+}
+
+function createPreviewJigsawState() {
+  const state = createJigsawState(PREVIEW_JIGSAW_CONFIG)
+
+  for (const piece of Object.values(state.pieces)) {
+    piece.placed = true
+  }
+
+  const firstLoosePiece = state.pieces["piece-1-2"]
+  const secondLoosePiece = state.pieces["piece-2-4"]
+
+  if (firstLoosePiece) {
+    translateGroup(state, firstLoosePiece.groupId, -30, 40)
+  }
+
+  if (secondLoosePiece) {
+    translateGroup(state, secondLoosePiece.groupId, 20, -30)
+  }
+
+  return state
+}
 
 const FEATURES = [
   {
@@ -37,7 +99,7 @@ const WORKFLOW = [
   {
     index: "03",
     scope: "web editor",
-    label: "Save composition edits",
+    label: "Save composition",
     description: "Open the generated link and review the composition.",
   },
   {
@@ -144,7 +206,7 @@ export default function LandingPage() {
             </div>
           </div>
 
-          <ProductPreview />
+          <JigsawAppWindow />
         </section>
 
         <section
@@ -261,127 +323,100 @@ export default function LandingPage() {
   )
 }
 
-function ProductPreview() {
+// Компонент с реальным пазлом
+function JigsawAppWindow() {
+  const state = createPreviewJigsawState()
+  const board = getJigsawBounds(state.config)
+  const tabDepth =
+    (3 * (state.config.tabSizePercent / 200) +
+      state.config.jitterPercent / 100) *
+    Math.max(state.config.pieceWidth, state.config.pieceHeight)
+  const padding = Math.ceil(tabDepth + 40)
+  const placedPieces = countPlacedPieces(state)
+  const totalPieces = Object.keys(state.pieces).length
+  const progress = Math.round((placedPieces / totalPieces) * 100)
+
   return (
     <div
       className="landing-page__preview glass corner-brackets"
-      aria-label="Jigtable editor and multiplayer room preview"
+      aria-label="Jigtable multiplayer room preview"
     >
       <header className="landing-page__preview-header">
         <div className="landing-page__preview-heading">
           <span className="landing-page__preview-indicator" />
           <span>workspace preview</span>
         </div>
-      </header>
-
-      <div className="landing-page__preview-content">
-        <TelegramPreview />
-        <PreviewConnector />
-        <EditorPreview />
-        <PreviewConnector />
-        <RoomPreview />
-      </div>
-    </div>
-  )
-}
-
-function EditorPreview() {
-  return (
-    <section className="landing-page__editor-preview">
-      <header className="landing-page__panel-header">
-        <div>
-          <p className="landing-page__panel-label">composition editor</p>
-          <p className="landing-page__panel-meta">8 images / justified</p>
-        </div>
-        <span className="landing-page__panel-action">save edits</span>
-      </header>
-
-      <div className="landing-page__composition">
-        <div className="landing-page__composition-image landing-page__composition-image--one">
-          <span>01</span>
-        </div>
-        <div className="landing-page__composition-image landing-page__composition-image--two">
-          <span>02</span>
-        </div>
-        <div className="landing-page__composition-image landing-page__composition-image--three">
-          <span>03</span>
-        </div>
-        <div className="landing-page__composition-image landing-page__composition-image--four">
-          <span>04</span>
-        </div>
-      </div>
-
-      <footer className="landing-page__panel-footer">
-        <span>canvas 1600 × 1200</span>
-        <span>saved</span>
-      </footer>
-    </section>
-  )
-}
-
-function RoomPreview() {
-  const owners = [
-    undefined,
-    undefined,
-    "one",
-    "one",
-    undefined,
-
-    undefined,
-    "two",
-    "one",
-    "one",
-    undefined,
-
-    "two",
-    "two",
-    "one",
-    "three",
-    "three",
-
-    "two",
-    undefined,
-    undefined,
-    "three",
-    "three",
-  ] as const
-
-  return (
-    <section className="landing-page__room-preview">
-      <header className="landing-page__panel-header">
-        <div>
-          <p className="landing-page__panel-label">multiplayer room</p>
-          <p className="landing-page__panel-meta">3 players connected</p>
-        </div>
-
         <span className="landing-page__room-status">
-          <span />
-          live
+          <span /> live
         </span>
       </header>
 
-      <div className="landing-page__puzzle-board">
-        {owners.map((owner, index) => (
-          <span
-            key={index}
-            className={
-              owner
-                ? `landing-page__puzzle-cell landing-page__puzzle-cell--${owner}`
-                : "landing-page__puzzle-cell"
+      <div className="landing-page__jigsaw-container">
+        <svg
+          width="100%"
+          height="100%"
+          viewBox={`${board.x - padding} ${board.y - padding} ${board.width + padding * 2} ${board.height + padding * 2}`}
+          className="landing-page__jigsaw-svg"
+        >
+          <defs>
+            <filter
+              id="piece-shadow"
+              x="-20%"
+              y="-20%"
+              width="140%"
+              height="140%"
+            >
+              <feDropShadow
+                dx="0"
+                dy="4"
+                stdDeviation="4"
+                floodColor="var(--foreground)"
+                floodOpacity="0.15"
+              />
+            </filter>
+          </defs>
+
+          {Object.values(state.definitions).map((definition) => {
+            const piece = state.pieces[definition.id]
+
+            if (!piece) {
+              return null
             }
-          />
-        ))}
 
-        <PreviewCursor name="kovs" className="landing-page__cursor--one" />
+            const rotation =
+              definition.id === "piece-1-2"
+                ? -4
+                : definition.id === "piece-2-4"
+                  ? 3
+                  : 0
 
-        <PreviewCursor name="alex" className="landing-page__cursor--two" />
+            return (
+              <path
+                key={definition.id}
+                d={getPiecePath(definition)}
+                transform={`translate(${piece.x}, ${piece.y}) rotate(${rotation} ${definition.width / 2} ${definition.height / 2})`}
+                fill="var(--primary)"
+                stroke="var(--background)"
+                strokeWidth="1.5"
+                strokeLinejoin="round"
+                strokeLinecap="round"
+                filter="url(#piece-shadow)"
+              />
+            )
+          })}
+        </svg>
+
+        <PreviewCursor name="kovs713" className="landing-page__cursor--one" />
+        <PreviewCursor name="xwinta" className="landing-page__cursor--two" />
       </div>
 
       <footer className="landing-page__panel-footer">
-        <span>47 / 120 pieces</span>
-        <span>39%</span>
+        <span>
+          {placedPieces} / {totalPieces} pieces
+        </span>
+        <span>{progress}%</span>
       </footer>
-    </section>
+    </div>
   )
 }
 
@@ -396,61 +431,12 @@ function PreviewCursor({
     <div className={`landing-page__cursor ${className}`} aria-hidden="true">
       <svg
         className="landing-page__cursor-pointer"
-        viewBox="-1 -1 20 28"
+        viewBox="0 0 16 22"
         focusable="false"
       >
-        <polygon points="0,0 0,20 5,15 9,25 13,23 9,13 17,13" />
+        <path d="M 1 1 L 1 16 L 4.5 12.5 L 7 19 L 9 18 L 6.5 12 L 12 12 Z" />
       </svg>
-
       <span className="landing-page__cursor-label">{name}</span>
     </div>
-  )
-}
-
-function PreviewConnector() {
-  return (
-    <div className="landing-page__preview-connector" aria-hidden="true">
-      <span />
-      <strong>↓</strong>
-      <span />
-    </div>
-  )
-}
-
-function TelegramPreview() {
-  return (
-    <section className="landing-page__telegram-preview">
-      <header className="landing-page__panel-header">
-        <div>
-          <p className="landing-page__panel-label">telegram bot</p>
-          <p className="landing-page__panel-meta">@jigtable_bot</p>
-        </div>
-        <span className="landing-page__room-status">
-          <span />
-          ready
-        </span>
-      </header>
-
-      <div className="landing-page__telegram-chat">
-        <div className="landing-page__telegram-message">
-          Send me the images you want to use.
-        </div>
-        <div className="landing-page__telegram-images">
-          <span>01</span>
-          <span>02</span>
-          <span>03</span>
-          <span>04</span>
-        </div>
-        <div className="landing-page__telegram-message">
-          4 images received. Confirm this selection?
-        </div>
-        <div className="landing-page__telegram-confirm">confirm images</div>
-      </div>
-
-      <footer className="landing-page__panel-footer">
-        <span>image batch</span>
-        <span>confirmed</span>
-      </footer>
-    </section>
   )
 }

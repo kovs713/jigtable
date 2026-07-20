@@ -1,6 +1,7 @@
 export * from "./config"
 export * from "./generate"
 export * from "./groups"
+export * from "./piece-path"
 export * from "./protocol"
 export * from "./scatter"
 export * from "./session-history"

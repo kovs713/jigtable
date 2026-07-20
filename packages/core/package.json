@@ -8,10 +8,11 @@
     "./config": "./src/config.ts",
     "./generate": "./src/generate.ts",
     "./groups": "./src/groups.ts",
+    "./piece-path": "./src/piece-path.ts",
+    "./protocol": "./src/protocol.ts",
     "./scatter": "./src/scatter.ts",
     "./session-history": "./src/session-history.ts",
     "./snap": "./src/snap.ts",
-    "./types": "./src/types.ts",
-    "./protocol": "./src/protocol.ts"
+    "./types": "./src/types.ts"
   }
 }
