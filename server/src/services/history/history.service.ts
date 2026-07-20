@@ -1,5 +1,7 @@
 import { SHA256 } from "bun"
 
+import type { SessionSummary } from "@jigtable/core/session-history"
+
 import type { HistoryRepository } from "@/db/repositories"
 import type {
   HistoryEntry,
@@ -16,6 +18,7 @@ type HistoryServiceOptions = {
 
 type ParticipantContainer = {
   participants: readonly ResultParticipant[]
+  summary?: SessionSummary | null
 }
 
 export class HistoryService {
@@ -123,6 +126,7 @@ export class HistoryService {
     return {
       ...result,
       participants: applyParticipantColors(result.participants, colors),
+      summary: applySummaryColors(result.summary, colors),
     }
   }
 
@@ -131,17 +135,36 @@ export class HistoryService {
   ): Promise<Map<string, string>> {
     const userIds = [
       ...new Set(
-        items.flatMap((item) =>
-          item.participants.flatMap((participant) =>
+        items.flatMap((item) => [
+          ...item.participants.flatMap((participant) =>
             participant.userId ? [participant.userId] : []
-          )
-        )
+          ),
+          ...(item.summary?.players.flatMap((player) =>
+            player.userId ? [player.userId] : []
+          ) ?? []),
+        ])
       ),
     ]
 
     return userIds.length > 0
       ? this.repository.findUserColors(userIds)
       : new Map()
+  }
+}
+
+function applySummaryColors(
+  summary: SessionSummary | null,
+  colors: ReadonlyMap<string, string>
+): SessionSummary | null {
+  if (!summary) return null
+
+  return {
+    ...summary,
+    players: summary.players.map((player) => {
+      const color = player.userId ? colors.get(player.userId) : undefined
+
+      return color ? { ...player, color } : player
+    }),
   }
 }
 
