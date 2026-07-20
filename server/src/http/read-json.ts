@@ -1,4 +1,4 @@
-import { Json, record, type Schema } from "@jigtable/shared/schemas"
+import { Json, record } from "@jigtable/shared/schemas"
 
 import { LIMITS } from "@/config"
 import { ApiError } from "./errors"
@@ -20,20 +20,6 @@ export async function readJsonLimited(
       result.error,
       result.error === "Request body too large" ? 413 : 400
     )
-  }
-
-  return result.value
-}
-
-export function parseApiSchema<T>(
-  schema: Schema<T>,
-  value: unknown,
-  name: string
-): T {
-  const result = schema.parse(value, name)
-
-  if (!result.ok) {
-    throw new ApiError(result.error, 400)
   }
 
   return result.value

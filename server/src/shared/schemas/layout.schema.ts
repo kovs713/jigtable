@@ -11,11 +11,11 @@ import {
 import { LIMITS } from "@/config"
 import type { CompositionSourceImage } from "@/db/schemas"
 import { ApiError } from "@/http/errors"
-import { parseApiSchema } from "@/http/request"
 import type {
   CompositionLayout,
   CompositionLayoutItem,
 } from "@/native/composition-layout-engine"
+import { parseApiSchema } from "./read-api.schema"
 
 const PositiveNumberSchema: Schema<number> = {
   parse(value, path = "value") {

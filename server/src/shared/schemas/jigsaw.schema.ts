@@ -1,6 +1,6 @@
 import { optional, record, string } from "@jigtable/shared"
 
-import { parseApiSchema } from "@/http/request"
+import { parseApiSchema } from "./read-api.schema"
 
 export function readJigsawProfileInput(value: unknown): {
   name?: string

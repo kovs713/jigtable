@@ -7,8 +7,8 @@ import {
   toStoredAssetReference,
   toHistoryEntry,
   toRoomResult,
-} from "./history-result-mapper"
-import type { StoredRoomResultRow } from "./history-result-mapper"
+} from "./history-result.mapper"
+import type { StoredRoomResultRow } from "./history-result.mapper"
 
 describe("history result mapper", () => {
   test("reads current asset references", () => {

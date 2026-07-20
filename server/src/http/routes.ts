@@ -22,19 +22,19 @@ import type { CreateRoomInput } from "@/services/room"
 import {
   jigsawImageUrl,
   toApiCompositionLayout,
-} from "@/shared/presenters/compositions"
-import {
   toHistoryEntryResponse,
+  toPlayerSessionResponse,
   toRoomResultResponse,
-} from "@/shared/presenters/history"
-import { toPlayerSessionResponse } from "@/shared/presenters/player-session"
-import { readJigsawProfileInput } from "@/shared/schemas/jigsaw"
-import { normalizeCompositionLayout } from "@/shared/schemas/layout"
+} from "@/shared/presenters"
+import {
+  normalizeCompositionLayout,
+  parseApiSchema,
+  readJigsawProfileInput,
+} from "@/shared/schemas"
 import { s3Client } from "@/storage/client"
 import { jigsawImageObjectKey } from "@/storage/utils"
 import { ApiError, unwrapAuthResult } from "./errors"
 import { CORS_HEADERS } from "./headers"
-import { readRemoteImageSize } from "./image-metadata"
 import {
   rateLimit,
   readBearerToken,
@@ -42,7 +42,8 @@ import {
   resolveAuth,
   resolveJigsawSession,
 } from "./middleware"
-import { parseApiSchema, readJsonLimited } from "./request"
+import { readRemoteImageSize } from "./read-image"
+import { readJsonLimited } from "./read-json"
 import type { Context, Router } from "./router"
 
 export function registerRoutes(router: Router): void {

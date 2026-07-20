@@ -5,7 +5,7 @@ import {
   toHistoryEntry,
   toRoomResult,
   toStoredAssetReference,
-} from "@/db/mappers/history-result-mapper"
+} from "@/db/mappers/history-result.mapper"
 import {
   jigsawRoomParticipantsSchema,
   jigsawRoomResultsSchema,

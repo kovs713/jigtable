@@ -4,7 +4,7 @@ import { db as defaultDb } from "@/db"
 import {
   parseStoredPlayerSession,
   toStoredPlayerSessionValue,
-} from "@/db/mappers/player-session-mapper"
+} from "@/db/mappers/player-session.mapper"
 import { jigsawSessionsSchema } from "@/db/schemas"
 import type { RedisCache } from "@/services/redis"
 import { playerSessionStorageKey } from "@/services/player-session/player-session-token"
