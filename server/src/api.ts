@@ -35,8 +35,10 @@ export function startApiServer(): ApiServer {
 
   registerRoutes(router)
 
-  const wsRouter = createWsRouter({ services, roomController })
-  registerWsRoutes(wsRouter)
+  const wsRouter = createWsRouter({
+    services,
+    roomController,
+  })
 
   services.rooms.start()
 

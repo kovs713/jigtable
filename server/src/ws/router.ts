@@ -1,4 +1,3 @@
-import type { ClientMessageType } from "@jigtable/core/protocol"
 import { isRecord } from "@jigtable/shared/utils"
 
 import {
@@ -14,6 +13,7 @@ import {
 } from "@/observability/metrics"
 import type { Services } from "@/services"
 import type { RoomController } from "./room-controller"
+import { routeWsMessage } from "./routes"
 import { sendWsError } from "./send"
 import type { WsContext, WsHandler, WsMiddleware, WsSocket } from "./types"
 
@@ -49,18 +49,24 @@ const activeWsSockets = new WeakSet<WsSocket>()
 let activeWsConnections = 0
 
 function trackWsOpen(socket: WsSocket): void {
-  if (activeWsSockets.has(socket)) return
+  if (activeWsSockets.has(socket)) {
+    return
+  }
 
   activeWsSockets.add(socket)
   activeWsConnections += 1
+
   wsConnectionsCurrent.set(activeWsConnections)
 }
 
 function trackWsClose(socket: WsSocket): boolean {
-  if (!activeWsSockets.has(socket)) return false
+  if (!activeWsSockets.has(socket)) {
+    return false
+  }
 
   activeWsSockets.delete(socket)
   activeWsConnections = Math.max(0, activeWsConnections - 1)
+
   wsConnectionsCurrent.set(activeWsConnections)
 
   return true
@@ -71,43 +77,10 @@ export function createWsRouter(options: {
   roomController: RoomController
   middleware?: WsMiddleware[]
 }) {
-  const routes = new Map<ClientMessageType, WsHandler>()
-  const globalMiddleware = options.middleware ?? []
-
-  function on(
-    type: ClientMessageType,
-    config: {
-      middleware?: WsMiddleware[]
-      handler: WsHandler
-    }
-  ): void {
-    if (routes.has(type)) {
-      throw new Error(`Duplicate WebSocket route: ${type}`)
-    }
-
-    routes.set(
-      type,
-      composeWs(
-        [...globalMiddleware, ...(config.middleware ?? [])],
-        config.handler
-      )
-    )
-  }
-
-  async function routeMessage(context: WsContext): Promise<void> {
+  const messageHandler: WsHandler = async (context) => {
     const message = context.message
 
-    if (!isRecord(message)) {
-      wsMessageErrorsTotal.inc({
-        event: "unknown",
-        reason: "invalid_payload",
-      })
-
-      sendWsError(context.socket, "invalid_message", "Message must be object")
-      return
-    }
-
-    if (typeof message.type !== "string") {
+    if (!isRecord(message) || typeof message.type !== "string") {
       wsMessageErrorsTotal.inc({
         event: "unknown",
         reason: "invalid_payload",
@@ -118,17 +91,6 @@ export function createWsRouter(options: {
     }
 
     const event = normalizeWsEvent(message.type)
-    const route = routes.get(message.type as ClientMessageType)
-
-    if (!route) {
-      wsMessageErrorsTotal.inc({
-        event,
-        reason: "unknown_message",
-      })
-
-      sendWsError(context.socket, "unknown_message", "Unknown message type")
-      return
-    }
 
     wsMessagesInTotal.inc({ event })
     wsPayloadBytes.observe(
@@ -139,7 +101,7 @@ export function createWsRouter(options: {
     const endTimer = wsMessageHandleDuration.startTimer({ event })
 
     try {
-      await route(context)
+      await routeWsMessage(context)
     } catch (error) {
       wsMessageErrorsTotal.inc({
         event,
@@ -154,48 +116,14 @@ export function createWsRouter(options: {
 
   const messagePipeline = composeWs(
     [
-      async (context, next) => {
-        try {
-          await next()
-        } catch (error) {
-          console.error("WebSocket error", error)
-          sendWsError(context.socket, "internal_error", "Internal error")
-        }
-      },
-      async (context, next) => {
-        if (typeof context.raw !== "string") {
-          wsMessageErrorsTotal.inc({
-            event: "unknown",
-            reason: "invalid_payload",
-          })
-
-          sendWsError(
-            context.socket,
-            "invalid_message",
-            "Message must be string"
-          )
-          return
-        }
-
-        try {
-          context.message = JSON.parse(context.raw)
-        } catch {
-          wsMessageErrorsTotal.inc({
-            event: "unknown",
-            reason: "invalid_payload",
-          })
-
-          sendWsError(context.socket, "invalid_json", "Invalid JSON")
-          return
-        }
-
-        await next()
-      },
+      errorBoundaryMiddleware,
+      parseJsonMiddleware,
+      ...(options.middleware ?? []),
     ],
-    routeMessage
+    messageHandler
   )
 
-  async function open(socket: WsSocket): Promise<void> {
+  function open(socket: WsSocket): void {
     trackWsOpen(socket)
     options.roomController.open(socket)
   }
@@ -206,10 +134,9 @@ export function createWsRouter(options: {
   ): Promise<void> {
     const context: WsContext = {
       socket,
+      raw,
       services: options.services,
       roomController: options.roomController,
-      raw,
-      message: undefined,
     }
 
     await messagePipeline(context)
@@ -234,11 +161,46 @@ export function createWsRouter(options: {
   }
 
   return {
-    on,
     open,
     message,
     close,
   }
+}
+
+const errorBoundaryMiddleware: WsMiddleware = async (context, next) => {
+  try {
+    await next()
+  } catch (error) {
+    console.error("WebSocket error", error)
+
+    sendWsError(context.socket, "internal_error", "Internal error")
+  }
+}
+
+const parseJsonMiddleware: WsMiddleware = async (context, next) => {
+  if (typeof context.raw !== "string") {
+    wsMessageErrorsTotal.inc({
+      event: "unknown",
+      reason: "invalid_payload",
+    })
+
+    sendWsError(context.socket, "invalid_message", "Message must be string")
+    return
+  }
+
+  try {
+    context.message = JSON.parse(context.raw)
+  } catch {
+    wsMessageErrorsTotal.inc({
+      event: "unknown",
+      reason: "invalid_payload",
+    })
+
+    sendWsError(context.socket, "invalid_json", "Invalid JSON")
+    return
+  }
+
+  await next()
 }
 
 export type WsRouter = ReturnType<typeof createWsRouter>

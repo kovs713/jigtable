@@ -1,6 +1,6 @@
 import type { ServerWebSocket } from "bun"
 
-import type { Player as JigsawPlayer } from "@jigtable/core/protocol"
+import type { Player } from "@jigtable/core/protocol"
 
 import type { Services } from "@/services"
 import type { RoomController } from "./room-controller"
@@ -9,7 +9,7 @@ export type WsData = {
   connectionId: string
   roomId?: string
   sessionToken?: string
-  player?: JigsawPlayer
+  player?: Player
 }
 
 export type WsSocket = ServerWebSocket<WsData>

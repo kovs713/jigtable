@@ -1,4 +1,5 @@
-import type { WsRouter } from "./router"
+import { isRecord } from "@jigtable/shared/utils"
+
 import {
   parseArrangeGroupsInput,
   parseCursorMoveInput,
@@ -9,10 +10,18 @@ import {
   parseRoomJoinInput,
 } from "./inputs"
 import { sendWsError } from "./send"
+import type { WsContext } from "./types"
 
-export function registerWsRoutes(ws: WsRouter): void {
-  ws.on("room:join", {
-    handler: async ({ socket, roomController, message }) => {
+export async function routeWsMessage(context: WsContext): Promise<void> {
+  const { socket, roomController, message } = context
+
+  if (!isRecord(message) || typeof message.type !== "string") {
+    sendWsError(socket, "invalid_message", "Message type is required")
+    return
+  }
+
+  switch (message.type) {
+    case "room:join": {
       const input = parseRoomJoinInput(message)
 
       if (!input) {
@@ -21,29 +30,25 @@ export function registerWsRoutes(ws: WsRouter): void {
       }
 
       await roomController.handleRoomJoin(socket, input)
-    },
-  })
+      return
+    }
 
-  ws.on("room:request_state", {
-    handler: ({ socket, roomController }) => {
+    case "room:request_state": {
       roomController.handleRoomRequestState(socket)
-    },
-  })
+      return
+    }
 
-  ws.on("session:pause", {
-    handler: async ({ socket, roomController }) => {
+    case "session:pause": {
       await roomController.handleSessionPause(socket)
-    },
-  })
+      return
+    }
 
-  ws.on("session:resume", {
-    handler: async ({ socket, roomController }) => {
+    case "session:resume": {
       await roomController.handleSessionResume(socket)
-    },
-  })
+      return
+    }
 
-  ws.on("group:grab", {
-    handler: async ({ socket, roomController, message }) => {
+    case "group:grab": {
       const input = parseGroupIdInput(message)
 
       if (!input) {
@@ -52,11 +57,10 @@ export function registerWsRoutes(ws: WsRouter): void {
       }
 
       await roomController.handleGroupGrab(socket, input)
-    },
-  })
+      return
+    }
 
-  ws.on("group:move", {
-    handler: async ({ socket, roomController, message }) => {
+    case "group:move": {
       const input = parseGroupMoveInput(message)
 
       if (!input) {
@@ -65,11 +69,10 @@ export function registerWsRoutes(ws: WsRouter): void {
       }
 
       await roomController.handleGroupMove(socket, input)
-    },
-  })
+      return
+    }
 
-  ws.on("group:drop", {
-    handler: async ({ socket, roomController, message }) => {
+    case "group:drop": {
       const input = parseGroupMoveInput(message)
 
       if (!input) {
@@ -78,11 +81,10 @@ export function registerWsRoutes(ws: WsRouter): void {
       }
 
       await roomController.handleGroupDrop(socket, input)
-    },
-  })
+      return
+    }
 
-  ws.on("group:release", {
-    handler: async ({ socket, roomController, message }) => {
+    case "group:release": {
       const input = parseGroupIdInput(message)
 
       if (!input) {
@@ -91,11 +93,10 @@ export function registerWsRoutes(ws: WsRouter): void {
       }
 
       await roomController.handleGroupRelease(socket, input)
-    },
-  })
+      return
+    }
 
-  ws.on("groups:arrange", {
-    handler: async ({ socket, roomController, message }) => {
+    case "groups:arrange": {
       const input = parseArrangeGroupsInput(message)
 
       if (!input) {
@@ -104,11 +105,10 @@ export function registerWsRoutes(ws: WsRouter): void {
       }
 
       await roomController.handleGroupsArrange(socket, input)
-    },
-  })
+      return
+    }
 
-  ws.on("room:lock-toggle", {
-    handler: async ({ socket, roomController, message }) => {
+    case "room:lock-toggle": {
       const input = parseLockToggleInput(message)
 
       if (!input) {
@@ -117,11 +117,10 @@ export function registerWsRoutes(ws: WsRouter): void {
       }
 
       await roomController.handleRoomLockToggle(socket, input)
-    },
-  })
+      return
+    }
 
-  ws.on("room:ping", {
-    handler: ({ socket, roomController, message }) => {
+    case "room:ping": {
       const input = parsePingInput(message)
 
       if (!input) {
@@ -130,11 +129,10 @@ export function registerWsRoutes(ws: WsRouter): void {
       }
 
       roomController.handleRoomPing(socket, input)
-    },
-  })
+      return
+    }
 
-  ws.on("cursor:move", {
-    handler: ({ socket, roomController, message }) => {
+    case "cursor:move": {
       const input = parseCursorMoveInput(message)
 
       if (!input) {
@@ -143,12 +141,16 @@ export function registerWsRoutes(ws: WsRouter): void {
       }
 
       roomController.handleCursorMove(socket, input)
-    },
-  })
+      return
+    }
 
-  ws.on("cursor:hide", {
-    handler: ({ socket, roomController }) => {
+    case "cursor:hide": {
       roomController.handleCursorHide(socket)
-    },
-  })
+      return
+    }
+
+    default: {
+      sendWsError(socket, "unknown_message", "Unknown message type")
+    }
+  }
 }
