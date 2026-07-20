@@ -99,7 +99,7 @@ const WORKFLOW = [
   {
     index: "03",
     scope: "web editor",
-    label: "Save composition",
+    label: "save composition",
     description: "Open the generated link and review the composition.",
   },
   {
