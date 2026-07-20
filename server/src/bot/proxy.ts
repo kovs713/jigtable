@@ -1,5 +1,3 @@
-import { HttpError, type Transformer } from "grammy"
-
 type FetchInput = Parameters<typeof fetch>[0]
 type FetchInit = Parameters<typeof fetch>[1]
 
@@ -19,7 +17,7 @@ async function telegramFetchImplementation(
   init?: FetchInit
 ): Promise<Response> {
   const proxyUrl = process.env.TELEGRAM_PROXY_URL
-  const requestInit = proxyUrl ? await normalizeMultipartBody(init) : init
+  const requestInit = proxyUrl ? await prepareProxyRequest(init) : init
 
   return nativeFetch(input, {
     ...requestInit,
@@ -27,15 +25,24 @@ async function telegramFetchImplementation(
   } as BunProxyInit)
 }
 
-async function normalizeMultipartBody(init?: FetchInit): Promise<FetchInit> {
-  const contentType = new Headers(init?.headers).get("content-type")
+async function prepareProxyRequest(init?: FetchInit): Promise<FetchInit> {
+  if (!init) return init
 
-  if (!init?.body || !contentType?.startsWith("multipart/form-data")) {
-    return init
+  const {
+    agent: _agent,
+    compress: _compress,
+    ...requestInit
+  } = init as GrammyFetchInit
+  const contentType = new Headers(requestInit.headers).get("content-type")
+
+  if (!requestInit.body || !contentType?.startsWith("multipart/form-data")) {
+    return requestInit
   }
 
+  // grammY uses a Node Readable and attach:// fields. Bun's HTTP proxy stalls
+  // on that payload, so rebuild it as native FormData before sending.
   const source = await new Response(
-    init.body as ConstructorParameters<typeof Response>[0],
+    requestInit.body as ConstructorParameters<typeof Response>[0],
     {
       headers: { "content-type": contentType },
     }
@@ -71,15 +78,10 @@ async function normalizeMultipartBody(init?: FetchInit): Promise<FetchInit> {
     body.set(key, value)
   }
 
-  const headers = new Headers(init.headers)
+  const headers = new Headers(requestInit.headers)
   headers.delete("connection")
   headers.delete("content-length")
   headers.delete("content-type")
-  const {
-    agent: _agent,
-    compress: _compress,
-    ...requestInit
-  } = init as GrammyFetchInit
 
   return {
     ...requestInit,
@@ -100,24 +102,3 @@ export const telegramApiFetch: typeof fetch = Object.assign(
     preconnect: nativeFetch.preconnect.bind(nativeFetch),
   }
 )
-
-export function retryTelegramHttpErrors(maxRetryAttempts = 2): Transformer {
-  return async (previous, method, payload, signal) => {
-    for (let attempt = 0; ; attempt++) {
-      try {
-        return await previous(method, payload, signal)
-      } catch (error) {
-        if (
-          method === "getUpdates" ||
-          !(error instanceof HttpError) ||
-          signal?.aborted ||
-          attempt >= maxRetryAttempts
-        ) {
-          throw error
-        }
-
-        await Bun.sleep(1_000 * 2 ** attempt)
-      }
-    }
-  }
-}

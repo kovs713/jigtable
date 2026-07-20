@@ -1,8 +1,7 @@
-import { autoRetry } from "@grammyjs/auto-retry"
 import { Bot, GrammyError, HttpError, session, type Context } from "grammy"
 
 import { registerHandlers } from "@/bot/handlers"
-import { retryTelegramHttpErrors, telegramApiFetch } from "@/bot/proxy"
+import { telegramApiFetch } from "@/bot/proxy"
 import { drizzleSessionStorage } from "@/bot/session-storage"
 import type { BotContext, SessionData } from "@/bot/types"
 import { requireWhitelistedUser } from "./handlers/whitelist"
@@ -28,15 +27,6 @@ export async function createBot(): Promise<Bot<BotContext>> {
           },
         }
   )
-
-  bot.api.config.use(
-    autoRetry({
-      maxRetryAttempts: 2,
-      maxDelaySeconds: 10,
-      rethrowHttpErrors: true,
-    })
-  )
-  bot.api.config.use(retryTelegramHttpErrors())
 
   bot.use(
     session({
