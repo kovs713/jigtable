@@ -180,7 +180,7 @@ function PlayerResultRow({
   return (
     <article
       className="jigsaw-room__result-player"
-      style={{ borderLeftColor: player.color }}
+      style={{ borderLeftColor: `3px solid ${player.color}` }}
     >
       <div className="jigsaw-room__result-player-heading">
         <span className="jigsaw-room__result-rank">

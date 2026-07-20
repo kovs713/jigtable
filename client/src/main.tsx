@@ -2,6 +2,7 @@ import { SpeedInsights } from "@vercel/speed-insights/react"
 import { lazy, StrictMode, Suspense } from "react"
 import { createRoot } from "react-dom/client"
 
+import { AppNavigation } from "@/components/AppNavigation.tsx"
 import { ThemeProvider } from "@/components/theme-provider.tsx"
 import { ErrorBoundary } from "./error-boundary"
 import { matchRoute } from "./routes"
@@ -22,29 +23,44 @@ const JigsawViewApp = lazy(() => import("./jigsaw-room/JigsawViewApp.tsx"))
 
 export function RootApp() {
   const route = matchRoute(window.location.pathname)
+  let page
 
   switch (route.name) {
     case "privacy":
-      return <PrivacyPage />
+      page = <PrivacyPage />
+      break
 
     case "room.create":
-      return <JigsawRoomCreateApp />
+      page = <JigsawRoomCreateApp />
+      break
 
     case "profile":
-      return <JigsawProfileApp />
+      page = <JigsawProfileApp />
+      break
 
     case "profile.history.item":
-      return <JigsawViewApp roomId={route.roomId} />
+      page = <JigsawViewApp roomId={route.roomId} />
+      break
 
     case "room.solve":
-      return <JigsawRoomApp roomId={route.roomId} />
+      page = <JigsawRoomApp roomId={route.roomId} />
+      break
 
     case "editor":
-      return <App />
+      page = <App />
+      break
 
     case "landing":
-      return <LandingPage />
+      page = <LandingPage />
+      break
   }
+
+  return (
+    <>
+      {page}
+      <AppNavigation route={route} />
+    </>
+  )
 }
 
 function RouteLoading() {

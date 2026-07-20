@@ -9,6 +9,7 @@ export type AppRoute =
 
 export const paths = {
   landing: () => "/",
+  editor: () => "/editor",
   privacy: () => "/privacy",
   roomCreate: () => "/rooms/new",
   profile: () => "/profile",
