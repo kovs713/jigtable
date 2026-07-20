@@ -120,21 +120,12 @@ export default function LandingPage() {
   return (
     <main className="landing-page canvas-grid">
       <header className="landing-page__header glass">
-        <a
-          href="/rooms/new"
-          className="landing-page__brand"
-          aria-label="Jigtable home"
-        >
-          <span className="landing-page__logo" aria-hidden="true">
-            J
+        <span className="landing-page__brand-content">
+          <span className="landing-page__brand-name">jigtable</span>
+          <span className="landing-page__brand-description">
+            collaborative jigsaw workspace
           </span>
-          <span className="landing-page__brand-content">
-            <span className="landing-page__brand-name">jigtable</span>
-            <span className="landing-page__brand-description">
-              collaborative puzzle workspace
-            </span>
-          </span>
-        </a>
+        </span>
 
         <nav className="landing-page__nav" aria-label="Main navigation">
           <a href="#workflow" className="landing-page__nav-link">

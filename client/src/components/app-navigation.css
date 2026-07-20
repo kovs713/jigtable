@@ -57,11 +57,11 @@
   display: grid;
   align-self: stretch;
   place-items: center;
-  width: 2.75rem;
+  width: 2.5rem;
   color: var(--primary-foreground);
   font-family: var(--font-mono);
   font-size: 0.875rem;
-  font-weight: 750;
+  font-weight: 700;
   background: var(--primary);
 }
 
