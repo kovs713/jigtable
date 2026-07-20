@@ -1,4 +1,5 @@
 import {
+  integer,
   pgTable,
   text,
   timestamp,
@@ -17,6 +18,8 @@ export const usersSchema = pgTable(
     photoUrl: text("photo_url"),
     displayName: text("display_name").notNull(),
     color: text("color").notNull(),
+    xpTotal: integer("xp_total").default(0).notNull(),
+    xpUpdatedAt: timestamp("xp_updated_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
       .notNull(),

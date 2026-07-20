@@ -7,6 +7,8 @@ export type User = {
   photoUrl: string | null
   displayName: string
   color: string
+  xpTotal: number
+  xpUpdatedAt: string | null
 }
 
 export type AuthSession = {

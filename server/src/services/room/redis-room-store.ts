@@ -4,7 +4,7 @@ import type { Room } from "./room.types"
 
 type StoredRoom = Omit<
   Room,
-  "players" | "connections" | "cursors" | "pingCooldowns"
+  "players" | "connections" | "cursors" | "pingCooldowns" | "activePreviews"
 >
 
 export interface RoomStore {
@@ -35,6 +35,7 @@ export class RedisRoomStore implements RoomStore {
       connections: new Map(),
       cursors: new Map(),
       pingCooldowns: new Map(),
+      activePreviews: new Map(),
     }
   }
 
@@ -44,6 +45,7 @@ export class RedisRoomStore implements RoomStore {
       connections: _connections,
       cursors: _cursors,
       pingCooldowns: _pingCooldowns,
+      activePreviews: _activePreviews,
       ...stored
     } = room
     await this.cache.set(room.roomId, JSON.stringify(stored))

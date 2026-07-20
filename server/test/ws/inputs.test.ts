@@ -3,6 +3,7 @@ import { describe, expect, test } from "bun:test"
 import {
   parseArrangeGroupsInput,
   parseCursorMoveInput,
+  parseGroupDropInput,
   parseGroupMoveInput,
 } from "@/ws/inputs"
 
@@ -34,6 +35,20 @@ describe("WebSocket inputs", () => {
     expect(parseCursorMoveInput({ x: Number.NaN, y: 0 })).toBeNull()
     expect(
       parseCursorMoveInput({ x: 0, y: Number.POSITIVE_INFINITY })
+    ).toBeNull()
+  })
+
+  test("requires a UUID command id for persisted commands", () => {
+    const input = {
+      commandId: "00000000-0000-4000-8000-000000000001",
+      groupId: "group-1",
+      x: 1,
+      y: 2,
+    }
+
+    expect(parseGroupDropInput(input)).toEqual(input)
+    expect(
+      parseGroupDropInput({ ...input, commandId: "not-a-uuid" })
     ).toBeNull()
   })
 })

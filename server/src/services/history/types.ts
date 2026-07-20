@@ -1,4 +1,5 @@
 import type { JigsawConfig as CoreRoomConfig } from "@jigtable/core/types"
+import type { SessionSummary } from "@jigtable/core/session-history"
 
 export type RoomConfig = CoreRoomConfig
 
@@ -25,7 +26,8 @@ export type AssetSource = {
 }
 
 export type ResultParticipant = {
-  userId?: string
+  playerId?: string
+  userId?: string | null
   telegramId?: string
   name: string
   color: string
@@ -52,6 +54,7 @@ export type RoomResult = {
   snapCount: number
   completedAt: Date
   participants: ResultParticipant[]
+  summary: SessionSummary | null
 }
 
 export type RoomCompletion = {

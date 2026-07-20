@@ -1,4 +1,5 @@
 import type { JigsawConfig } from "@jigtable/core"
+import type { SessionSummary } from "@jigtable/core/session-history"
 import type {
   CreateJigsawRoomResponse,
   RoomSnapshot as JigsawRoomSnapshot,
@@ -112,6 +113,7 @@ export interface JigsawRoomResult {
     name: string
     color: string
   }>
+  summary: SessionSummary | null
 }
 
 export async function fetchJigsawRoomResult(

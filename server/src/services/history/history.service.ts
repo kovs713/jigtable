@@ -93,6 +93,14 @@ export class HistoryService {
     await this.repository.saveCompletion(completion)
   }
 
+  async recoverPendingCompletions(): Promise<void> {
+    const completions = await this.repository.listPendingCompletions()
+
+    for (const completion of completions) {
+      await this.repository.saveCompletion(completion)
+    }
+  }
+
   async listUserHistory(userId: string): Promise<HistoryEntry[]> {
     const entries = await this.repository.listUserHistory(userId)
     const colors = await this.loadCurrentUserColors(entries)

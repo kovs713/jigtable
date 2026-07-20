@@ -15,6 +15,11 @@ export {
   type PlayerSessionRepository,
 } from "./player-session.repository"
 export {
+  DrizzleRoomEventRepository,
+  type AppendRoomEvent,
+  type RoomEventRepository,
+} from "./room-event.repository"
+export {
   DrizzleTelegramAccessRepository,
   type TelegramAccessRepository,
 } from "./telegram-access.repository"

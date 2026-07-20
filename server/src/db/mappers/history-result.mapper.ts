@@ -1,5 +1,6 @@
 import { string } from "@jigtable/shared/schemas"
 import { isRecord } from "@jigtable/shared/utils"
+import type { SessionSummary } from "@jigtable/core/session-history"
 
 import { summarizeAssetReference } from "@/services/history/asset-reference"
 import type { StoredAssetReference } from "@/db/schemas/room-results"
@@ -21,6 +22,7 @@ export type StoredRoomResultRow = {
   snapCount: number
   completedAt: Date
   participants: unknown
+  summary?: SessionSummary | null
 }
 
 export function toHistoryEntry(row: StoredRoomResultRow): HistoryEntry | null {
@@ -62,6 +64,7 @@ export function toRoomResult(row: StoredRoomResultRow): RoomResult | null {
     snapCount: row.snapCount,
     completedAt: row.completedAt,
     participants: parseParticipants(row.participants),
+    summary: row.summary ?? null,
   }
 }
 
@@ -209,6 +212,7 @@ function parseParticipants(value: unknown): ResultParticipant[] {
 
     return [
       {
+        playerId: parseRequiredString(item.playerId) ?? undefined,
         userId: parseRequiredString(item.userId) ?? undefined,
         telegramId: parseRequiredString(item.telegramId) ?? undefined,
         name,

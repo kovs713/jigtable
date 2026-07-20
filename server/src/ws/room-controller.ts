@@ -72,12 +72,25 @@ export class RoomController {
   handleGroupDrop(
     socket: WsSocket,
     input: {
+      commandId: string
       groupId: string
       x: number
       y: number
     }
   ): Promise<void> {
     return this.rooms.dropGroup(this.requireConnectionId(socket), input)
+  }
+
+  handlePreviewToggle(
+    socket: WsSocket,
+    open: boolean,
+    input: { commandId: string }
+  ): Promise<void> {
+    return this.rooms.togglePreview(
+      this.requireConnectionId(socket),
+      open,
+      input.commandId
+    )
   }
 
   handleGroupRelease(
@@ -105,6 +118,7 @@ export class RoomController {
   handleRoomLockToggle(
     socket: WsSocket,
     input: {
+      commandId: string
       targetType: "piece" | "group"
       targetId: string
     }
@@ -115,12 +129,13 @@ export class RoomController {
   handleRoomPing(
     socket: WsSocket,
     input: {
+      commandId: string
       id: string
       x: number
       y: number
     }
-  ): void {
-    this.rooms.ping(this.requireConnectionId(socket), input)
+  ): Promise<void> {
+    return this.rooms.ping(this.requireConnectionId(socket), input)
   }
 
   handleCursorMove(

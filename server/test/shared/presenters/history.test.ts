@@ -41,6 +41,7 @@ describe("history presenters", () => {
       imageUrl: "https://example.com/image.png",
       config: DEFAULT_JIGSAW_CONFIG,
       participants: [],
+      summary: null,
     })
 
     expect(response.jigsawConfig).toEqual(DEFAULT_JIGSAW_CONFIG)

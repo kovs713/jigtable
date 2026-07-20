@@ -8,11 +8,30 @@ import type { GroupId, PieceId, JigsawState } from "./types"
 
 export type SnapKind = "none" | "correct" | "neighbor"
 
-export interface SnapResult {
-  kind: SnapKind
+interface SnapResultBase {
   groupId: GroupId
   affectedPieceIds: PieceId[]
 }
+
+export interface NoSnapResult extends SnapResultBase {
+  kind: "none"
+}
+
+export interface CorrectSnapResult extends SnapResultBase {
+  kind: "correct"
+  pieceIds: PieceId[]
+}
+
+export interface NeighborSnapResult extends SnapResultBase {
+  kind: "neighbor"
+  movingGroupId: GroupId
+  targetGroupId: GroupId
+  resultGroupId: GroupId
+  movingPieceIds: PieceId[]
+  targetPieceIds: PieceId[]
+}
+
+export type SnapResult = NoSnapResult | CorrectSnapResult | NeighborSnapResult
 
 interface SnapCandidate {
   distanceSquared: number
@@ -31,6 +50,7 @@ export function snapDroppedGroup(
   const correctSnap = findCorrectSnap(state, groupId)
 
   if (correctSnap) {
+    const pieceIds = [...(state.groups[groupId]?.pieceIds ?? [])]
     const movedPieceIds = translateGroup(
       state,
       groupId,
@@ -43,6 +63,7 @@ export function snapDroppedGroup(
     return {
       kind: "correct",
       groupId,
+      pieceIds,
       affectedPieceIds:
         affectedPieceIds.length > 0 ? affectedPieceIds : movedPieceIds,
     }
@@ -51,6 +72,10 @@ export function snapDroppedGroup(
   const neighborSnap = findNeighborSnap(state, groupId)
 
   if (neighborSnap) {
+    const movingPieceIds = [...(state.groups[groupId]?.pieceIds ?? [])]
+    const targetPieceIds = [
+      ...(state.groups[neighborSnap.neighborGroupId]?.pieceIds ?? []),
+    ]
     translateGroup(state, groupId, neighborSnap.deltaX, neighborSnap.deltaY)
     const mergedGroupId = mergeGroups(
       state,
@@ -65,6 +90,11 @@ export function snapDroppedGroup(
       kind: "neighbor",
       groupId: mergedGroupId,
       affectedPieceIds,
+      movingGroupId: groupId,
+      targetGroupId: neighborSnap.neighborGroupId,
+      resultGroupId: mergedGroupId,
+      movingPieceIds,
+      targetPieceIds,
     }
   }
 

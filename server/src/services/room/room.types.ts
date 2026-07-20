@@ -11,6 +11,13 @@ import type {
 
 import type { AssetReference } from "@/services/history"
 
+export type ActivePreview = {
+  presenceId: string
+  intervalId: string
+  playerId: string
+  userId: string | null
+}
+
 export type CreateRoomInput = {
   assetId?: string
   assetRef: AssetReference
@@ -26,6 +33,8 @@ export type RoomConnection = {
   connectionId: string
   sessionToken: string
   playerId: string
+  userId: string | null
+  presenceId: string
 }
 
 export type Room = {
@@ -40,6 +49,7 @@ export type Room = {
   dragLocks: Record<string, GroupDragLock>
   toggleLocks: Record<string, ToggleLock>
   pingCooldowns: Map<string, number>
+  activePreviews: Map<string, ActivePreview>
   timer: RoomTimer
   completedAt?: number
   createdAt: number

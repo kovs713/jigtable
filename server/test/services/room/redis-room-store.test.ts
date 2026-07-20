@@ -48,6 +48,8 @@ describe("RedisRoomStore", () => {
       connectionId: "connection-1",
       sessionToken: "session-1",
       playerId: "player-1",
+      userId: null,
+      presenceId: "presence-1",
     })
 
     await store.save(room)

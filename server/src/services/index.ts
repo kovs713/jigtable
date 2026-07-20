@@ -4,6 +4,7 @@ import {
   DrizzleCompositionRepository,
   DrizzleHistoryRepository,
   DrizzlePlayerSessionRepository,
+  DrizzleRoomEventRepository,
   DrizzleTelegramAccessRepository,
   DrizzleUserRepository,
 } from "@/db/repositories"
@@ -46,6 +47,7 @@ export function createServices({
   )
   const rooms = new RoomManager({
     sessions: playerSessions,
+    events: new DrizzleRoomEventRepository(),
     history,
     publisher: roomPublisher,
     metrics: roomMetrics,

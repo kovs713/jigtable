@@ -1,3 +1,8 @@
+import type {
+  PersistedRoomEvent,
+  RoomEventDraft,
+} from "@jigtable/core/session-history"
+
 import type { ParticipantSession, RoomCompletion } from "@/services/history"
 
 import type { Player, RoomStats } from "./room.types"
@@ -26,6 +31,19 @@ export interface RoomHistory {
   }): Promise<void>
 
   recordCompletion(completion: RoomCompletion): Promise<void>
+
+  recoverPendingCompletions(): Promise<void>
+}
+
+export interface RoomEventStore {
+  append(events: readonly RoomEventDraft[]): Promise<PersistedRoomEvent[]>
+
+  findByCommand(
+    roomId: string,
+    commandId: string
+  ): Promise<PersistedRoomEvent[]>
+
+  listRoomEvents(roomId: string): Promise<PersistedRoomEvent[]>
 }
 
 export interface RoomMetrics {

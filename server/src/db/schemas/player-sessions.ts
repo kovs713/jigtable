@@ -1,6 +1,6 @@
 import { jsonb, pgTable, text, timestamp } from "drizzle-orm/pg-core"
 
-export const playerSessionsSchema = pgTable("jigsaw_sessions", {
+export const playerSessionsSchema = pgTable("player_sessions", {
   key: text("key").primaryKey(),
   value: jsonb("value").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true })

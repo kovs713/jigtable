@@ -2,7 +2,9 @@ import { isRecord } from "@jigtable/shared/utils"
 
 import {
   parseArrangeGroupsInput,
+  parseCommandInput,
   parseCursorMoveInput,
+  parseGroupDropInput,
   parseGroupIdInput,
   parseGroupMoveInput,
   parseLockToggleInput,
@@ -73,7 +75,7 @@ export async function routeWsMessage(context: WsContext): Promise<void> {
     }
 
     case "group:drop": {
-      const input = parseGroupMoveInput(message)
+      const input = parseGroupDropInput(message)
 
       if (!input) {
         sendWsError(socket, "invalid_message", "Invalid group drop message")
@@ -81,6 +83,23 @@ export async function routeWsMessage(context: WsContext): Promise<void> {
       }
 
       await roomController.handleGroupDrop(socket, input)
+      return
+    }
+
+    case "room:preview:open":
+    case "room:preview:close": {
+      const input = parseCommandInput(message)
+
+      if (!input) {
+        sendWsError(socket, "invalid_message", "Invalid preview message")
+        return
+      }
+
+      await roomController.handlePreviewToggle(
+        socket,
+        message.type === "room:preview:open",
+        input
+      )
       return
     }
 
@@ -128,7 +147,7 @@ export async function routeWsMessage(context: WsContext): Promise<void> {
         return
       }
 
-      roomController.handleRoomPing(socket, input)
+      await roomController.handleRoomPing(socket, input)
       return
     }
 

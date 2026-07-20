@@ -1,5 +1,10 @@
 import { describe, expect, test } from "bun:test"
 
+import type {
+  PersistedRoomEvent,
+  RoomEventDraft,
+} from "@jigtable/core/session-history"
+
 import type { ParticipantSession, RoomCompletion } from "@/services/history"
 import type {
   Room,
@@ -150,6 +155,54 @@ describe("RoomManager", () => {
       (await secondManager.getRoomSnapshot(state.roomId))?.players
     ).toEqual([session.player])
   })
+
+  test("does not duplicate preview events for a replayed command", async () => {
+    const eventStore = createEventStore()
+    const manager = createManager(createHistory(), { events: eventStore })
+    const state = await manager.createRoom(createRoomInput())
+    await manager.joinRoom("connection-1", {
+      roomId: state.roomId,
+      sessionToken: session.token,
+    })
+    const commandId = "00000000-0000-4000-8000-000000000001"
+
+    await Promise.all([
+      manager.togglePreview("connection-1", true, commandId),
+      manager.togglePreview("connection-1", true, commandId),
+    ])
+
+    expect(
+      eventStore.events.filter(
+        (event) =>
+          event.commandId === commandId && event.eventType === "preview_opened"
+      )
+    ).toHaveLength(1)
+  })
+
+  test("persists preview no-ops so delayed replays cannot reopen it", async () => {
+    const eventStore = createEventStore()
+    const manager = createManager(createHistory(), { events: eventStore })
+    const state = await manager.createRoom(createRoomInput())
+    await manager.joinRoom("connection-1", {
+      roomId: state.roomId,
+      sessionToken: session.token,
+    })
+    const openId = "00000000-0000-4000-8000-000000000011"
+    const noopId = "00000000-0000-4000-8000-000000000012"
+    const closeId = "00000000-0000-4000-8000-000000000013"
+
+    await manager.togglePreview("connection-1", true, openId)
+    await manager.togglePreview("connection-1", true, noopId)
+    await manager.togglePreview("connection-1", false, closeId)
+    await manager.togglePreview("connection-1", true, noopId)
+
+    expect(
+      eventStore.events.filter((event) => event.eventType === "preview_opened")
+    ).toHaveLength(1)
+    expect(
+      eventStore.events.find((event) => event.commandId === noopId)?.eventType
+    ).toBe("command_noop")
+  })
 })
 
 function createManager(
@@ -163,6 +216,7 @@ function createManager(
       error(message: string, error: unknown): void
     }
     store?: RoomStore
+    events?: ReturnType<typeof createEventStore>
   } = {}
 ): RoomManager {
   return new RoomManager({
@@ -171,6 +225,7 @@ function createManager(
         return token === session.token ? session : null
       },
     },
+    events: options.events ?? createEventStore(),
     history,
     publisher: options.publisher ?? createPublisher(),
     metrics: {
@@ -180,6 +235,35 @@ function createManager(
     store: options.store ?? new MemoryRoomStore(),
     logger: options.logger,
   })
+}
+
+function createEventStore() {
+  const events: PersistedRoomEvent[] = []
+
+  return {
+    events,
+    async append(drafts: readonly RoomEventDraft[]) {
+      const persisted = drafts.map(
+        (draft, index) =>
+          ({
+            ...draft,
+            id: draft.id ?? crypto.randomUUID(),
+            sequence: events.length + index + 1,
+            createdAt: new Date().toISOString(),
+          }) as PersistedRoomEvent
+      )
+      events.push(...persisted)
+      return persisted
+    },
+    async findByCommand(roomId: string, commandId: string) {
+      return events.filter(
+        (event) => event.roomId === roomId && event.commandId === commandId
+      )
+    },
+    async listRoomEvents(roomId: string) {
+      return events.filter((event) => event.roomId === roomId)
+    },
+  }
 }
 
 class MemoryRoomStore {
@@ -209,6 +293,7 @@ function createHistory() {
     async markParticipantLeft() {},
     async updateParticipantProfile() {},
     async recordCompletion(_completion: RoomCompletion) {},
+    async recoverPendingCompletions() {},
   }
 }
 

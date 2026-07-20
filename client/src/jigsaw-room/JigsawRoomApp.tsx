@@ -760,6 +760,10 @@ export function JigsawRoomApp({ roomId }: JigsawRoomAppProps) {
     setPreviewVisible((current) => {
       const next = !current
       runtime.scene.setPreviewVisible(next)
+      multiplayerRef.current?.send({
+        type: next ? "room:preview:open" : "room:preview:close",
+        commandId: crypto.randomUUID(),
+      })
       return next
     })
   }
@@ -1080,12 +1084,14 @@ export function JigsawRoomApp({ roomId }: JigsawRoomAppProps) {
             if (group.pieceIds.length > 1) {
               multiplayerRef.current?.send({
                 type: "room:lock-toggle",
+                commandId: crypto.randomUUID(),
                 targetType: "group",
                 targetId: piece.groupId,
               })
             } else {
               multiplayerRef.current?.send({
                 type: "room:lock-toggle",
+                commandId: crypto.randomUUID(),
                 targetType: "piece",
                 targetId: pieceId,
               })
@@ -1134,6 +1140,7 @@ export function JigsawRoomApp({ roomId }: JigsawRoomAppProps) {
             lastMoveSentAtRef.current = 0
             multiplayerRef.current?.send({
               type: "group:drop",
+              commandId: crypto.randomUUID(),
               groupId,
               x: anchor.x,
               y: anchor.y,
@@ -1169,6 +1176,7 @@ export function JigsawRoomApp({ roomId }: JigsawRoomAppProps) {
 
           connection.send({
             type: "room:ping",
+            commandId: crypto.randomUUID(),
             id,
             x: world.x,
             y: world.y,

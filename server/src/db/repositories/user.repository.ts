@@ -95,5 +95,7 @@ function mapUser(user: typeof usersSchema.$inferSelect): User {
     photoUrl: user.photoUrl,
     displayName: user.displayName,
     color: user.color,
+    xpTotal: user.xpTotal,
+    xpUpdatedAt: user.xpUpdatedAt?.toISOString() ?? null,
   }
 }

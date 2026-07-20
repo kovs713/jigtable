@@ -2,6 +2,7 @@ import { moveGroupToAnchor } from "@jigtable/core/groups"
 import type { ArrangeLoosePiecesMode } from "@jigtable/core/scatter"
 import { arrangeLoosePieces } from "@jigtable/core/scatter"
 import { snapDroppedGroup } from "@jigtable/core/snap"
+import type { SnapResult } from "@jigtable/core/snap"
 import type { GroupId } from "@jigtable/core/types"
 
 import { LIMITS } from "@/config"
@@ -36,6 +37,17 @@ import type {
 type RoomCommandsOptions = {
   publisher: RoomPublisher
   now?: () => number
+}
+
+export type DropGroupOutcome = {
+  snap: SnapResult
+  completion: CompletedRoomRecord | null
+}
+
+export type ToggleLockOutcome = {
+  locked: boolean
+  groupId: GroupId
+  pieceIds: string[]
 }
 
 export class RoomCommands {
@@ -152,7 +164,7 @@ export class RoomCommands {
       x: number
       y: number
     }
-  ): CompletedRoomRecord | null {
+  ): DropGroupOutcome | null {
     if (room.timer.paused) {
       this.releaseGroup(room, player, input.groupId)
       return null
@@ -225,7 +237,10 @@ export class RoomCommands {
 
     this.publishStats(room)
 
-    return completeRoomIfSolved(room, this.now())
+    return {
+      snap,
+      completion: completeRoomIfSolved(room, this.now()),
+    }
   }
 
   releaseGroup(room: Room, player: Player, groupId: GroupId): void {
@@ -274,9 +289,9 @@ export class RoomCommands {
       targetType: LockTargetType
       targetId: string
     }
-  ): void {
+  ): ToggleLockOutcome | null {
     if (this.rejectPaused(connectionId, room)) {
-      return
+      return null
     }
 
     if (this.isAlreadyPlaced(room, input)) {
@@ -286,11 +301,14 @@ export class RoomCommands {
         reason: "already_placed",
         lockedBy: null,
       })
-      return
+      return null
     }
 
     const key = lockKey(input.targetType, input.targetId)
     const existingLock = room.toggleLocks[key]
+    const target = this.describeLockTarget(room, input)
+
+    if (!target) return null
 
     if (existingLock) {
       if (existingLock.playerId === player.id) {
@@ -315,7 +333,9 @@ export class RoomCommands {
         })
       }
 
-      return
+      return existingLock.playerId === player.id
+        ? { locked: false, ...target }
+        : null
     }
 
     const lock = {
@@ -339,6 +359,8 @@ export class RoomCommands {
         color: player.color,
       },
     })
+
+    return { locked: true, ...target }
   }
 
   moveCursor(
@@ -388,9 +410,9 @@ export class RoomCommands {
       x: number
       y: number
     }
-  ): void {
+  ): number | null {
     if (!Number.isFinite(input.x) || !Number.isFinite(input.y)) {
-      return
+      return null
     }
 
     const now = this.now()
@@ -400,21 +422,11 @@ export class RoomCommands {
       lastPing !== undefined &&
       now - lastPing < LIMITS.jigsaw.pingCooldownMs
     ) {
-      return
+      return null
     }
 
     room.pingCooldowns.set(player.id, now)
-
-    this.publisher.broadcast(room.roomId, {
-      type: "room:pinged",
-      id: input.id,
-      userId: player.id,
-      userName: player.name,
-      userColor: player.color,
-      x: input.x,
-      y: input.y,
-      createdAt: now,
-    })
+    return now
   }
 
   pause(room: Room, player: Player): void {
@@ -479,5 +491,18 @@ export class RoomCommands {
       group &&
       group.pieceIds.every((pieceId) => room.state.pieces[pieceId]?.placed)
     )
+  }
+
+  private describeLockTarget(
+    room: Room,
+    input: { targetType: LockTargetType; targetId: string }
+  ): { groupId: GroupId; pieceIds: string[] } | null {
+    if (input.targetType === "group") {
+      const group = room.state.groups[input.targetId]
+      return group ? { groupId: group.id, pieceIds: [...group.pieceIds] } : null
+    }
+
+    const piece = room.state.pieces[input.targetId]
+    return piece ? { groupId: piece.groupId, pieceIds: [piece.id] } : null
   }
 }

@@ -53,6 +53,28 @@ export function parseGroupMoveInput(
     : null
 }
 
+export function parseGroupDropInput(
+  message: unknown
+): InputFor<"group:drop"> | null {
+  const move = parseGroupMoveInput(message)
+
+  if (!move || !isRecord(message)) return null
+
+  const commandId = readCommandId(message.commandId)
+
+  return commandId ? { ...move, commandId } : null
+}
+
+export function parseCommandInput(
+  message: unknown
+): InputFor<"room:preview:open"> | null {
+  if (!isRecord(message)) return null
+
+  const commandId = readCommandId(message.commandId)
+
+  return commandId ? { commandId } : null
+}
+
 export function parseArrangeGroupsInput(
   message: unknown
 ): InputFor<"groups:arrange"> | null {
@@ -67,9 +89,11 @@ export function parseLockToggleInput(
   if (!isRecord(message)) return null
 
   const targetId = string().parse(message.targetId)
+  const commandId = readCommandId(message.commandId)
 
   if (
     !targetId.ok ||
+    !commandId ||
     (message.targetType !== "piece" && message.targetType !== "group")
   ) {
     return null
@@ -78,6 +102,7 @@ export function parseLockToggleInput(
   return {
     targetType: message.targetType,
     targetId: targetId.value,
+    commandId,
   }
 }
 
@@ -85,10 +110,13 @@ export function parsePingInput(message: unknown): InputFor<"room:ping"> | null {
   if (!isRecord(message)) return null
 
   const id = string().parse(message.id)
+  const commandId = readCommandId(message.commandId)
   const x = readCoordinate(message.x)
   const y = readCoordinate(message.y)
 
-  return id.ok && x !== null && y !== null ? { id: id.value, x, y } : null
+  return id.ok && commandId && x !== null && y !== null
+    ? { commandId, id: id.value, x, y }
+    : null
 }
 
 export function parseCursorMoveInput(
@@ -111,4 +139,14 @@ function isArrangeMode(value: unknown): value is ArrangeLoosePiecesMode {
 
 function readCoordinate(value: unknown): number | null {
   return typeof value === "number" && Number.isFinite(value) ? value : null
+}
+
+function readCommandId(value: unknown): string | null {
+  if (typeof value !== "string") return null
+
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+    value
+  )
+    ? value
+    : null
 }

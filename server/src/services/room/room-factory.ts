@@ -36,6 +36,7 @@ export function createRoom(input: CreateRoomInput, now = Date.now()): Room {
     dragLocks: {},
     toggleLocks: {},
     pingCooldowns: new Map(),
+    activePreviews: new Map(),
     timer: {
       elapsedMs: 0,
       paused: false,

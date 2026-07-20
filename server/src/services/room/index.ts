@@ -2,6 +2,7 @@ export type {
   PlayerSession,
   PlayerSessionReader,
   RoomHistory,
+  RoomEventStore,
   RoomLogger,
   RoomMetrics,
   UpdateSessionPlayerInput,

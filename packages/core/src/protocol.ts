@@ -98,14 +98,21 @@ export interface CreateJigsawRoomResponse {
 export type ClientToServerMessage =
   | { type: "room:join"; roomId: string; sessionToken: string }
   | { type: "room:request_state" }
-  | { type: "room:ping"; id: string; x: number; y: number }
+  | { type: "room:ping"; commandId: string; id: string; x: number; y: number }
   | { type: "group:grab"; groupId: GroupId }
   | { type: "group:move"; groupId: GroupId; x: number; y: number }
-  | { type: "group:drop"; groupId: GroupId; x: number; y: number }
+  | {
+      type: "group:drop"
+      commandId: string
+      groupId: GroupId
+      x: number
+      y: number
+    }
   | { type: "group:release"; groupId: GroupId }
   | { type: "groups:arrange"; mode: ArrangeLoosePiecesMode }
   | {
       type: "room:lock-toggle"
+      commandId: string
       targetType: "piece" | "group"
       targetId: string
     }
@@ -113,6 +120,8 @@ export type ClientToServerMessage =
   | { type: "cursor:hide" }
   | { type: "session:pause" }
   | { type: "session:resume" }
+  | { type: "room:preview:open"; commandId: string }
+  | { type: "room:preview:close"; commandId: string }
 
 export type ServerToClientMessage =
   | { type: "room:state"; state: RoomSnapshot }
@@ -208,6 +217,8 @@ export const CLIENT_MESSAGE_TYPES = defineMessageTypes<ClientToServerMessage>()(
     "cursor:hide",
     "session:pause",
     "session:resume",
+    "room:preview:open",
+    "room:preview:close",
   ]
 )
 
