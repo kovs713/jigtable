@@ -8,7 +8,6 @@ import {
 } from "@jigtable/core/config"
 import { createJigsawState } from "@jigtable/core/generate"
 import { getGroupAnchor, moveGroupToAnchor } from "@jigtable/core/groups"
-import type { PlayerSessionResult } from "@jigtable/core/session-history"
 import type {
   JigsawGroupLock,
   JigsawLock,
@@ -28,6 +27,7 @@ import type { GroupId, JigsawState, PieceId } from "@jigtable/core/types"
 
 import { loadImageTexture } from "./image-texture"
 import { RoomChatWidget } from "./RoomChatWidget"
+import { SolvedRoomResults } from "./SolvedRoomResults"
 import {
   fetchAuthMe,
   fetchJigsawHistory,
@@ -71,7 +71,11 @@ import type { PieceViewSet } from "./pixi/pieces"
 import { createPieceViews } from "./pixi/pieces"
 import type { PingController } from "./pixi/pings"
 import { createPingController } from "./pixi/pings"
-import { fetchJigsawRoomResult, fetchJigsawRoomSnapshot } from "./room-api"
+import {
+  fetchJigsawRoomResult,
+  fetchJigsawRoomSnapshot,
+  type JigsawRoomResult,
+} from "./room-api"
 import {
   createInitialTimer,
   formatElapsedTime,
@@ -86,8 +90,8 @@ const ACTIVE_JIGSAW_CONFIG = JIGSAW_CONFIG_2000
 // multiplayer piece-move broadcast throttle — ~30 events/sec
 const GROUP_MOVE_SEND_INTERVAL_MS = 33
 const CHAT_MESSAGE_HISTORY_LIMIT = 100
-const SOLVED_CELEBRATION_MS = 12_000
-const RESULT_FETCH_ATTEMPTS = 8
+const RESULTS_REVEAL_DELAY_MS = 2_500
+const SOLVED_FIREWORKS_MS = 12_000
 const RESULT_FETCH_RETRY_MS = 400
 const FIREWORK_COUNT = 40
 const LIGHT_ROOM_BACKGROUND = "#f2efe4"
@@ -313,15 +317,18 @@ export function JigsawRoomApp({ roomId }: JigsawRoomAppProps) {
   const roomTimerRef = useRef<JigsawRoomTimer>(createInitialTimer())
   const lastMoveSentAtRef = useRef(0)
   const highlightTimerRef = useRef<number | null>(null)
-  const solvedCelebrationTimerRef = useRef<number | null>(null)
+  const resultsRevealTimerRef = useRef<number | null>(null)
+  const solvedFireworksTimerRef = useRef<number | null>(null)
   const solvedAnnouncedRef = useRef(false)
   const activeRoomId = roomId ?? ""
   const [ready, setReady] = useState(false)
   const [previewVisible, setPreviewVisible] = useState(false)
   const [piecesHighlighted, setPiecesHighlighted] = useState(false)
-  const [showSolvedCelebration, setShowSolvedCelebration] = useState(false)
-  const [completionPlayerResult, setCompletionPlayerResult] =
-    useState<PlayerSessionResult | null>(null)
+  const [solvedResultsOpen, setSolvedResultsOpen] = useState(false)
+  const [solvedResultsExpanded, setSolvedResultsExpanded] = useState(false)
+  const [showSolvedFireworks, setShowSolvedFireworks] = useState(false)
+  const [completionResult, setCompletionResult] =
+    useState<JigsawRoomResult | null>(null)
   const [connectionStatus, setConnectionStatus] =
     useState<MultiplayerStatus>("connecting")
   const [roomStatus, setRoomStatus] = useState("Starting Pixi room...")
@@ -345,6 +352,7 @@ export function JigsawRoomApp({ roomId }: JigsawRoomAppProps) {
   const [stats, setStats] = useState<JigsawStats>(EMPTY_STATS)
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([])
   const [playerId, setPlayerId] = useState(initialSession.player.id)
+  const [playerName, setPlayerName] = useState(initialSession.player.name)
   const [roomBackgroundColor, setRoomBackgroundColor] =
     useState(DARK_ROOM_BACKGROUND)
   const elapsedMs = getTimerElapsedMs(roomTimer, timerNow)
@@ -352,7 +360,7 @@ export function JigsawRoomApp({ roomId }: JigsawRoomAppProps) {
     stats.totalPieces > 0 && stats.placedPieces >= stats.totalPieces
   const remainingPieces = Math.max(stats.totalPieces - stats.placedPieces, 0)
 
-  const fireworkBursts = showSolvedCelebration ? FIREWORK_BURSTS : []
+  const fireworkBursts = showSolvedFireworks ? FIREWORK_BURSTS : []
   const completionPercent =
     stats.totalPieces > 0
       ? Math.round((stats.placedPieces / stats.totalPieces) * 100)
@@ -432,6 +440,7 @@ export function JigsawRoomApp({ roomId }: JigsawRoomAppProps) {
     sessionRef.current = session
     playerRef.current = session.player
     setPlayerId(session.player.id)
+    setPlayerName(session.player.name)
     setProfileForm({
       name: session.player.name,
       color: session.player.color,
@@ -900,6 +909,22 @@ export function JigsawRoomApp({ roomId }: JigsawRoomAppProps) {
     refreshStatsNow()
   }
 
+  function closeSolvedResults(): void {
+    setSolvedResultsOpen(false)
+    setSolvedResultsExpanded(false)
+    setShowSolvedFireworks(false)
+
+    if (resultsRevealTimerRef.current !== null) {
+      window.clearTimeout(resultsRevealTimerRef.current)
+      resultsRevealTimerRef.current = null
+    }
+
+    if (solvedFireworksTimerRef.current !== null) {
+      window.clearTimeout(solvedFireworksTimerRef.current)
+      solvedFireworksTimerRef.current = null
+    }
+  }
+
   useEffect(() => {
     const host = mountRef.current
     let disposed = false
@@ -914,14 +939,21 @@ export function JigsawRoomApp({ roomId }: JigsawRoomAppProps) {
     async function boot() {
       setReady(false)
       setStats(EMPTY_STATS)
-      setShowSolvedCelebration(false)
-      setCompletionPlayerResult(null)
+      setSolvedResultsOpen(false)
+      setSolvedResultsExpanded(false)
+      setShowSolvedFireworks(false)
+      setCompletionResult(null)
       setChatMessages([])
       solvedAnnouncedRef.current = false
 
-      if (solvedCelebrationTimerRef.current !== null) {
-        window.clearTimeout(solvedCelebrationTimerRef.current)
-        solvedCelebrationTimerRef.current = null
+      if (resultsRevealTimerRef.current !== null) {
+        window.clearTimeout(resultsRevealTimerRef.current)
+        resultsRevealTimerRef.current = null
+      }
+
+      if (solvedFireworksTimerRef.current !== null) {
+        window.clearTimeout(solvedFireworksTimerRef.current)
+        solvedFireworksTimerRef.current = null
       }
 
       setRoomStatus(roomId ? "Loading room..." : "Invite link required")
@@ -1336,42 +1368,56 @@ export function JigsawRoomApp({ roomId }: JigsawRoomAppProps) {
     }
 
     solvedAnnouncedRef.current = true
-    setShowSolvedCelebration(true)
+    setTimerNow(readCurrentTimeMs())
+    setSolvedResultsOpen(true)
+    setSolvedResultsExpanded(false)
+    setShowSolvedFireworks(true)
 
-    if (solvedCelebrationTimerRef.current !== null) {
-      window.clearTimeout(solvedCelebrationTimerRef.current)
+    if (resultsRevealTimerRef.current !== null) {
+      window.clearTimeout(resultsRevealTimerRef.current)
     }
 
-    solvedCelebrationTimerRef.current = window.setTimeout(() => {
-      setShowSolvedCelebration(false)
-      solvedCelebrationTimerRef.current = null
-    }, SOLVED_CELEBRATION_MS)
+    if (solvedFireworksTimerRef.current !== null) {
+      window.clearTimeout(solvedFireworksTimerRef.current)
+    }
+
+    resultsRevealTimerRef.current = window.setTimeout(() => {
+      setSolvedResultsExpanded(true)
+      resultsRevealTimerRef.current = null
+    }, RESULTS_REVEAL_DELAY_MS)
+
+    solvedFireworksTimerRef.current = window.setTimeout(() => {
+      setShowSolvedFireworks(false)
+      solvedFireworksTimerRef.current = null
+    }, SOLVED_FIREWORKS_MS)
   }, [solved])
 
   useEffect(() => {
-    if (!solved || !activeRoomId) return
+    if (!solved || !activeRoomId || !solvedResultsOpen || completionResult) {
+      return
+    }
 
     let disposed = false
 
-    void fetchCompletionPlayerResult(
-      activeRoomId,
-      playerId,
-      authSession?.user.id
-    ).then((result) => {
+    void fetchCompletionResult(activeRoomId, () => disposed).then((result) => {
       if (!disposed) {
-        setCompletionPlayerResult(result)
+        setCompletionResult(result)
       }
     })
 
     return () => {
       disposed = true
     }
-  }, [activeRoomId, authSession?.user.id, playerId, solved])
+  }, [activeRoomId, completionResult, solved, solvedResultsOpen])
 
   useEffect(() => {
     return () => {
-      if (solvedCelebrationTimerRef.current !== null) {
-        window.clearTimeout(solvedCelebrationTimerRef.current)
+      if (resultsRevealTimerRef.current !== null) {
+        window.clearTimeout(resultsRevealTimerRef.current)
+      }
+
+      if (solvedFireworksTimerRef.current !== null) {
+        window.clearTimeout(solvedFireworksTimerRef.current)
       }
     }
   }, [])
@@ -1684,11 +1730,17 @@ export function JigsawRoomApp({ roomId }: JigsawRoomAppProps) {
         onSend={sendChatMessage}
       />
 
-      {showSolvedCelebration ? (
+      {solvedResultsOpen ? (
         <div
-          className="jigsaw-room__solved-celebration"
-          role="status"
+          className={
+            solvedResultsExpanded
+              ? "jigsaw-room__solved-celebration jigsaw-room__solved-celebration--results"
+              : "jigsaw-room__solved-celebration"
+          }
+          role={solvedResultsExpanded ? "dialog" : "status"}
           aria-live="polite"
+          aria-modal={solvedResultsExpanded ? "true" : undefined}
+          aria-labelledby="solved-room-title"
         >
           <div className="jigsaw-room__fireworks" aria-hidden="true">
             {fireworkBursts.map((burst, i) => (
@@ -1705,34 +1757,16 @@ export function JigsawRoomApp({ roomId }: JigsawRoomAppProps) {
               />
             ))}
           </div>
-          <div className="jigsaw-room__solved-card">
-            <span>Jigsaw solved</span>
-            <strong>{formatElapsedTime(elapsedMs)}</strong>
-            {completionPlayerResult ? (
-              <dl className="jigsaw-room__solved-stats">
-                <div>
-                  <dt>Score</dt>
-                  <dd>{completionPlayerResult.score.points}</dd>
-                </div>
-                <div>
-                  <dt>Contribution</dt>
-                  <dd>
-                    {formatContributionPercentage(
-                      completionPlayerResult.stats.contributionPercentage
-                    )}
-                  </dd>
-                </div>
-                <div>
-                  <dt>XP</dt>
-                  <dd>
-                    {completionPlayerResult.userId
-                      ? `+${completionPlayerResult.xpGained}`
-                      : "Guest"}
-                  </dd>
-                </div>
-              </dl>
-            ) : null}
-          </div>
+          <SolvedRoomResults
+            roomId={activeRoomId}
+            result={completionResult}
+            fallbackElapsedMs={elapsedMs}
+            currentPlayerId={playerId}
+            currentUserId={authSession?.user.id}
+            currentPlayerName={playerName}
+            expanded={solvedResultsExpanded}
+            onClose={closeSolvedResults}
+          />
         </div>
       ) : null}
 
@@ -1746,33 +1780,20 @@ export function JigsawRoomApp({ roomId }: JigsawRoomAppProps) {
   )
 }
 
-async function fetchCompletionPlayerResult(
+async function fetchCompletionResult(
   roomId: string,
-  playerId: string,
-  userId?: string
-): Promise<PlayerSessionResult | null> {
-  for (let attempt = 0; attempt < RESULT_FETCH_ATTEMPTS; attempt++) {
+  isCancelled: () => boolean
+): Promise<JigsawRoomResult | null> {
+  while (!isCancelled()) {
     try {
       const result = await fetchJigsawRoomResult(roomId)
 
-      if (result.summary) {
-        return (
-          result.summary.players.find(
-            (player) => player.playerId === playerId
-          ) ??
-          result.summary.players.find(
-            (player) => Boolean(userId) && player.userId === userId
-          ) ??
-          null
-        )
-      }
+      if (result.summary) return result
     } catch {
       // Completion reaches the client before finalization can commit the result.
     }
 
-    if (attempt < RESULT_FETCH_ATTEMPTS - 1) {
-      await wait(RESULT_FETCH_RETRY_MS)
-    }
+    await wait(RESULT_FETCH_RETRY_MS)
   }
 
   return null
@@ -1780,10 +1801,6 @@ async function fetchCompletionPlayerResult(
 
 function wait(durationMs: number): Promise<void> {
   return new Promise((resolve) => window.setTimeout(resolve, durationMs))
-}
-
-function formatContributionPercentage(value: number): string {
-  return `${new Intl.NumberFormat(undefined, { maximumFractionDigits: 1 }).format(value)}%`
 }
 
 function applyRoomState(

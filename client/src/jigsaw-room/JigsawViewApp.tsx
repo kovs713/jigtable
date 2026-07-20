@@ -1,32 +1,18 @@
 import { useEffect, useState } from "react"
 
-import type {
-  PlayerSessionResult,
-  SessionLabel,
-} from "@jigtable/core/session-history"
+import type { PlayerSessionResult } from "@jigtable/core/session-history"
 
 import { HistoryPreview } from "./HistoryPreview"
 import { fetchJigsawRoomResult, type JigsawRoomResult } from "./room-api"
+import {
+  comparePlayerResults,
+  formatContributionPercentage,
+  SESSION_LABELS,
+} from "./session-results"
 import { formatDate, formatDuration } from "./time"
 
 import "./jigsaw-room-view.css"
 import "./jigsaw-room.css"
-
-const SESSION_LABELS: Record<SessionLabel, string> = {
-  mvp: "MVP",
-  first_blood: "First blood",
-  last_hit: "Last hit",
-  glue_master: "Glue master",
-  closer: "Closer",
-  wall_builder: "Wall builder",
-  corner_hunter: "Corner hunter",
-  biggest_build: "Biggest build",
-  largest_region: "Largest region",
-  ping_lord: "Ping lord",
-  preview_enjoyer: "Preview enjoyer",
-  locksmith: "Locksmith",
-  team_player: "Team player",
-}
 
 export function JigsawViewApp({ roomId }: { roomId: string }) {
   const [result, setResult] = useState<JigsawRoomResult | null>(null)
@@ -203,7 +189,9 @@ function PlayerResultRow({
         <ResultStat label="Score" value={String(player.score.points)} />
         <ResultStat
           label="Contribution"
-          value={formatPercentage(player.stats.contributionPercentage)}
+          value={formatContributionPercentage(
+            player.stats.contributionPercentage
+          )}
         />
         <ResultStat
           label="Primary pieces"
@@ -227,21 +215,6 @@ function ResultStat({ label, value }: { label: string; value: string }) {
       <dd>{value}</dd>
     </div>
   )
-}
-
-function comparePlayerResults(
-  left: PlayerSessionResult,
-  right: PlayerSessionResult
-): number {
-  return (
-    right.score.points - left.score.points ||
-    right.stats.contributionPercentage - left.stats.contributionPercentage ||
-    left.name.localeCompare(right.name)
-  )
-}
-
-function formatPercentage(value: number): string {
-  return `${new Intl.NumberFormat(undefined, { maximumFractionDigits: 1 }).format(value)}%`
 }
 
 export default JigsawViewApp

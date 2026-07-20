@@ -658,6 +658,13 @@
   pointer-events: none;
 }
 
+.jigsaw-room__solved-celebration--results {
+  padding: 28px;
+  background: color-mix(in oklch, var(--background), transparent 24%);
+  backdrop-filter: blur(12px) saturate(0.72);
+  pointer-events: auto;
+}
+
 .jigsaw-room__solved-celebration::before {
   position: absolute;
   inset: 0;
@@ -710,62 +717,319 @@
     0 28px 120px color-mix(in oklch, var(--primary), transparent 24%),
     inset 0 0 0 1px
       color-mix(in oklch, var(--primary-foreground), transparent 82%);
-  animation: jigsaw-solved-card 12s ease both;
+  animation: jigsaw-solved-card-in 560ms cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
-.jigsaw-room__solved-card > span {
+.jigsaw-room__solved-heading {
+  display: grid;
+  gap: 8px;
+}
+
+.jigsaw-room__solved-heading > span {
   font-size: clamp(0.9rem, 1.6vw, 1.25rem);
   font-weight: 850;
   letter-spacing: 0.24em;
 }
 
-.jigsaw-room__solved-card > strong {
+.jigsaw-room__solved-heading > strong {
   font-family: var(--font-mono);
   font-size: clamp(1.8rem, 5vw, 3.4rem);
   line-height: 1;
   letter-spacing: 0.08em;
 }
 
-.jigsaw-room__solved-stats {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  margin: 10px -12px -6px;
-  border: 0.5px solid
-    color-mix(in oklch, var(--primary-foreground), transparent 68%);
-  background: color-mix(in oklch, var(--primary), black 12%);
-}
-
-.jigsaw-room__solved-stats > div {
-  display: grid;
-  gap: 5px;
-  min-width: 0;
-  padding: 10px 12px;
-  border-right: 0.5px solid
-    color-mix(in oklch, var(--primary-foreground), transparent 72%);
-}
-
-.jigsaw-room__solved-stats > div:last-child {
-  border-right: 0;
-}
-
-.jigsaw-room__solved-stats dt {
+.jigsaw-room__solved-card--results {
+  grid-template-rows: auto minmax(0, 1fr);
+  width: min(1080px, calc(100vw - 56px));
+  max-height: calc(100dvh - 56px);
+  padding: 0;
   overflow: hidden;
+  color: var(--foreground);
+  text-align: left;
+  text-transform: none;
+  background:
+    linear-gradient(
+      145deg,
+      color-mix(in oklch, var(--background), var(--primary) 7%),
+      var(--background) 38%
+    ),
+    var(--background);
+  border-color: color-mix(in oklch, var(--primary), transparent 45%);
+  box-shadow:
+    0 36px 140px color-mix(in oklch, black, transparent 24%),
+    inset 0 0 0 1px color-mix(in oklch, var(--foreground), transparent 92%);
+  animation: jigsaw-results-expand 520ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  pointer-events: auto;
+}
+
+.jigsaw-room__solved-card--results:focus {
+  outline: none;
+}
+
+.jigsaw-room__solved-card--results .jigsaw-room__solved-heading {
+  display: flex;
+  align-items: center;
+  min-height: 54px;
+  padding: 16px 22px;
+  color: var(--primary-foreground);
+  background: var(--primary);
+  border-bottom: 1px solid
+    color-mix(in oklch, var(--primary), var(--foreground) 22%);
+}
+
+.jigsaw-room__solved-card--results .jigsaw-room__solved-heading > span {
   font-family: var(--font-mono);
-  font-size: 0.54rem;
-  font-weight: 700;
-  letter-spacing: 0.1em;
-  opacity: 0.72;
+  font-size: 0.82rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.jigsaw-room__final-results {
+  display: grid;
+  min-height: 0;
+  overflow: auto;
+}
+
+.jigsaw-room__result-intro {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 24px 24px 14px;
+}
+
+.jigsaw-room__result-intro > div {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+}
+
+.jigsaw-room__result-intro span {
+  color: var(--muted-foreground);
+  font-size: 0.92rem;
+}
+
+.jigsaw-room__result-intro strong {
+  overflow: hidden;
+  font-size: clamp(1.35rem, 3vw, 2.3rem);
+  line-height: 1;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.jigsaw-room__solved-stats dd {
+.jigsaw-room__result-intro p {
   margin: 0;
+  color: var(--foreground);
   font-family: var(--font-mono);
-  font-size: 0.9rem;
-  font-weight: 850;
-  letter-spacing: 0.02em;
+  font-size: 0.75rem;
+  font-weight: 750;
+  letter-spacing: 0.03em;
   white-space: nowrap;
+}
+
+.jigsaw-room__earned-titles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 0 24px 18px;
+}
+
+.jigsaw-room__earned-titles span,
+.jigsaw-room__results-titles span {
+  display: inline-flex;
+  align-items: center;
+  min-height: 22px;
+  padding: 3px 8px;
+  border: 1px solid color-mix(in oklch, var(--primary), transparent 48%);
+  color: var(--foreground);
+  font-family: var(--font-mono);
+  font-size: 0.6rem;
+  font-weight: 750;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  background: color-mix(in oklch, var(--primary), transparent 88%);
+}
+
+.jigsaw-room__earned-titles span::before {
+  width: 4px;
+  height: 4px;
+  margin-right: 6px;
+  content: "";
+  background: var(--primary);
+  transform: rotate(45deg);
+}
+
+.jigsaw-room__results-table-wrap {
+  min-height: 0;
+  max-height: min(46dvh, 440px);
+  margin: 0 24px;
+  overflow: auto;
+  border-block: 1px solid
+    color-mix(in oklch, var(--foreground), transparent 82%);
+}
+
+.jigsaw-room__results-table {
+  width: 100%;
+  min-width: 820px;
+  border-collapse: collapse;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.jigsaw-room__results-table th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  padding: 9px 10px;
+  color: var(--muted-foreground);
+  font-size: 0.59rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-align: left;
+  text-transform: uppercase;
+  white-space: nowrap;
+  background: var(--background);
+  border-bottom: 1px solid
+    color-mix(in oklch, var(--foreground), transparent 82%);
+}
+
+.jigsaw-room__results-table td {
+  padding: 11px 10px;
+  font-size: 0.72rem;
+  vertical-align: middle;
+  border-bottom: 1px solid
+    color-mix(in oklch, var(--foreground), transparent 90%);
+}
+
+.jigsaw-room__results-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.jigsaw-room__results-table th:first-child,
+.jigsaw-room__results-table td:first-child {
+  width: 42px;
+  color: var(--muted-foreground);
+  text-align: center;
+}
+
+.jigsaw-room__results-table th:nth-child(2),
+.jigsaw-room__results-table td:nth-child(2) {
+  min-width: 150px;
+}
+
+.jigsaw-room__results-table td:nth-child(2) {
+  white-space: nowrap;
+}
+
+.jigsaw-room__results-table td:nth-child(3),
+.jigsaw-room__results-table td:nth-child(4),
+.jigsaw-room__results-table td:nth-child(5),
+.jigsaw-room__results-table td:last-child {
+  font-weight: 750;
+  white-space: nowrap;
+}
+
+.jigsaw-room__results-row--current {
+  background: color-mix(in oklch, var(--primary), transparent 87%);
+  box-shadow: inset 3px 0 var(--primary);
+}
+
+.jigsaw-room__results-row--current td:first-child {
+  color: var(--foreground);
+  font-weight: 850;
+}
+
+.jigsaw-room__results-player-color {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  margin-right: 8px;
+  box-shadow: 0 0 0 3px color-mix(in oklch, var(--foreground), transparent 92%);
+}
+
+.jigsaw-room__results-table td small {
+  margin-left: 7px;
+  color: var(--primary);
+  font-size: 0.54rem;
+  font-weight: 850;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.jigsaw-room__results-titles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  min-width: 150px;
+  color: var(--muted-foreground);
+}
+
+.jigsaw-room__results-titles span {
+  min-height: 19px;
+  padding: 2px 5px;
+  font-size: 0.52rem;
+}
+
+.jigsaw-room__results-pending {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  min-height: 180px;
+  margin: 0 24px;
+  color: var(--muted-foreground);
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  border-block: 1px solid
+    color-mix(in oklch, var(--foreground), transparent 84%);
+}
+
+.jigsaw-room__results-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 7px;
+  padding: 18px 24px 22px;
+}
+
+.jigsaw-room__results-actions a,
+.jigsaw-room__results-actions button {
+  min-height: 38px;
+  padding: 9px 13px;
+  border: 1px solid color-mix(in oklch, var(--foreground), transparent 76%);
+  color: var(--foreground);
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  font-weight: 750;
+  letter-spacing: 0.05em;
+  text-decoration: none;
+  text-transform: uppercase;
+  background: transparent;
+  cursor: pointer;
+}
+
+.jigsaw-room__results-actions a:first-child {
+  margin-right: auto;
+  border-color: var(--primary);
+  color: var(--primary-foreground);
+  background: var(--primary);
+}
+
+.jigsaw-room__results-actions a:hover,
+.jigsaw-room__results-actions button:hover,
+.jigsaw-room__results-actions a:focus-visible,
+.jigsaw-room__results-actions button:focus-visible {
+  border-color: var(--primary);
+  outline: none;
+  box-shadow: 0 0 0 2px color-mix(in oklch, var(--primary), transparent 65%);
+}
+
+.jigsaw-room__results-actions a:first-child:hover,
+.jigsaw-room__results-actions a:first-child:focus-visible {
+  filter: brightness(1.08);
 }
 
 .jigsaw-room__fireworks {
@@ -821,21 +1085,29 @@
   }
 }
 
-@keyframes jigsaw-solved-card {
+@keyframes jigsaw-solved-card-in {
   0% {
     opacity: 0;
     transform: translateY(24px) scale(0.82);
   }
 
-  6%,
-  78% {
+  100% {
     opacity: 1;
-    transform: translateY(0) scale(1.08);
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes jigsaw-results-expand {
+  0% {
+    opacity: 0.7;
+    transform: scale(0.86);
+    clip-path: inset(42% 28% round 2px);
   }
 
   100% {
-    opacity: 0;
-    transform: translateY(-22px) scale(0.96);
+    opacity: 1;
+    transform: scale(1);
+    clip-path: inset(0 round 0);
   }
 }
 
@@ -869,6 +1141,10 @@
   .jigsaw-room__solved-card {
     opacity: 1;
     transform: none;
+  }
+
+  .jigsaw-room__solved-card--results {
+    clip-path: none;
   }
 
   .jigsaw-room__fireworks span {
@@ -953,6 +1229,68 @@
   .jigsaw-room__solved-card {
     min-width: min(320px, calc(100vw - 32px));
     padding: 18px 20px;
+  }
+
+  .jigsaw-room__solved-celebration--results {
+    padding: 8px;
+  }
+
+  .jigsaw-room__solved-card--results {
+    width: calc(100vw - 16px);
+    min-width: 0;
+    max-height: calc(100dvh - 16px);
+    padding: 0;
+  }
+
+  .jigsaw-room__solved-card--results .jigsaw-room__solved-heading {
+    min-height: 46px;
+    padding: 12px 14px;
+  }
+
+  .jigsaw-room__result-intro {
+    display: grid;
+    align-items: start;
+    gap: 10px;
+    padding: 18px 14px 12px;
+  }
+
+  .jigsaw-room__result-intro > div {
+    align-items: start;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .jigsaw-room__result-intro p {
+    white-space: normal;
+  }
+
+  .jigsaw-room__earned-titles {
+    padding: 0 14px 14px;
+  }
+
+  .jigsaw-room__results-table-wrap,
+  .jigsaw-room__results-pending {
+    margin-inline: 14px;
+  }
+
+  .jigsaw-room__results-table-wrap {
+    max-height: 42dvh;
+  }
+
+  .jigsaw-room__results-actions {
+    flex-wrap: wrap;
+    padding: 14px;
+  }
+
+  .jigsaw-room__results-actions a,
+  .jigsaw-room__results-actions button {
+    flex: 1 1 0;
+    text-align: center;
+  }
+
+  .jigsaw-room__results-actions a:first-child {
+    flex-basis: 100%;
+    margin-right: 0;
   }
 
   .jigsaw-room__actions {
