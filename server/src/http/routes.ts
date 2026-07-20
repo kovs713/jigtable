@@ -10,9 +10,10 @@ import {
   compositionSourceImagesSchema,
   compositionsSchema,
   CompositionStatus,
+  type Composition,
 } from "@/db/schemas"
 import { renderLayout, resolveRenderFormat } from "@/native/render-layout"
-import type { TelegramIdentity } from "@/services/auth"
+import type { TelegramIdentity, User } from "@/services/auth"
 import {
   writeTelegramPreview,
   writeTelegramPreviewFromImage,
@@ -531,6 +532,8 @@ export function registerRoutes(router: Router): void {
         throw new ApiError("Composition not found", 404)
       }
 
+      assertCompositionOwner(composition, context.auth.session.user)
+
       if (!composition.layout) {
         throw new ApiError("Layout is not ready", 404)
       }
@@ -563,6 +566,8 @@ export function registerRoutes(router: Router): void {
       }
 
       const { composition, sourceImages } = compositionWithSourceImages
+
+      assertCompositionOwner(composition, context.auth.session.user)
 
       const layout = normalizeCompositionLayout(
         await readJsonLimited(context.request),
@@ -649,6 +654,8 @@ export function registerRoutes(router: Router): void {
       }
 
       const { composition, sourceImages } = compositionWithSourceImages
+
+      assertCompositionOwner(composition, context.auth.session.user)
 
       const body = await readJsonLimited(context.request)
 
@@ -769,6 +776,12 @@ export function registerRoutes(router: Router): void {
       })
     },
   })
+}
+
+function assertCompositionOwner(composition: Composition, user: User): void {
+  if (composition.userId !== user.id && composition.userId !== user.telegramId) {
+    throw new ApiError("Composition not found", 404)
+  }
 }
 
 async function authorizeTelegramIdentity(
