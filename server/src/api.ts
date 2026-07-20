@@ -12,7 +12,6 @@ import { RoomController } from "./ws/room-controller"
 import { WsRoomPublisher } from "./ws/room-publisher"
 import { RoomSocketRegistry } from "./ws/room-socket-registry"
 import { createWsRouter } from "./ws/router"
-import { registerWsRoutes } from "./ws/routes"
 import type { WsData } from "./ws/types"
 
 export type ApiServer = {
