@@ -5,22 +5,20 @@ import {
   toHistoryEntry,
   toRoomResult,
   toStoredAssetReference,
-} from "@/db/mappers/history-result.mapper"
+} from "@/db/mappers"
 import {
   jigsawRoomParticipantsSchema,
   jigsawRoomResultsSchema,
   usersSchema,
 } from "@/db/schemas"
 import type {
-  UpdateParticipantProfileInput,
-  UpsertParticipantInput,
-} from "@/services/history/contracts"
-import type {
   HistoryEntry,
   ResultParticipant,
   RoomCompletion,
   RoomResult,
-} from "@/services/history/types"
+  UpdateParticipantProfileInput,
+  UpsertParticipantInput,
+} from "@/services/history"
 
 type Database = typeof defaultDb
 

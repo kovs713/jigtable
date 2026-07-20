@@ -2,10 +2,7 @@ import { and, eq, gt } from "drizzle-orm"
 
 import { db } from "@/db"
 import { authSessionsSchema } from "@/db/schemas"
-import type {
-  CreateAuthSessionInput,
-  StoredAuthSession,
-} from "@/services/auth/contracts"
+import type { CreateAuthSessionInput, StoredAuthSession } from "@/services/auth"
 
 export interface AuthSessionRepository {
   create(input: CreateAuthSessionInput): Promise<void>

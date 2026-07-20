@@ -7,7 +7,7 @@ import {
   type Composition,
   type CompositionSourceImage,
 } from "@/db/schemas"
-import type { CompositionWithSourceImages } from "@/services/composition/contracts"
+import type { CompositionWithSourceImages } from "@/services/composition"
 
 export interface CompositionRepository {
   findCompositionByIdAndToken(

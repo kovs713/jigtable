@@ -4,11 +4,13 @@ import { db as defaultDb } from "@/db"
 import {
   parseStoredPlayerSession,
   toStoredPlayerSessionValue,
-} from "@/db/mappers/player-session.mapper"
+} from "@/db/mappers"
 import { jigsawSessionsSchema } from "@/db/schemas"
+import {
+  type StoredPlayerSession,
+  playerSessionStorageKey,
+} from "@/services/player-session"
 import type { RedisCache } from "@/services/redis"
-import { playerSessionStorageKey } from "@/services/player-session/player-session-token"
-import type { StoredPlayerSession } from "@/services/player-session/player-session.types"
 
 type Database = typeof defaultDb
 

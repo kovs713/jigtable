@@ -2,8 +2,11 @@ import { eq } from "drizzle-orm"
 
 import { db } from "@/db"
 import { usersSchema } from "@/db/schemas"
-import type { UpdateUserProfileInput, User } from "@/services/auth"
-import type { UpsertTelegramUserInput } from "@/services/auth/contracts"
+import type {
+  UpdateUserProfileInput,
+  UpsertTelegramUserInput,
+  User,
+} from "@/services/auth"
 
 export interface UserRepository {
   findById(userId: string): Promise<User | null>
