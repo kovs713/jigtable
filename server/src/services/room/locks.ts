@@ -1,7 +1,7 @@
 import type { GroupId } from "@jigtable/core/types"
 
-import type { LockTargetType, RoomPublisher } from "./room-events"
-import type { Player, Room } from "./room.types"
+import type { LockTargetType, RoomPublisher } from "./publisher"
+import type { Player, Room } from "./types"
 
 export function updatePlayerLocks(room: Room, player: Player): void {
   for (const [groupId, lock] of Object.entries(room.dragLocks)) {

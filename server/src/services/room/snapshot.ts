@@ -1,13 +1,13 @@
 import type {
   GroupId,
   GroupState,
-  JigsawState as PuzzleState,
   PieceId,
   PieceState,
+  JigsawState as PuzzleState,
 } from "@jigtable/core/types"
 
-import { getRoomStats } from "./room-stats"
-import type { Room, RoomSnapshot, ToggleLock } from "./room.types"
+import { getRoomStats } from "./stats"
+import type { Room, RoomSnapshot, ToggleLock } from "./types"
 
 export function toRoomSnapshot(room: Room): RoomSnapshot {
   const locks: ToggleLock[] = Object.values(room.toggleLocks)

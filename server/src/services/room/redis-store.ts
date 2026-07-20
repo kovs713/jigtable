@@ -1,17 +1,11 @@
 import { RedisCache, type RedisKeyValueClient } from "@/services/redis"
-
-import type { Room } from "./room.types"
+import type { RoomStore } from "./store"
+import type { Room } from "./types"
 
 type StoredRoom = Omit<
   Room,
   "players" | "connections" | "cursors" | "pingCooldowns" | "activePreviews"
 >
-
-export interface RoomStore {
-  get(roomId: string): Promise<Room | null>
-  save(room: Room): Promise<void>
-  delete(roomId: string): Promise<void>
-}
 
 export class RedisRoomStore implements RoomStore {
   private readonly cache: RedisCache
@@ -48,6 +42,7 @@ export class RedisRoomStore implements RoomStore {
       activePreviews: _activePreviews,
       ...stored
     } = room
+
     await this.cache.set(room.roomId, JSON.stringify(stored))
   }
 

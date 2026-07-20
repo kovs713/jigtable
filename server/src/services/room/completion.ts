@@ -1,6 +1,6 @@
-import { getRoomStats } from "./room-stats"
-import { getTimerElapsedMs } from "./room-timer"
-import type { Room } from "./room.types"
+import { getRoomStats } from "./stats"
+import { getTimerElapsedMs } from "./timer"
+import type { Room } from "./types"
 
 export type CompletedRoomRecord = {
   completedAt: number

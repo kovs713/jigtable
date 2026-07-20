@@ -6,6 +6,13 @@ import type {
 import type { GroupId } from "@jigtable/core/types"
 
 import { LIMITS } from "@/config"
+import { createRoom } from "./create-room"
+import { RoomCommands, type DropGroupOutcome } from "./interactions"
+import {
+  releaseConnectionLocks,
+  releasePlayerLocks,
+  updatePlayerLocks,
+} from "./locks"
 import type {
   PlayerSessionReader,
   RoomEventStore,
@@ -13,24 +20,17 @@ import type {
   RoomLogger,
   RoomMetrics,
   UpdateSessionPlayerInput,
-} from "./contracts"
-import { RoomCommands, type DropGroupOutcome } from "./room-commands"
-import type { RoomPublisher } from "./room-events"
-import { createRoom } from "./room-factory"
-import type { RoomStore } from "./redis-room-store"
-import {
-  releaseConnectionLocks,
-  releasePlayerLocks,
-  updatePlayerLocks,
-} from "./room-locks"
-import { toRoomSnapshot } from "./room-snapshot"
+} from "./ports"
+import type { RoomPublisher } from "./publisher"
+import { toRoomSnapshot } from "./snapshot"
+import type { RoomStore } from "./store"
 import type {
   CreateRoomInput,
   JoinedRoom,
   Player,
   Room,
   RoomSnapshot,
-} from "./room.types"
+} from "./types"
 
 type RoomManagerDependencies = {
   sessions: PlayerSessionReader

@@ -5,7 +5,7 @@ import type {
 
 import type { ParticipantSession, RoomCompletion } from "@/services/history"
 
-import type { Player, RoomStats } from "./room.types"
+import type { Player, RoomStats } from "./types"
 
 export type PlayerSession = ParticipantSession
 

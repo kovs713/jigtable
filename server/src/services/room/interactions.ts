@@ -1,38 +1,35 @@
 import { moveGroupToAnchor } from "@jigtable/core/groups"
 import type { ArrangeLoosePiecesMode } from "@jigtable/core/scatter"
 import { arrangeLoosePieces } from "@jigtable/core/scatter"
-import { snapDroppedGroup } from "@jigtable/core/snap"
 import type { SnapResult } from "@jigtable/core/snap"
+import { snapDroppedGroup } from "@jigtable/core/snap"
 import type { GroupId } from "@jigtable/core/types"
 
 import { LIMITS } from "@/config"
 
-import {
-  completeRoomIfSolved,
-  type CompletedRoomRecord,
-} from "./room-completion"
-import type { LockTargetType, RoomPublisher } from "./room-events"
+import { completeRoomIfSolved, type CompletedRoomRecord } from "./completion"
 import {
   isGroupToggleLocked,
   lockKey,
   playerOwnsDragLock,
   releaseAllLocks,
   transferMergedGroupLocks,
-} from "./room-locks"
+} from "./locks"
+import type { LockTargetType, RoomPublisher } from "./publisher"
 import {
   getGroupAnchorPosition,
   pickGroupsForPieces,
   pickPieces,
-} from "./room-snapshot"
-import { getRoomStats } from "./room-stats"
-import { pauseRoom, resumeRoom } from "./room-timer"
+} from "./snapshot"
+import { getRoomStats } from "./stats"
+import { pauseRoom, resumeRoom } from "./timer"
 import type {
   GroupDragLock,
   Player,
   PlayerCursor,
   Room,
   ToggleLock,
-} from "./room.types"
+} from "./types"
 
 type RoomCommandsOptions = {
   publisher: RoomPublisher
