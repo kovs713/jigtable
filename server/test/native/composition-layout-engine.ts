@@ -5,7 +5,7 @@ import {
   generateCompositionLayout,
   type CompositionLayoutItem,
   type SourceImage,
-} from "./index"
+} from "@/native/composition-layout-engine"
 
 describe("generateImageLayout", () => {
   test("returns empty layout for empty input", () => {

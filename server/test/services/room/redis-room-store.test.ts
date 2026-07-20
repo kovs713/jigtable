@@ -1,7 +1,6 @@
 import { describe, expect, test } from "bun:test"
 
-import { createRoom } from "./room-factory"
-import { RedisRoomStore } from "./redis-room-store"
+import { createRoom, RedisRoomStore } from "@/services/room"
 
 describe("RedisRoomStore", () => {
   test("restores persistent room state and locks", async () => {

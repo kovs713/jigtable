@@ -1,9 +1,9 @@
 import { afterEach, describe, expect, test } from "bun:test"
 
+import { ApiError } from "@/http/errors"
+import { cors, errorBoundary } from "@/http/middleware"
+import { createRouter } from "@/http/router"
 import type { Services } from "@/services"
-import { ApiError } from "./errors"
-import { cors, errorBoundary } from "./middleware"
-import { createRouter } from "./router"
 
 const originalCorsOrigin = process.env.CORS_ORIGIN
 const services = {} as Services

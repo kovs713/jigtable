@@ -1,8 +1,7 @@
+import { describe, expect, test } from "bun:test"
 import { createHash, createHmac } from "node:crypto"
 
-import { describe, expect, test } from "bun:test"
-
-import { TelegramAuthVerifier } from "./verifier"
+import { TelegramAuthVerifier } from "@/services/auth/telegram/verifier"
 
 const BOT_TOKEN = "123456:test-token"
 const NOW = new Date("2026-01-01T00:00:00.000Z")

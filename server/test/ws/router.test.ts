@@ -1,9 +1,9 @@
 import { describe, expect, test } from "bun:test"
 
 import type { Services } from "@/services"
-import type { RoomController } from "./room-controller"
-import { composeWs, createWsRouter } from "./router"
-import type { WsContext, WsSocket } from "./types"
+import type { RoomController } from "@/ws/room-controller"
+import { composeWs, createWsRouter } from "@/ws/router"
+import type { WsContext, WsSocket } from "@/ws/types"
 
 describe("WebSocket router", () => {
   test("runs middleware and handler in order", async () => {

@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test"
 
+import { DrizzlePlayerSessionRepository } from "@/db/repositories"
 import type { StoredPlayerSession } from "@/services/player-session"
-import { DrizzlePlayerSessionRepository } from "./player-session.repository"
 
 const session: StoredPlayerSession = {
   token: "session_12345678901234567890123456789012",

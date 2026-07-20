@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test"
 
-import { validateRedisUrl } from "./client"
+import { validateRedisUrl } from "@/services/redis/client"
 
 describe("validateRedisUrl", () => {
   test("requires configuration", () => {

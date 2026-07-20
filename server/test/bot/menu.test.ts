@@ -8,7 +8,7 @@ import {
   mainMenuKeyboard,
   nextActionsKeyboard,
   replyWithMainMenu,
-} from "./menu"
+} from "../../src/bot/menu"
 
 const ctx = {
   t(key: string) {
@@ -133,5 +133,4 @@ describe("bot keyboards", () => {
       },
     ])
   })
-
 })

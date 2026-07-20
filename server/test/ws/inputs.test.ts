@@ -4,7 +4,7 @@ import {
   parseArrangeGroupsInput,
   parseCursorMoveInput,
   parseGroupMoveInput,
-} from "./inputs"
+} from "@/ws/inputs"
 
 describe("WebSocket inputs", () => {
   test("accepts every canonical arrange mode", () => {

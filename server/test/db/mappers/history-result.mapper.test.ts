@@ -2,13 +2,13 @@ import { describe, expect, test } from "bun:test"
 
 import { DEFAULT_JIGSAW_CONFIG } from "@jigtable/core/config"
 
+import type { StoredRoomResultRow } from "@/db/mappers"
 import {
   parseAssetReference,
-  toStoredAssetReference,
   toHistoryEntry,
   toRoomResult,
-} from "./history-result.mapper"
-import type { StoredRoomResultRow } from "./history-result.mapper"
+  toStoredAssetReference,
+} from "@/db/mappers"
 
 describe("history result mapper", () => {
   test("reads current asset references", () => {

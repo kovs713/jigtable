@@ -2,7 +2,10 @@ import { describe, expect, test } from "bun:test"
 
 import { DEFAULT_JIGSAW_CONFIG } from "@jigtable/core/config"
 
-import { toHistoryEntryResponse, toRoomResultResponse } from "./history"
+import {
+  toHistoryEntryResponse,
+  toRoomResultResponse,
+} from "@/shared/presenters/history"
 
 const completedAt = new Date("2026-01-01T00:00:00.000Z")
 

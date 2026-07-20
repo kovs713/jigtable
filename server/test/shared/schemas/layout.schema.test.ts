@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test"
 
-import { normalizeCompositionLayout } from "./layout.schema"
+import { normalizeCompositionLayout } from "@/shared/schemas/layout.schema"
 
 const sourceImages = [
   {

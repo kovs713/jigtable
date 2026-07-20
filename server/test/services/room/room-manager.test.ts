@@ -1,10 +1,14 @@
 import { describe, expect, test } from "bun:test"
 
 import type { ParticipantSession, RoomCompletion } from "@/services/history"
-import { RoomManager } from "./room-manager"
-import type { RoomErrorCode, RoomEvent, RoomPublisher } from "./room-events"
-import type { RoomStore } from "./redis-room-store"
-import type { Room } from "./room.types"
+import type {
+  Room,
+  RoomErrorCode,
+  RoomEvent,
+  RoomPublisher,
+  RoomStore,
+} from "@/services/room"
+import { RoomManager } from "@/services/room"
 
 const session: ParticipantSession = {
   token: "session-1",

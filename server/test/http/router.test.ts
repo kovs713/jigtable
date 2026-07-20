@@ -1,8 +1,8 @@
 import { describe, expect, test } from "bun:test"
 
+import { errorBoundary } from "@/http/middleware"
+import { createRouter, type Middleware } from "@/http/router"
 import type { Services } from "@/services"
-import { errorBoundary } from "./middleware"
-import { createRouter, type Middleware } from "./router"
 
 const services = {} as Services
 

@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test"
 
-import { clampPieceCount } from "./room-factory"
+import { clampPieceCount } from "@/services/room"
 
 describe("clampPieceCount", () => {
   test("keeps piece counts within limits", () => {

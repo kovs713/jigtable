@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test"
 
-import { RedisCache } from "./redis-cache"
+import { RedisCache } from "@/services/redis/redis-cache"
 
 describe("RedisCache", () => {
   test("stores namespaced values with ttl", async () => {

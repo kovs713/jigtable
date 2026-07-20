@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test"
 
+import { isTransientTextAction } from "@/bot/message-cleanup"
 import type { BotContext } from "@/bot/types"
-import { isTransientTextAction } from "./message-cleanup"
 
 function context(text: string, commandLength?: number): BotContext {
   return {

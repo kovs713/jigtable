@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test"
 
-import { parseStoredPlayerSession } from "./player-session.mapper"
+import { parseStoredPlayerSession } from "@/db/mappers/player-session.mapper"
 
 describe("player session mapper", () => {
   test("uses the queried key token over persisted JSON", () => {
