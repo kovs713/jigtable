@@ -23,6 +23,7 @@ export interface UploadSession {
   viewerImageId?: string
   viewerMessageId?: number
   statusMessageId?: number
+  photoPromptMessageId?: number
 }
 
 export interface SessionData {

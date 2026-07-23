@@ -8,6 +8,7 @@ import {
   clearStatusPanel,
   deleteMessageSafe,
   refreshBottomStatus,
+  refreshPhotoReplyPrompt,
   rememberStatusMessage,
   renderUploadKeyboard,
 } from "@/bot/upload/status"
@@ -100,5 +101,9 @@ export async function handleNew(ctx: BotContext): Promise<void> {
   } catch (error) {
     console.error("Failed to send initial status panel", error)
     await ctx.reply(text)
+  }
+
+  if (chatId) {
+    await refreshPhotoReplyPrompt(ctx, chatId)
   }
 }

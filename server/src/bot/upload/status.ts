@@ -11,6 +11,8 @@ import {
 
 interface StatusPanelRuntime {
   messageId?: number
+  photoPromptMessageId?: number
+  photoPromptRefresh?: symbol
   timer?: ReturnType<typeof setTimeout>
   lastRefreshAt?: number
 }
@@ -37,12 +39,67 @@ export function getCurrentStatusMessageId(
   return statusPanels.get(chatId)?.messageId ?? session?.statusMessageId
 }
 
+export async function refreshPhotoReplyPrompt(
+  ctx: BotContext,
+  chatId: number
+): Promise<void> {
+  const session = ctx.session.upload
+
+  if (
+    !session ||
+    (ctx.chat?.type !== "group" && ctx.chat?.type !== "supergroup")
+  ) {
+    return
+  }
+
+  const state = getStatusPanel(chatId)
+  const refresh = Symbol()
+  state.photoPromptRefresh = refresh
+  const previousMessageId =
+    state.photoPromptMessageId ?? session.photoPromptMessageId
+  state.photoPromptMessageId = undefined
+  session.photoPromptMessageId = undefined
+  await deleteMessageSafe(ctx, chatId, previousMessageId)
+
+  const isCurrent = (): boolean =>
+    statusPanels.get(chatId) === state &&
+    state.photoPromptRefresh === refresh &&
+    ctx.session.upload === session
+
+  if (!isCurrent()) return
+
+  try {
+    const message = await ctx.api.sendMessage(
+      chatId,
+      ctx.t("group-photo-prompt"),
+      {
+        reply_markup: {
+          force_reply: true,
+          input_field_placeholder: ctx.t("group-photo-placeholder"),
+        },
+      }
+    )
+
+    if (!isCurrent()) {
+      await deleteMessageSafe(ctx, chatId, message.message_id)
+      return
+    }
+
+    state.photoPromptMessageId = message.message_id
+    session.photoPromptMessageId = message.message_id
+  } catch (error) {
+    console.error("Failed to send group photo prompt", { chatId, error })
+  }
+}
+
 export async function clearStatusPanel(
   ctx: BotContext,
   chatId: number
 ): Promise<void> {
   const state = statusPanels.get(chatId)
   const messageId = state?.messageId ?? ctx.session.upload?.statusMessageId
+  const photoPromptMessageId =
+    state?.photoPromptMessageId ?? ctx.session.upload?.photoPromptMessageId
 
   statusPanels.delete(chatId)
 
@@ -58,6 +115,13 @@ export async function clearStatusPanel(
 
   if (ctx.session.upload) {
     ctx.session.upload.statusMessageId = undefined
+    ctx.session.upload.photoPromptMessageId = undefined
+  }
+
+  if (photoPromptMessageId && photoPromptMessageId !== messageId) {
+    if (!(await deleteMessageSafe(ctx, chatId, photoPromptMessageId))) {
+      rememberFailedMessageDeletion(ctx, photoPromptMessageId)
+    }
   }
 }
 
@@ -304,6 +368,8 @@ export async function refreshBottomStatus(
     }
     console.error("Failed to send status panel", { chatId, error })
   }
+
+  await refreshPhotoReplyPrompt(ctx, chatId)
 }
 
 export async function deleteMessageSafe(

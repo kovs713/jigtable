@@ -1,14 +1,12 @@
-import { Bot, GrammyError, HttpError, session, type Context } from "grammy"
+import { Bot, GrammyError, HttpError, session } from "grammy"
 
 import { registerHandlers } from "@/bot/handlers"
 import { telegramApiFetch } from "@/bot/proxy"
+import { getBotSessionKey } from "@/bot/session-key"
 import { drizzleSessionStorage } from "@/bot/session-storage"
 import type { BotContext, SessionData } from "@/bot/types"
 import { requireWhitelistedUser } from "./handlers/whitelist"
 import { i18n } from "./i18n"
-
-const getSessionKey = (ctx: Context): string | undefined =>
-  ctx.chat?.id.toString()
 
 const initialSession = (): SessionData => ({
   photos: [],
@@ -32,7 +30,7 @@ export async function createBot(): Promise<Bot<BotContext>> {
     session({
       initial: initialSession,
       storage: drizzleSessionStorage<SessionData>(),
-      getSessionKey,
+      getSessionKey: getBotSessionKey,
     })
   )
   bot.use(i18n)
