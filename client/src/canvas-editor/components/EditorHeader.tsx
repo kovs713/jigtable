@@ -19,6 +19,8 @@ import {
 } from "../model/composition"
 import type { CompositionRef, SelectedComposition } from "../model/types"
 
+import "./EditorHeader.css"
+
 type EditorHeaderProps = {
   itemCount: number
   compositions: UserCompositionItem[]

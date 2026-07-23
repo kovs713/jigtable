@@ -15,6 +15,8 @@ import { useTelegramAuth } from "./hooks/use-telegram-auth"
 import { getImageMarkerStyle } from "./model/markers"
 import type { EditorStatus } from "./model/types"
 
+import "./canvas-editor.css"
+
 export function CanvasEditor() {
   const [status, setStatus] = useState<EditorStatus>({
     kind: "idle",

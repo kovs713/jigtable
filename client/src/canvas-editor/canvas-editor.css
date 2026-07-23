@@ -1,0 +1,36 @@
+:root {
+  --editor-font-mono:
+    "Cascadia Code Variable", ui-monospace, SFMono-Regular, Menlo, Monaco,
+    Consolas, monospace;
+}
+
+.jigsaw-editor {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  height: 100svh;
+  overflow: hidden;
+  color: var(--foreground);
+  background: var(--background);
+}
+
+.jigsaw-editor__link-line {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  width: 100svw;
+  height: 100svh;
+  pointer-events: none;
+}
+
+.editor-workspace {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  min-height: 0;
+  overflow: hidden;
+}
+
+@media (min-width: 64rem) {
+  .editor-workspace {
+    grid-template-columns: 280px minmax(0, 1fr) 320px;
+  }
+}

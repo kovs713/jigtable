@@ -1,0 +1,127 @@
+.properties-panel {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow-y: auto;
+  color: var(--card-foreground);
+}
+
+.properties-panel__section {
+  border-bottom: 0.5px solid var(--border);
+}
+
+.properties-panel__content,
+.properties-panel__selection-content {
+  padding: 1rem;
+}
+
+.properties-panel__content > * + * {
+  margin-top: 1rem;
+}
+
+.properties-panel__selection-content > * + * {
+  margin-top: 0.75rem;
+}
+
+.properties-panel__fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+
+.properties-panel__slider-group {
+  padding: 0.75rem;
+  border: 0.5px solid var(--border);
+}
+
+.properties-panel__slider-group > * + * {
+  margin-top: 0.75rem;
+}
+
+.properties-panel__ratio > * + * {
+  margin-top: 0.5rem;
+}
+
+.properties-panel__label {
+  color: var(--muted-foreground);
+  font-size: 0.75rem;
+  font-weight: 500;
+  line-height: 1rem;
+}
+
+.properties-panel__ratio-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.375rem;
+}
+
+.properties-panel__ratio-button,
+.properties-panel__marker-toggle {
+  height: 2rem;
+  font-size: 0.75rem;
+  line-height: 1rem;
+}
+
+.properties-panel__ratio-button--mono,
+.properties-panel__marker-toggle {
+  font-family: var(--editor-font-mono);
+}
+
+.properties-panel__marker-setting {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.5rem;
+  border: 0.5px solid var(--border);
+}
+
+.properties-panel__marker-label {
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+}
+
+.properties-panel__marker-toggle[data-state="on"] {
+  color: var(--primary-foreground);
+  background: var(--primary);
+}
+
+.properties-panel__empty {
+  padding: 1rem;
+  color: var(--muted-foreground);
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+}
+
+.shortcuts {
+  flex: 1 1 0%;
+  padding: 1rem;
+}
+
+.shortcuts__title {
+  margin-bottom: 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  line-height: 1.25rem;
+}
+
+.shortcuts__list {
+  color: var(--muted-foreground);
+  font-size: 0.75rem;
+  line-height: 1rem;
+}
+
+.shortcuts__list > * + * {
+  margin-top: 0.5rem;
+}
+
+.shortcuts__item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.shortcuts__key {
+  padding: 0.125rem 0.375rem;
+  font-family: var(--editor-font-mono);
+  background: var(--muted);
+}

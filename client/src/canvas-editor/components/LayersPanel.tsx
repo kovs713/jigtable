@@ -17,6 +17,8 @@ import type {
 import { LayerActionButton } from "./LayerActionButton"
 import { PanelHeader } from "./PanelHeader"
 
+import "./LayersPanel.css"
+
 type LayersPanelProps = {
   entries: LayerEntry[]
   itemCount: number

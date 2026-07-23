@@ -2,6 +2,8 @@ import type { RefObject } from "react"
 
 import { Button } from "@/shared/ui/button"
 
+import "./EditorAuthGate.css"
+
 type EditorAuthGateProps = {
   authLoading: boolean
   authStatus: string

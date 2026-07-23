@@ -12,6 +12,8 @@ import { NumberField } from "./NumberField"
 import { PanelHeader } from "./PanelHeader"
 import { SliderField } from "./SliderField"
 
+import "./PropertiesPanel.css"
+
 type PropertiesPanelProps = {
   canvas: CanvasSize
   zoom: number

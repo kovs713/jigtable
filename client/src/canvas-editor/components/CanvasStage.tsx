@@ -11,6 +11,8 @@ import {
 import type { CanvasItem, CanvasLayout, ResizeEdge } from "../model/types"
 import { ResizeHandles } from "./ResizeHandles"
 
+import "./CanvasStage.css"
+
 type CanvasStageProps = {
   layout: CanvasLayout
   viewportScale: number

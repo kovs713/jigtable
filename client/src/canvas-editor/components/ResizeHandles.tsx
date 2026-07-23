@@ -12,6 +12,8 @@ import {
 } from "../model/constants"
 import type { ResizeEdge } from "../model/types"
 
+import "./ResizeHandles.css"
+
 type ResizeHandlesProps = {
   active: boolean
   labelPrefix: string

@@ -2,6 +2,8 @@ import { cn } from "@/lib/utils"
 
 import type { CanvasItem, CanvasSize, EditorStatus } from "../model/types"
 
+import "./StatusBar.css"
+
 type StatusBarProps = {
   status: EditorStatus
   canvas: CanvasSize
