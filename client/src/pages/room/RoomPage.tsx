@@ -1,16 +1,7 @@
-import type { Application } from "pixi.js"
 import { useEffect, useRef, useState } from "react"
 
-import {
-  createImageJigsawConfig,
-  getPlayAreaBounds,
-  JIGSAW_CONFIG_2000,
-} from "@jigtable/core/config"
-import { createJigsawState } from "@jigtable/core/generate"
-import { getGroupAnchor, moveGroupToAnchor } from "@jigtable/core/groups"
+import { JIGSAW_CONFIG_2000 } from "@jigtable/core/config"
 import type {
-  JigsawGroupLock,
-  JigsawLock,
   ChatMessage,
   Player as JigsawPlayer,
   RoomSnapshot as JigsawRoomSnapshot,
@@ -18,12 +9,7 @@ import type {
   PlayerSession as JigsawSession,
   ServerToClientMessage,
 } from "@jigtable/core/protocol"
-import {
-  arrangeLoosePieces,
-  scatterAllPieces,
-  type ArrangeLoosePiecesMode,
-} from "@jigtable/core/scatter"
-import type { GroupId, JigsawState, PieceId } from "@jigtable/core/types"
+import type { ArrangeLoosePiecesMode } from "@jigtable/core/scatter"
 
 import {
   fetchAuthMe,
@@ -54,29 +40,13 @@ import {
   type JigsawRoomResult,
 } from "@/features/room/data"
 
-import { loadImageTexture } from "./image-texture"
 import { RoomChatWidget } from "./RoomChatWidget"
 import { SolvedRoomResults } from "./SolvedRoomResults"
-import type { CameraController } from "./pixi/camera"
-import { createCameraController } from "./pixi/camera"
-import { createJigsawPixiApp, destroyJigsawPixiApp } from "./pixi/create-app"
-import type { JigsawScene } from "./pixi/create-scene"
-import { createJigsawScene, readSceneColors } from "./pixi/create-scene"
-import type {
-  CursorBroadcastController,
-  RemoteCursorViewSet,
-} from "./pixi/cursors"
-import { createRemoteCursorViews, setupCursorBroadcast } from "./pixi/cursors"
-import type { DebugTicker, JigsawStats } from "./pixi/debug"
-import { createDebugTicker, getJigsawStats } from "./pixi/debug"
-import type { InteractionController } from "./pixi/interactions"
-import { setupPieceInteractions } from "./pixi/interactions"
-import type { LockOverlayRenderer } from "./pixi/locks"
-import { createLockOverlayRenderer } from "./pixi/locks"
-import type { PieceViewSet } from "./pixi/pieces"
-import { createPieceViews } from "./pixi/pieces"
-import type { PingController } from "./pixi/pings"
-import { createPingController } from "./pixi/pings"
+import {
+  createJigsawRoomCanvas,
+  type JigsawRoomCanvas,
+  type JigsawStats,
+} from "./pixi/room-canvas"
 import {
   createInitialTimer,
   formatElapsedTime,
@@ -88,8 +58,6 @@ import "./room-page.css"
 
 const JIGSAW_IMAGE_URL = "/test_jigsaw.png"
 const ACTIVE_JIGSAW_CONFIG = JIGSAW_CONFIG_2000
-// multiplayer piece-move broadcast throttle — ~30 events/sec
-const GROUP_MOVE_SEND_INTERVAL_MS = 33
 const CHAT_MESSAGE_HISTORY_LIMIT = 100
 const RESULTS_REVEAL_DELAY_MS = 2_500
 const SOLVED_FIREWORKS_MS = 12_000
@@ -115,29 +83,8 @@ const ARRANGE_MODES = [
 type JigsawSessionStatus =
   "local" | "restoring" | "saved" | "saving" | "offline" | "error"
 
-type InteractionChange = {
-  reason: "move" | "drop" | "snap" | "cancel-drop"
-  groupId: GroupId
-  affectedPieceIds?: PieceId[]
-  groupIdsBeforeSnap?: Map<PieceId, GroupId>
-}
-
 interface JigsawRoomAppProps {
   roomId?: string
-}
-
-interface JigsawRuntime {
-  app: Application
-  state: JigsawState
-  scene: JigsawScene
-  camera: CameraController
-  pieces: PieceViewSet
-  cursors: RemoteCursorViewSet
-  cursorBroadcast: CursorBroadcastController
-  pings: PingController
-  lockOverlays: LockOverlayRenderer
-  debug: DebugTicker
-  interactions: InteractionController
 }
 
 const EMPTY_STATS = {
@@ -204,99 +151,6 @@ function readCurrentTimeMs(): number {
   return Date.now()
 }
 
-function findLockForMergedPieces(
-  locks: Map<string, JigsawLock>,
-  affectedPieceIds: PieceId[],
-  oldGroupIds: Set<GroupId>
-): JigsawLock | null {
-  for (const oldGroupId of oldGroupIds) {
-    const groupLock = locks.get(`group:${oldGroupId}`)
-
-    if (groupLock) {
-      return groupLock
-    }
-  }
-
-  for (const pieceId of affectedPieceIds) {
-    const pieceLock = locks.get(`piece:${pieceId}`)
-
-    if (pieceLock) {
-      return pieceLock
-    }
-  }
-
-  return null
-}
-
-function retargetLocksAfterSnap(
-  state: JigsawState,
-  locks: Map<string, JigsawLock>,
-  affectedPieceIds: PieceId[],
-  groupIdsBeforeSnap: Map<PieceId, GroupId>
-): void {
-  if (affectedPieceIds.length === 0) {
-    return
-  }
-
-  const oldGroupIds = new Set<GroupId>()
-  const newGroupIds = new Set<GroupId>()
-  const renderablePieceIds: PieceId[] = []
-
-  for (const pieceId of affectedPieceIds) {
-    const oldGroupId = groupIdsBeforeSnap.get(pieceId)
-    const piece = state.pieces[pieceId]
-
-    if (oldGroupId) {
-      oldGroupIds.add(oldGroupId)
-    }
-
-    if (!piece) {
-      continue
-    }
-
-    if (!piece.placed) {
-      newGroupIds.add(piece.groupId)
-      renderablePieceIds.push(pieceId)
-    }
-  }
-
-  const lockToKeep = findLockForMergedPieces(
-    locks,
-    affectedPieceIds,
-    oldGroupIds
-  )
-
-  if (!lockToKeep) {
-    return
-  }
-
-  for (const oldGroupId of oldGroupIds) {
-    locks.delete(`group:${oldGroupId}`)
-  }
-
-  for (const pieceId of affectedPieceIds) {
-    locks.delete(`piece:${pieceId}`)
-  }
-
-  // Если snap был на итоговый canvas и все affected pieces placed,
-  // lock надо просто убрать, иначе ghost border останется.
-  if (renderablePieceIds.length === 0) {
-    return
-  }
-
-  if (newGroupIds.size !== 1) {
-    return
-  }
-
-  const [newGroupId] = [...newGroupIds]
-
-  locks.set(`group:${newGroupId}`, {
-    ...lockToKeep,
-    targetType: "group",
-    targetId: newGroupId,
-  })
-}
-
 export function RoomPage({ roomId }: JigsawRoomAppProps) {
   const [initialSession] = useState<JigsawSession>(() =>
     readLocalJigsawSession()
@@ -305,7 +159,7 @@ export function RoomPage({ roomId }: JigsawRoomAppProps) {
   const mountRef = useRef<HTMLDivElement | null>(null)
   const telegramWidgetRef = useRef<HTMLDivElement | null>(null)
   const settingsRef = useRef<HTMLDetailsElement | null>(null)
-  const runtimeRef = useRef<JigsawRuntime | null>(null)
+  const runtimeRef = useRef<JigsawRoomCanvas | null>(null)
   const multiplayerRef = useRef<JigsawMultiplayerClient | null>(null)
   const handleServerMessageRef = useRef<
     (message: ServerToClientMessage) => void
@@ -313,11 +167,7 @@ export function RoomPage({ roomId }: JigsawRoomAppProps) {
   const toggleSessionPauseRef = useRef<() => void>(() => {})
   const sessionRef = useRef<JigsawSession>(initialSession)
   const playerRef = useRef<JigsawPlayer>(initialSession.player)
-  const groupLocksRef = useRef(new Map<string, JigsawGroupLock>())
-  const toggleLocksRef = useRef(new Map<string, JigsawLock>())
   const roomTimerRef = useRef<JigsawRoomTimer>(createInitialTimer())
-  const lastMoveSentAtRef = useRef(0)
-  const highlightTimerRef = useRef<number | null>(null)
   const resultsRevealTimerRef = useRef<number | null>(null)
   const solvedFireworksTimerRef = useRef<number | null>(null)
   const solvedAnnouncedRef = useRef(false)
@@ -394,10 +244,7 @@ export function RoomPage({ roomId }: JigsawRoomAppProps) {
     setRoomBackgroundStyle(root, color)
 
     if (syncScene) {
-      const colors = readSceneColors(root)
-
-      runtimeRef.current?.scene.setColors(colors)
-      runtimeRef.current?.pieces.setHighlightColor(colors.pieceHighlight)
+      runtimeRef.current?.refreshTheme()
     }
   }
 
@@ -412,22 +259,6 @@ export function RoomPage({ roomId }: JigsawRoomAppProps) {
 
     applyRoomBackground(color)
     saveStoredRoomBackground(activeRoomId, color)
-  }
-
-  function refreshStatsNow(): void {
-    const runtime = runtimeRef.current
-
-    if (!runtime) {
-      return
-    }
-
-    setStats(
-      getJigsawStats(
-        runtime.state,
-        runtime.app.ticker.FPS || 0,
-        runtime.camera.zoom
-      )
-    )
   }
 
   function applyRoomTimer(timer: JigsawRoomTimer): void {
@@ -544,22 +375,18 @@ export function RoomPage({ roomId }: JigsawRoomAppProps) {
   function handleServerMessage(message: ServerToClientMessage): void {
     const runtime = runtimeRef.current
 
-    if (message.type === "cursor:moved") {
-      if (message.cursor.playerId !== playerRef.current.id) {
-        runtime?.cursors.applyCursor(message.cursor)
-      }
+    runtime?.applyServerMessage(message)
 
+    if (message.type === "cursor:moved") {
       return
     }
 
     if (message.type === "cursor:hidden") {
-      runtime?.cursors.removeCursor(message.playerId)
       return
     }
 
     if (message.type === "session:paused") {
       applyRoomTimer(message.timer)
-      runtime?.interactions.cancelDrag()
       multiplayerRef.current?.requestState()
       return
     }
@@ -572,23 +399,6 @@ export function RoomPage({ roomId }: JigsawRoomAppProps) {
     if (message.type === "room:state") {
       setRoomStatus("")
       applyRoomTimer(message.state.timer)
-      groupLocksRef.current.clear()
-      toggleLocksRef.current.clear()
-
-      for (const lock of message.state.locks) {
-        const key = `${lock.targetType}:${lock.targetId}`
-        toggleLocksRef.current.set(key, lock)
-      }
-
-      runtime?.lockOverlays.update(toggleLocksRef.current)
-
-      runtime?.cursors.syncCursors(message.state.cursors, playerRef.current.id)
-
-      if (message.state.timer.paused) {
-        runtime?.interactions.cancelDrag()
-      }
-
-      applyRoomState(runtime, message.state)
       setStats((current) => ({
         ...current,
         totalPieces: message.state.stats.totalPieces,
@@ -616,28 +426,14 @@ export function RoomPage({ roomId }: JigsawRoomAppProps) {
     }
 
     if (message.type === "player:left") {
-      runtime?.cursors.removeCursor(message.playerId)
       return
     }
 
     if (message.type === "room:pinged") {
-      if (message.userId === playerRef.current.id) return
-
-      runtime?.pings.showPing(
-        message.x,
-        message.y,
-        message.userId,
-        message.userName ?? "Player",
-        message.userColor ?? "#ffffff"
-      )
       return
     }
 
     if (message.type === "chat:message") {
-      if (message.message.player.id !== playerRef.current.id) {
-        runtime?.cursors.showChatMessage(message.message)
-      }
-
       setChatMessages((current) => {
         if (current.some((item) => item.id === message.message.id)) {
           return current
@@ -649,33 +445,14 @@ export function RoomPage({ roomId }: JigsawRoomAppProps) {
     }
 
     if (message.type === "group:locked") {
-      groupLocksRef.current.set(message.lock.groupId, message.lock)
       return
     }
 
     if (message.type === "group:unlocked") {
-      groupLocksRef.current.delete(message.groupId)
       return
     }
 
     if (message.type === "room:lock-updated") {
-      const key = `${message.targetType}:${message.targetId}`
-
-      if (message.lockedBy) {
-        toggleLocksRef.current.set(key, {
-          targetType: message.targetType,
-          targetId: message.targetId,
-          playerId: message.lockedBy.userId,
-          playerName: message.lockedBy.name,
-          playerColor: message.lockedBy.color,
-          lockedAt: readCurrentTimeMs(),
-          connectionId: "",
-        })
-      } else {
-        toggleLocksRef.current.delete(key)
-      }
-
-      runtime?.lockOverlays.update(toggleLocksRef.current)
       return
     }
 
@@ -684,48 +461,14 @@ export function RoomPage({ roomId }: JigsawRoomAppProps) {
     }
 
     if (message.type === "group:moved") {
-      if (!runtime) {
-        return
-      }
-
-      const movedPieceIds = moveGroupToAnchor(
-        runtime.state,
-        message.groupId,
-        message.x,
-        message.y
-      )
-      runtime.pieces.syncPieces(movedPieceIds)
-      refreshStatsNow()
       return
     }
 
     if (message.type === "groups:merged" || message.type === "pieces:placed") {
-      if (!runtime) {
-        return
-      }
-
-      applyStatePatch(
-        runtime,
-        message.pieces,
-        message.groups,
-        message.type === "groups:merged" ? message.removedGroupIds : [],
-        message.snapCount
-      )
       return
     }
 
     if (message.type === "groups:arranged") {
-      if (!runtime) {
-        return
-      }
-
-      for (const [pieceId, piece] of Object.entries(message.pieces)) {
-        runtime.state.pieces[pieceId] = structuredClone(piece)
-      }
-
-      runtime.interactions.cancelDrag()
-      runtime.pieces.syncPieces(Object.keys(message.pieces))
-      refreshStatsNow()
       return
     }
 
@@ -757,7 +500,6 @@ export function RoomPage({ roomId }: JigsawRoomAppProps) {
       }
 
       if (message.code === "session_paused") {
-        runtime?.interactions.cancelDrag()
         multiplayerRef.current?.requestState()
         return
       }
@@ -795,11 +537,7 @@ export function RoomPage({ roomId }: JigsawRoomAppProps) {
 
     setPreviewVisible((current) => {
       const next = !current
-      runtime.scene.setPreviewVisible(next)
-      multiplayerRef.current?.send({
-        type: next ? "room:preview:open" : "room:preview:close",
-        commandId: crypto.randomUUID(),
-      })
+      runtime.setPreviewVisible(next)
       return next
     })
   }
@@ -811,7 +549,7 @@ export function RoomPage({ roomId }: JigsawRoomAppProps) {
       return false
     }
 
-    const cursor = runtimeRef.current?.cursorBroadcast.getLastPosition()
+    const cursor = runtimeRef.current?.getCursorPosition()
 
     connection.send({
       type: "chat:send",
@@ -822,23 +560,7 @@ export function RoomPage({ roomId }: JigsawRoomAppProps) {
   }
 
   function highlightAllPieces(): void {
-    const runtime = runtimeRef.current
-
-    if (!runtime) {
-      return
-    }
-
-    if (highlightTimerRef.current !== null) {
-      window.clearTimeout(highlightTimerRef.current)
-    }
-
-    runtime.pieces.setAllHighlighted(true)
-    setPiecesHighlighted(true)
-    highlightTimerRef.current = window.setTimeout(() => {
-      runtimeRef.current?.pieces.setAllHighlighted(false)
-      setPiecesHighlighted(false)
-      highlightTimerRef.current = null
-    }, 900)
+    runtimeRef.current?.highlightPieces()
   }
 
   function quickSolveDevRoom(): void {
@@ -848,26 +570,7 @@ export function RoomPage({ roomId }: JigsawRoomAppProps) {
       return
     }
 
-    for (const [pieceId, piece] of Object.entries(runtime.state.pieces)) {
-      const definition = runtime.state.definitions[pieceId]
-
-      if (!definition) {
-        continue
-      }
-
-      piece.x = definition.correctX
-      piece.y = definition.correctY
-      piece.placed = true
-      piece.locked = true
-    }
-
-    for (const group of Object.values(runtime.state.groups)) {
-      group.locked = true
-    }
-
-    runtime.interactions.cancelDrag()
-    runtime.pieces.syncAll()
-    refreshStatsNow()
+    runtime.quickSolve()
   }
 
   function arrangePieces(mode: ArrangeLoosePiecesMode): void {
@@ -877,37 +580,19 @@ export function RoomPage({ roomId }: JigsawRoomAppProps) {
       return
     }
 
-    const connection = multiplayerRef.current
-
-    if (connection?.isConnected()) {
-      connection.send({ type: "groups:arrange", mode })
-      return
-    }
-
-    const movedPieceIds = arrangeLoosePieces(runtime.state, mode)
-
-    if (movedPieceIds.length === 0) {
-      return
-    }
-
-    runtime.interactions.cancelDrag()
-    runtime.pieces.syncPieces(movedPieceIds)
-    refreshStatsNow()
+    runtime.arrangePieces(mode)
   }
 
   function zoomInView(): void {
-    runtimeRef.current?.camera.zoomIn()
-    refreshStatsNow()
+    runtimeRef.current?.changeZoom("in")
   }
 
   function zoomOutView(): void {
-    runtimeRef.current?.camera.zoomOut()
-    refreshStatsNow()
+    runtimeRef.current?.changeZoom("out")
   }
 
   function resetViewZoom(): void {
-    runtimeRef.current?.camera.resetView()
-    refreshStatsNow()
+    runtimeRef.current?.changeZoom("fit")
   }
 
   function closeSolvedResults(): void {
@@ -964,11 +649,8 @@ export function RoomPage({ roomId }: JigsawRoomAppProps) {
         return
       }
 
-      const app = await createJigsawPixiApp(bootHost)
-
       try {
         if (disposed) {
-          destroyJigsawPixiApp(app)
           return
         }
 
@@ -981,7 +663,6 @@ export function RoomPage({ roomId }: JigsawRoomAppProps) {
           activeSession = await restoreJigsawSession(activeSession, roomId)
 
           if (disposed) {
-            destroyJigsawPixiApp(app)
             return
           }
 
@@ -989,7 +670,6 @@ export function RoomPage({ roomId }: JigsawRoomAppProps) {
           setSessionStatus("saved")
         } catch (error) {
           if (disposed) {
-            destroyJigsawPixiApp(app)
             return
           }
 
@@ -1012,283 +692,67 @@ export function RoomPage({ roomId }: JigsawRoomAppProps) {
           }
         }
 
-        const loadedImage = await loadImageTexture(
-          initialSnapshot?.jigsaw.imageUrl ?? JIGSAW_IMAGE_URL
-        )
-        const imageTexture = loadedImage.texture
-
         if (disposed) {
-          imageTexture.destroy(true)
-          destroyJigsawPixiApp(app)
           return
         }
 
-        const autoBackground = getAutoRoomBackground(
-          loadedImage.averageLuminance
-        )
-        const nextBackground =
-          readStoredRoomBackground(activeRoomId) ?? autoBackground
-
-        applyRoomBackground(nextBackground, { syncScene: false })
-
-        const jigsawConfig =
-          initialSnapshot?.jigsaw.config ??
-          createImageJigsawConfig(ACTIVE_JIGSAW_CONFIG, {
-            width: imageTexture.width,
-            height: imageTexture.height,
-          })
-        const state = createJigsawState(jigsawConfig)
-
         if (initialSnapshot) {
-          state.pieces = structuredClone(initialSnapshot.pieces)
-          state.groups = structuredClone(initialSnapshot.groups)
-          state.snapCount = initialSnapshot.stats.snapCount
           applyRoomTimer(initialSnapshot.timer)
-        } else {
-          scatterAllPieces(state)
         }
 
-        const colors = readSceneColors(roomRef.current ?? bootHost)
-        const scene = createJigsawScene(app, state, imageTexture, colors)
-        const pieces = createPieceViews(
-          scene.piecesLayer,
-          state,
-          imageTexture,
-          colors.pieceHighlight
-        )
-        const camera = createCameraController(app, scene.world, state.config, {
-          canStartPrimaryPan(event, world) {
-            if (event.altKey && multiplayerRef.current?.isConnected()) {
-              return false
-            }
-
-            const pieceId = pieces.pickPieceAt(world.x, world.y, {
-              includeLocked: true,
-            })
-
-            if (!pieceId) {
-              return true
-            }
-
-            const piece = state.pieces[pieceId]
-
-            return Boolean(
-              piece && (piece.locked || state.groups[piece.groupId]?.locked)
-            )
+        const start = await createJigsawRoomCanvas({
+          host: bootHost,
+          themeRoot: roomRef.current ?? bootHost,
+          imageUrl: initialSnapshot?.jigsaw.imageUrl ?? JIGSAW_IMAGE_URL,
+          fallbackConfig: ACTIVE_JIGSAW_CONFIG,
+          snapshot: initialSnapshot,
+          isCancelled() {
+            return disposed
           },
-        })
-        camera.fitToRect(getPlayAreaBounds(state.config))
-        const cursors = createRemoteCursorViews(app, scene.overlayLayer, camera)
-
-        if (initialSnapshot) {
-          cursors.syncCursors(initialSnapshot.cursors, playerRef.current.id)
-        }
-
-        const pings = createPingController(app, scene.overlayLayer, camera)
-
-        const syncDerivedRoomViews = (change?: InteractionChange) => {
-          if (
-            change?.reason === "snap" &&
-            change.affectedPieceIds &&
-            change.groupIdsBeforeSnap
-          ) {
-            retargetLocksAfterSnap(
-              state,
-              toggleLocksRef.current,
-              change.affectedPieceIds,
-              change.groupIdsBeforeSnap
-            )
-          }
-
-          setStats(getJigsawStats(state, app.ticker.FPS || 0, camera.zoom))
-          runtimeRef.current?.lockOverlays?.update(toggleLocksRef.current)
-          app.render()
-        }
-        const interactions = setupPieceInteractions({
-          app,
-          state,
-          camera,
-          pieces,
-          canDragGroup(groupId) {
-            if (roomTimerRef.current.paused) {
-              return false
-            }
-
-            const lock = groupLocksRef.current.get(groupId)
-
-            if (lock && lock.playerId !== playerRef.current.id) {
-              return false
-            }
-
-            const toggleKey = `group:${groupId}`
-            const toggleLock = toggleLocksRef.current.get(toggleKey)
-
-            if (toggleLock && toggleLock.playerId !== playerRef.current.id) {
-              return false
-            }
-
-            const group = state.groups[groupId]
-
-            if (group) {
-              for (const pieceId of group.pieceIds) {
-                const pieceKey = `piece:${pieceId}`
-                const pieceLock = toggleLocksRef.current.get(pieceKey)
-
-                if (pieceLock && pieceLock.playerId !== playerRef.current.id) {
-                  return false
-                }
-              }
-            }
-
-            return true
+          getPlayer() {
+            return playerRef.current
           },
-          isServerMode() {
+          isPaused() {
+            return roomTimerRef.current.paused
+          },
+          isConnected() {
             return multiplayerRef.current?.isConnected() ?? false
           },
-          onChange: syncDerivedRoomViews,
-          onToggleLock(pieceId) {
-            const piece = state.pieces[pieceId]
-
-            if (!piece || piece.placed) {
-              return
-            }
-
-            const group = state.groups[piece.groupId]
-
-            if (!group) {
-              return
-            }
-
-            if (group.pieceIds.length > 1) {
-              multiplayerRef.current?.send({
-                type: "room:lock-toggle",
-                commandId: crypto.randomUUID(),
-                targetType: "group",
-                targetId: piece.groupId,
-              })
-            } else {
-              multiplayerRef.current?.send({
-                type: "room:lock-toggle",
-                commandId: crypto.randomUUID(),
-                targetType: "piece",
-                targetId: pieceId,
-              })
-            }
+          send(message) {
+            multiplayerRef.current?.send(message)
           },
-          onGroupGrab(groupId) {
-            multiplayerRef.current?.send({ type: "group:grab", groupId })
+          prepareTheme(averageLuminance) {
+            const autoBackground = getAutoRoomBackground(averageLuminance)
+            const nextBackground =
+              readStoredRoomBackground(activeRoomId) ?? autoBackground
+
+            applyRoomBackground(nextBackground, { syncScene: false })
           },
-          onGroupMove(groupId) {
-            const connection = multiplayerRef.current
-
-            runtimeRef.current?.lockOverlays?.update(toggleLocksRef.current)
-
-            if (!connection?.isConnected()) {
-              return
+          onStats: setStats,
+          onHighlightChange: setPiecesHighlighted,
+          onCanvasPointerDown() {
+            if (settingsRef.current?.open) {
+              settingsRef.current.open = false
             }
-
-            const now = performance.now()
-
-            if (now - lastMoveSentAtRef.current < GROUP_MOVE_SEND_INTERVAL_MS) {
-              return
-            }
-
-            const anchor = getGroupAnchor(state, groupId)
-
-            if (!anchor) {
-              return
-            }
-
-            lastMoveSentAtRef.current = now
-            connection.send({
-              type: "group:move",
-              groupId,
-              x: anchor.x,
-              y: anchor.y,
-            })
-          },
-          onGroupDrop(groupId) {
-            const anchor = getGroupAnchor(state, groupId)
-
-            if (!anchor) {
-              multiplayerRef.current?.send({ type: "group:release", groupId })
-              return
-            }
-
-            lastMoveSentAtRef.current = 0
-            multiplayerRef.current?.send({
-              type: "group:drop",
-              commandId: crypto.randomUUID(),
-              groupId,
-              x: anchor.x,
-              y: anchor.y,
-            })
           },
         })
-        const cursorBroadcast = setupCursorBroadcast({
-          app,
-          camera,
-          getConnection() {
-            return multiplayerRef.current
-          },
-        })
-        const closeSettings = () => {
-          if (settingsRef.current?.open) {
-            settingsRef.current.open = false
+
+        if (disposed) {
+          start.canvas.destroy()
+          return
+        }
+
+        runtimeRef.current = start.canvas
+
+        cleanup = () => {
+          multiplayerRef.current?.destroy()
+          multiplayerRef.current = null
+
+          if (runtimeRef.current === start.canvas) {
+            runtimeRef.current = null
           }
-        }
 
-        app.canvas.addEventListener("pointerdown", closeSettings)
-
-        function onAltClickPing(event: PointerEvent): void {
-          if (!(event.altKey && event.button === 0)) return
-
-          const connection = multiplayerRef.current
-
-          if (!connection?.isConnected()) return
-
-          event.preventDefault()
-
-          const world = camera.screenToWorld(event.clientX, event.clientY)
-          const id = crypto.randomUUID()
-
-          connection.send({
-            type: "room:ping",
-            commandId: crypto.randomUUID(),
-            id,
-            x: world.x,
-            y: world.y,
-          })
-          void pings.showPing(
-            world.x,
-            world.y,
-            playerRef.current.id,
-            playerRef.current.name,
-            playerRef.current.color
-          )
-        }
-
-        app.canvas.addEventListener("pointerdown", onAltClickPing)
-        const lockOverlays = createLockOverlayRenderer(
-          scene.lockLayer,
-          state,
-          pieces
-        )
-
-        const debug = createDebugTicker(app, state, camera, setStats)
-
-        runtimeRef.current = {
-          app,
-          state,
-          scene,
-          camera,
-          pieces,
-          cursors,
-          cursorBroadcast,
-          pings,
-          lockOverlays,
-          debug,
-          interactions,
+          start.canvas.destroy()
         }
 
         multiplayerRef.current = createJigsawMultiplayerClient({
@@ -1300,52 +764,24 @@ export function RoomPage({ roomId }: JigsawRoomAppProps) {
           },
         })
 
-        cleanup = () => {
-          if (highlightTimerRef.current !== null) {
-            window.clearTimeout(highlightTimerRef.current)
-            highlightTimerRef.current = null
-          }
-
-          interactions.destroy()
-          cursorBroadcast.destroy()
-          pings.destroy()
-          lockOverlays.destroy()
-          multiplayerRef.current?.destroy()
-          multiplayerRef.current = null
-          debug.destroy()
-          camera.destroy()
-          cursors.destroy()
-          pieces.destroy()
-          imageTexture.destroy(true)
-          app.canvas.removeEventListener("pointerdown", closeSettings)
-          app.canvas.removeEventListener("pointerdown", onAltClickPing)
-          destroyJigsawPixiApp(app)
-        }
-
         setReady(true)
         setRoomStatus("")
-        syncDerivedRoomViews()
-
-        const bootStats = getJigsawStats(
-          state,
-          app.ticker.FPS || 0,
-          camera.zoom
-        )
 
         if (
-          bootStats.totalPieces > 0 &&
-          bootStats.placedPieces >= bootStats.totalPieces
+          start.initialStats.totalPieces > 0 &&
+          start.initialStats.placedPieces >= start.initialStats.totalPieces
         ) {
           solvedAnnouncedRef.current = true
         }
       } catch (error) {
+        cleanup()
+
         if (!disposed) {
           setReady(false)
           setConnectionStatus("unavailable")
           setRoomStatus(
             error instanceof Error ? error.message : "Failed to start room"
           )
-          destroyJigsawPixiApp(app)
         }
       }
     }
@@ -1802,45 +1238,6 @@ async function fetchCompletionResult(
 
 function wait(durationMs: number): Promise<void> {
   return new Promise((resolve) => window.setTimeout(resolve, durationMs))
-}
-
-function applyRoomState(
-  runtime: JigsawRuntime | null,
-  snapshot: JigsawRoomSnapshot
-): void {
-  if (!runtime) {
-    return
-  }
-
-  runtime.state.pieces = structuredClone(snapshot.pieces)
-  runtime.state.groups = structuredClone(snapshot.groups)
-  runtime.state.snapCount = snapshot.stats.snapCount
-  runtime.pieces.syncAll()
-}
-
-function applyStatePatch(
-  runtime: JigsawRuntime,
-  pieces: JigsawRoomSnapshot["pieces"],
-  groups: JigsawRoomSnapshot["groups"],
-  removedGroupIds: string[],
-  snapCount: number
-): void {
-  const affectedPieceIds = Object.keys(pieces)
-
-  for (const [pieceId, piece] of Object.entries(pieces)) {
-    runtime.state.pieces[pieceId] = structuredClone(piece)
-  }
-
-  for (const groupId of removedGroupIds) {
-    delete runtime.state.groups[groupId]
-  }
-
-  for (const [groupId, group] of Object.entries(groups)) {
-    runtime.state.groups[groupId] = structuredClone(group)
-  }
-
-  runtime.state.snapCount = snapCount
-  runtime.pieces.syncPieces(affectedPieceIds)
 }
 
 function getSessionStatusText(
