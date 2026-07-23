@@ -4,7 +4,8 @@ export const API_BASE_URL = readApiBaseUrl()
 export const TELEGRAM_BOT_USERNAME = readOptionalString(
   import.meta.env.VITE_TELEGRAM_BOT_USERNAME
 )
-export const JIGSAW_WS_ENABLED = import.meta.env.VITE_JIGSAW_WS_ENABLED !== "false"
+export const JIGSAW_WS_ENABLED =
+  import.meta.env.VITE_JIGSAW_WS_ENABLED !== "false"
 export const JIGSAW_WS_URL = readOptionalString(
   import.meta.env.VITE_JIGSAW_WS_URL
 )

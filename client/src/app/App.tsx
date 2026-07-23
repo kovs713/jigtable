@@ -9,9 +9,7 @@ const PrivacyPage = lazy(() => import("@/pages/privacy/PrivacyPage"))
 const EditorPage = lazy(() => import("@/pages/editor/EditorPage"))
 const ProfilePage = lazy(() => import("@/pages/profile/ProfilePage"))
 const RoomPage = lazy(() => import("@/pages/room/RoomPage"))
-const RoomCreatePage = lazy(
-  () => import("@/pages/room-create/RoomCreatePage")
-)
+const RoomCreatePage = lazy(() => import("@/pages/room-create/RoomCreatePage"))
 const RoomViewPage = lazy(() => import("@/pages/room-view/RoomViewPage"))
 
 export function App() {

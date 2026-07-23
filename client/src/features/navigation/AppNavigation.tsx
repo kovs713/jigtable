@@ -146,9 +146,7 @@ function NavigationLink({
   )
 }
 
-function getBackLink(
-  route: AppRoute
-): { href: string; label: string } | null {
+function getBackLink(route: AppRoute): { href: string; label: string } | null {
   switch (route.name) {
     case "privacy":
       return { href: paths.landing(), label: "Back home" }
@@ -161,11 +159,7 @@ function getBackLink(
   }
 }
 
-function NavigationIcon({
-  name,
-}: {
-  name: NavigationItem["icon"] | "back"
-}) {
+function NavigationIcon({ name }: { name: NavigationItem["icon"] | "back" }) {
   return (
     <svg
       className="app-navigation__icon"

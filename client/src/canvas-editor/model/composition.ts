@@ -1,5 +1,4 @@
 import type { UserCompositionItem } from "@/features/compositions/compositions"
-
 import type { CompositionRef } from "./types"
 
 export function getInitialCompositionRef(
