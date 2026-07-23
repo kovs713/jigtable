@@ -20,7 +20,7 @@ export function useTelegramAuth() {
   const [authStatus, setAuthStatus] = useState(() =>
     readLocalAuthSession() ? "checking tg session..." : "tg login required"
   )
-  const [authLoading, setAuthLoading] = useState(false)
+  const [authLoading, setAuthLoading] = useState(() => Boolean(authSession))
   const [telegramWidgetVisible, setTelegramWidgetVisible] = useState(false)
 
   useEffect(() => {

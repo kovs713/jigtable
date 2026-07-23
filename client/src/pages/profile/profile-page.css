@@ -395,6 +395,14 @@
   line-height: 1.5;
 }
 
+.jigsaw-room__profile-loading-cards {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1px;
+  padding: 1px;
+  background: var(--jigsaw-panel-border);
+}
+
 /* Responsive */
 @media (max-width: 760px) {
   .jigsaw-room--profile {
@@ -449,6 +457,10 @@
 
   /* На мобилках карточки истории становятся в 1 колонку */
   .jigsaw-room__history-list {
+    grid-template-columns: 1fr;
+  }
+
+  .jigsaw-room__profile-loading-cards {
     grid-template-columns: 1fr;
   }
 

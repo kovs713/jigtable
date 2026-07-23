@@ -3,6 +3,7 @@ import { useCallback, useState } from "react"
 import { CanvasStage } from "./components/CanvasStage"
 import { EditorAuthGate } from "./components/EditorAuthGate"
 import { EditorHeader } from "./components/EditorHeader"
+import { EditorLoadingSkeleton } from "./components/EditorLoadingSkeleton"
 import { LayersPanel } from "./components/LayersPanel"
 import type { ContinuousNumberEdit } from "./components/NumberField"
 import { PropertiesPanel } from "./components/PropertiesPanel"
@@ -128,6 +129,10 @@ export function CanvasEditor() {
         onLogin={() => void auth.loginWithTelegram()}
       />
     )
+  }
+
+  if (auth.authLoading || session.isLoading) {
+    return <EditorLoadingSkeleton />
   }
 
   const setLayerRowRef = (itemId: string) => {

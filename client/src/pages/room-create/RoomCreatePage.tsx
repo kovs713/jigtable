@@ -1,5 +1,5 @@
 import * as React from "react"
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useEffect, useEffectEvent, useMemo, useRef, useState } from "react"
 
 import type { CreateJigsawRoomResponse } from "@jigtable/core/protocol"
 import { apiRoutes } from "@jigtable/shared/api-routes"
@@ -13,6 +13,7 @@ import {
   SelectValue,
 } from "@/shared/ui/select"
 import { Slider } from "@/shared/ui/slider"
+import { Skeleton } from "@/shared/ui/skeleton"
 import { API_BASE_URL } from "@/config"
 import {
   fetchAuthMe,
@@ -35,6 +36,8 @@ import {
   type JigsawHistoryItem,
 } from "@/features/history/history"
 import { createJigsawRoomFromComposition } from "@/features/room/data"
+
+import { RoomCreateLoadingSkeleton } from "./RoomCreateLoadingSkeleton"
 
 import "@/features/room/room.css"
 import "./room-create-page.css"
@@ -109,7 +112,7 @@ export function RoomCreatePage() {
   const [authStatus, setAuthStatus] = useState(() =>
     readLocalAuthSession() ? "checking tg session..." : "tg login required"
   )
-  const [authLoading, setAuthLoading] = useState(false)
+  const [authLoading, setAuthLoading] = useState(() => Boolean(authSession))
   const [widgetVisible, setWidgetVisible] = useState(false)
   const [pieceCount, setPieceCount] = useState(150)
   const [status, setStatus] = useState("choose jigsaw size")
@@ -120,7 +123,16 @@ export function RoomCreatePage() {
   const [copied, setCopied] = useState(false)
   const [compositionPreview, setCompositionPreview] =
     useState<CompositionLayout | null>(null)
+  const [compositionPreviewError, setCompositionPreviewError] = useState<
+    string | null
+  >(null)
+  const [isPreviewLoading, setIsPreviewLoading] = useState(() =>
+    Boolean(initialCompositionId && initialCompositionToken && authSession)
+  )
   const [compositions, setCompositions] = useState<UserCompositionItem[]>([])
+  const [isCompositionsLoading, setIsCompositionsLoading] = useState(() =>
+    Boolean(authSession)
+  )
   const [selectedComposition, setSelectedComposition] = useState<{
     compositionId: string
     compositionToken: string
@@ -133,6 +145,9 @@ export function RoomCreatePage() {
       : null
   )
   const [history, setHistory] = useState<JigsawHistoryItem[]>([])
+  const [isHistoryLoading, setIsHistoryLoading] = useState(() =>
+    Boolean(authSession)
+  )
   const [historyOpen, setHistoryOpen] = useState(false)
   const historyRef = useRef<HTMLDivElement | null>(null)
 
@@ -147,7 +162,12 @@ export function RoomCreatePage() {
       .then((items) => {
         if (!disposed) setHistory(items)
       })
-      .catch(() => {})
+      .catch((error) => {
+        if (!disposed) setStatus(readErrorMessage(error))
+      })
+      .finally(() => {
+        if (!disposed) setIsHistoryLoading(false)
+      })
 
     return () => {
       disposed = true
@@ -163,6 +183,7 @@ export function RoomCreatePage() {
         if (disposed) return
         setCompositions(items)
         if (!selectedComposition && items[0]) {
+          setIsPreviewLoading(true)
           setSelectedComposition({
             compositionId: items[0].compositionId,
             compositionToken: items[0].compositionToken,
@@ -171,6 +192,9 @@ export function RoomCreatePage() {
       })
       .catch((error) => {
         if (!disposed) setStatus(readErrorMessage(error))
+      })
+      .finally(() => {
+        if (!disposed) setIsCompositionsLoading(false)
       })
 
     return () => {
@@ -204,7 +228,16 @@ export function RoomCreatePage() {
       compositionToken: composition.compositionToken,
     })
     setCompositionPreview(null)
+    setCompositionPreviewError(null)
+    setIsPreviewLoading(true)
     setStatus("Choose jigsaw size")
+  }
+
+  function activateAuthSession(session: AuthSession): void {
+    setIsCompositionsLoading(true)
+    setIsHistoryLoading(true)
+    if (selectedComposition) setIsPreviewLoading(true)
+    setAuthSession(session)
   }
 
   useEffect(() => {
@@ -216,13 +249,21 @@ export function RoomCreatePage() {
       `${API_BASE_URL}${apiRoutes.compositions.get.layout.build(selectedComposition.compositionId)}?editToken=${encodeURIComponent(selectedComposition.compositionToken)}`,
       { headers: { Authorization: `Bearer ${authSession.token}` } }
     )
-      .then((r) => r.json())
+      .then((response) => {
+        if (!response.ok) throw new Error("Failed to load preview")
+        return response.json()
+      })
       .then((payload: unknown) => {
         if (disposed) return
         const p = payload as { layout?: CompositionLayout }
         if (p?.layout) setCompositionPreview(p.layout)
       })
-      .catch(() => {})
+      .catch((error) => {
+        if (!disposed) setCompositionPreviewError(readErrorMessage(error))
+      })
+      .finally(() => {
+        if (!disposed) setIsPreviewLoading(false)
+      })
 
     return () => {
       disposed = true
@@ -251,6 +292,9 @@ export function RoomCreatePage() {
       .catch((error) => {
         if (!disposed) {
           setAuthSession(null)
+          setIsCompositionsLoading(false)
+          setIsHistoryLoading(false)
+          setIsPreviewLoading(false)
           setAuthStatus(readErrorMessage(error))
         }
       })
@@ -292,7 +336,7 @@ export function RoomCreatePage() {
     try {
       const session = await loginTelegramWebApp()
 
-      setAuthSession(session)
+      activateAuthSession(session)
       setAuthStatus("tg linked")
     } catch (error) {
       setAuthStatus(readErrorMessage(error))
@@ -301,24 +345,24 @@ export function RoomCreatePage() {
     }
   }
 
-  async function loginWithTelegramWidget(
-    payload: Record<string, unknown>
-  ): Promise<void> {
-    setAuthLoading(true)
-    setAuthStatus("tg widget login...")
+  const loginWithTelegramWidget = useEffectEvent(
+    async (payload: Record<string, unknown>): Promise<void> => {
+      setAuthLoading(true)
+      setAuthStatus("tg widget login...")
 
-    try {
-      const session = await loginTelegramWidget(payload)
+      try {
+        const session = await loginTelegramWidget(payload)
 
-      setAuthSession(session)
-      setWidgetVisible(false)
-      setAuthStatus("tg linked")
-    } catch (error) {
-      setAuthStatus(readErrorMessage(error))
-    } finally {
-      setAuthLoading(false)
+        activateAuthSession(session)
+        setWidgetVisible(false)
+        setAuthStatus("tg linked")
+      } catch (error) {
+        setAuthStatus(readErrorMessage(error))
+      } finally {
+        setAuthLoading(false)
+      }
     }
-  }
+  )
 
   async function loginWithDev(): Promise<void> {
     setAuthLoading(true)
@@ -328,7 +372,7 @@ export function RoomCreatePage() {
       const session = await loginDev()
 
       saveLocalAuthSession(session)
-      setAuthSession(session)
+      activateAuthSession(session)
       setAuthStatus("dev session active")
     } catch (error) {
       setAuthStatus(readErrorMessage(error))
@@ -438,6 +482,11 @@ export function RoomCreatePage() {
       )
     : null
   const selectedCompositionView = selectedCompositionInfo ?? null
+  const isLoading = authLoading || Boolean(authSession && isCompositionsLoading)
+
+  if (isLoading) {
+    return <RoomCreateLoadingSkeleton />
+  }
 
   return (
     <main className="jigsaw-room jigsaw-room--create">
@@ -534,18 +583,41 @@ export function RoomCreatePage() {
                 </SelectContent>
               </Select>
               <div className="jigsaw-room__image-preview">
-                {compositionPreview ? (
+                {isPreviewLoading ? (
+                  <div
+                    aria-busy="true"
+                    aria-label="Loading composition preview"
+                    className="h-full w-full"
+                    role="status"
+                  >
+                    <Skeleton className="h-full w-full" />
+                  </div>
+                ) : compositionPreview ? (
                   <CompositionCanvasPreview layout={compositionPreview} />
                 ) : (
-                  <div className="jigsaw-room__image-placeholder">
-                    <span>Loading preview…</span>
+                  <div
+                    className={`jigsaw-room__image-placeholder ${compositionPreviewError ? "jigsaw-room__image-placeholder--error" : ""}`}
+                  >
+                    <span>
+                      {compositionPreviewError ?? "preview unavailable"}
+                    </span>
                   </div>
                 )}
               </div>
             </div>
           ) : (
             <div className="jigsaw-room__input-group">
-              {history.length > 0 && (
+              {isHistoryLoading ? (
+                <div
+                  aria-busy="true"
+                  aria-label="Loading saved history"
+                  className="jigsaw-room__input-group"
+                  role="status"
+                >
+                  <Skeleton className="h-3 w-24" />
+                  <Skeleton className="h-9 w-full" />
+                </div>
+              ) : history.length > 0 ? (
                 <div className="jigsaw-room__input-group" ref={historyRef}>
                   <span>Saved builds</span>
                   <div className="jigsaw-room__history-selector">
@@ -588,7 +660,7 @@ export function RoomCreatePage() {
                     )}
                   </div>
                 </div>
-              )}
+              ) : null}
               <div className="jigsaw-room__image-preview">
                 <div className="jigsaw-room__image-placeholder">
                   <span>no saved builds yet. create one in the bot first.</span>
@@ -648,7 +720,14 @@ export function RoomCreatePage() {
 
           <Button
             className="jigsaw-room__submit-btn"
-            disabled={creating || !selectedComposition || !authSession}
+            disabled={
+              creating ||
+              authLoading ||
+              isCompositionsLoading ||
+              isPreviewLoading ||
+              !selectedComposition ||
+              !authSession
+            }
             onClick={() => void createRoom()}
           >
             {creating && (

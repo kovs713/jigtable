@@ -38,6 +38,9 @@ export function useCompositionSession(options: CompositionSessionOptions) {
       getInitialCompositionRef(window.location.search)
     )
   const [compositions, setCompositions] = useState<UserCompositionItem[]>([])
+  const [settledCompositionListToken, setSettledCompositionListToken] =
+    useState<string | null>(null)
+  const [isCompositionLoading, setIsCompositionLoading] = useState(false)
   const [selectedComposition, setSelectedComposition] =
     useState<SelectedComposition | null>(null)
   const [loadCode, setLoadCode] = useState("")
@@ -53,6 +56,7 @@ export function useCompositionSession(options: CompositionSessionOptions) {
         optionsRef.current.setStatus("tg login required", "idle")
         return false
       }
+      setIsCompositionLoading(true)
       optionsRef.current.setStatus("Loading images...", "loading")
       try {
         const payload = await fetchCompositionLayout(
@@ -78,6 +82,8 @@ export function useCompositionSession(options: CompositionSessionOptions) {
           "error"
         )
         return false
+      } finally {
+        setIsCompositionLoading(false)
       }
       return true
     },
@@ -107,6 +113,9 @@ export function useCompositionSession(options: CompositionSessionOptions) {
       .catch((error) => {
         if (!disposed)
           optionsRef.current.setStatus(readErrorMessage(error), "error")
+      })
+      .finally(() => {
+        if (!disposed) setSettledCompositionListToken(authSession.token)
       })
     return () => {
       disposed = true
@@ -224,6 +233,9 @@ export function useCompositionSession(options: CompositionSessionOptions) {
   return {
     remoteComposition,
     compositions,
+    isLoading:
+      isCompositionLoading ||
+      Boolean(authSession && settledCompositionListToken !== authSession.token),
     selectedComposition,
     loadCode,
     setLoadCode,

@@ -18,6 +18,8 @@ import {
 import { readLocalJigsawSession } from "@/features/session/session"
 import { formatDate, formatDuration } from "@/shared/formatting/date-time"
 
+import { ProfileLoadingSkeleton } from "./ProfileLoadingSkeleton"
+
 import "@/features/room/room.css"
 import "./profile-page.css"
 
@@ -31,7 +33,7 @@ export function ProfilePage() {
   const [status, setStatus] = useState(() =>
     readLocalAuthSession() ? "loading profile..." : "tg login required"
   )
-  const [loading, setLoading] = useState(false)
+  const [isLoading, setIsLoading] = useState(() => Boolean(authSession))
   const [widgetVisible, setWidgetVisible] = useState(false)
   const stats = useMemo(() => createProfileStats(history), [history])
 
@@ -64,7 +66,7 @@ export function ProfilePage() {
       return
     }
 
-    setLoading(true)
+    setIsLoading(true)
     setStatus("tg webapp login...")
 
     try {
@@ -73,7 +75,7 @@ export function ProfilePage() {
     } catch (error) {
       setStatus(readErrorMessage(error))
     } finally {
-      setLoading(false)
+      setIsLoading(false)
     }
   }
 
@@ -88,7 +90,7 @@ export function ProfilePage() {
     let disposed = false
 
     async function loadProfile(): Promise<void> {
-      setLoading(true)
+      setIsLoading(true)
 
       try {
         const session = await fetchAuthMe(authToken)
@@ -110,7 +112,7 @@ export function ProfilePage() {
         }
       } finally {
         if (!disposed) {
-          setLoading(false)
+          setIsLoading(false)
         }
       }
     }
@@ -140,7 +142,7 @@ export function ProfilePage() {
 
     host.replaceChildren()
     callbacks[callbackName] = (payload) => {
-      setLoading(true)
+      setIsLoading(true)
       setStatus("Telegram widget login...")
       void loginTelegramWidget(payload, anonSessionToken)
         .then(async (session) => {
@@ -158,7 +160,7 @@ export function ProfilePage() {
           setStatus(readErrorMessage(error))
         })
         .finally(() => {
-          setLoading(false)
+          setIsLoading(false)
         })
     }
 
@@ -176,6 +178,10 @@ export function ProfilePage() {
       host.replaceChildren()
     }
   }, [widgetVisible])
+
+  if (isLoading) {
+    return <ProfileLoadingSkeleton />
+  }
 
   return (
     <main className="jigsaw-room jigsaw-room--profile">
@@ -214,10 +220,10 @@ export function ProfilePage() {
               <button
                 type="button"
                 className="jigsaw-room__btn jigsaw-room__btn--primary"
-                disabled={loading}
+                disabled={isLoading}
                 onClick={loginWithTelegram}
               >
-                {loading
+                {isLoading
                   ? "Loading..."
                   : authSession
                     ? "Relink Telegram"
