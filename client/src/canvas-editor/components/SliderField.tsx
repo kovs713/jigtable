@@ -1,4 +1,9 @@
+import { useRef } from "react"
+
 import { Slider } from "@/shared/ui/slider"
+
+import type { EditorTransactionToken } from "../model/editor-document"
+import type { ContinuousNumberEdit } from "./NumberField"
 
 type SliderFieldProps = {
   label: string
@@ -6,7 +11,8 @@ type SliderFieldProps = {
   valueLabel: string
   min: number
   max: number
-  onChange: (value: number) => void
+  onChange?: (value: number) => void
+  edit?: ContinuousNumberEdit
 }
 
 export function SliderField({
@@ -16,7 +22,10 @@ export function SliderField({
   min,
   max,
   onChange,
+  edit,
 }: SliderFieldProps) {
+  const tokenRef = useRef<EditorTransactionToken | null>(null)
+
   return (
     <div className="grid gap-2">
       <div className="flex items-center justify-between gap-3">
@@ -32,7 +41,19 @@ export function SliderField({
         max={max}
         min={min}
         value={value}
-        onChange={onChange}
+        onChange={(nextValue) => {
+          const token = tokenRef.current
+          if (edit && token !== null) edit.preview(token, nextValue)
+          else onChange?.(nextValue)
+        }}
+        onInteractionEnd={(disposition) => {
+          const token = tokenRef.current
+          tokenRef.current = null
+          if (edit && token !== null) edit.finish(token, disposition)
+        }}
+        onInteractionStart={() => {
+          if (edit) tokenRef.current = edit.begin()
+        }}
       />
     </div>
   )

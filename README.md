@@ -77,6 +77,7 @@ none.
 | ---------------- | ---------------------------------------- | ---------------------------------- |
 | root             | `bun install --frozen-lockfile`          | install the whole workspace        |
 | `client/`        | `bun run lint`                           | lint the SPA                       |
+| `client/`        | `bun run test`                           | test editor document behavior      |
 | `client/`        | `bun run typecheck`                      | check client types                 |
 | `client/`        | `bun run build`                          | validate env, typecheck, and build |
 | `server/`        | `bun run native:check`                   | check the Rust layout engine       |

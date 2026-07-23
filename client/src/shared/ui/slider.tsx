@@ -13,6 +13,8 @@ export interface SliderProps {
   className?: string
   ariaLabel: string
   onChange: (value: number) => void
+  onInteractionStart?: () => void
+  onInteractionEnd?: (disposition: "commit" | "rollback") => void
 }
 
 export function Slider({
@@ -24,6 +26,8 @@ export function Slider({
   className,
   ariaLabel,
   onChange,
+  onInteractionStart,
+  onInteractionEnd,
 }: SliderProps) {
   const trackRef = React.useRef<HTMLDivElement>(null)
   const draggingRef = React.useRef(false)
@@ -73,6 +77,7 @@ export function Slider({
     draggingRef.current = true
     rectRef.current = track.getBoundingClientRect()
 
+    onInteractionStart?.()
     event.currentTarget.setPointerCapture(event.pointerId)
     event.preventDefault()
 
@@ -85,7 +90,10 @@ export function Slider({
     commit(valueFromClientX(event.clientX))
   }
 
-  const stopDrag = (event: React.PointerEvent<HTMLDivElement>) => {
+  const stopDrag = (
+    event: React.PointerEvent<HTMLDivElement>,
+    disposition: "commit" | "rollback"
+  ) => {
     if (!draggingRef.current) return
 
     draggingRef.current = false
@@ -94,6 +102,7 @@ export function Slider({
     if (event.currentTarget.hasPointerCapture(event.pointerId)) {
       event.currentTarget.releasePointerCapture(event.pointerId)
     }
+    onInteractionEnd?.(disposition)
   }
 
   const handleKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
@@ -101,25 +110,33 @@ export function Slider({
 
     if (event.key === "ArrowLeft" || event.key === "ArrowDown") {
       event.preventDefault()
+      onInteractionStart?.()
       commit(value - step)
+      onInteractionEnd?.("commit")
       return
     }
 
     if (event.key === "ArrowRight" || event.key === "ArrowUp") {
       event.preventDefault()
+      onInteractionStart?.()
       commit(value + step)
+      onInteractionEnd?.("commit")
       return
     }
 
     if (event.key === "Home") {
       event.preventDefault()
+      onInteractionStart?.()
       commit(min)
+      onInteractionEnd?.("commit")
       return
     }
 
     if (event.key === "End") {
       event.preventDefault()
+      onInteractionStart?.()
       commit(max)
+      onInteractionEnd?.("commit")
     }
   }
 
@@ -162,8 +179,8 @@ export function Slider({
         }}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
-        onPointerUp={stopDrag}
-        onPointerCancel={stopDrag}
+        onPointerUp={(event) => stopDrag(event, "commit")}
+        onPointerCancel={(event) => stopDrag(event, "rollback")}
         onKeyDown={handleKeyDown}
       />
     </div>

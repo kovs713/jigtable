@@ -1,31 +1,23 @@
-import { useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 
-import { DEFAULT_ZOOM, EMPTY_LAYOUT } from "../model/constants"
+import { DEFAULT_ZOOM } from "../model/constants"
 import {
-  clampCanvas,
-  clampCanvasSize,
-  clampItem,
-  getCanvasForMaxSide,
-  getCanvasForRatio,
-  getCanvasRatioLabel,
-  scaleItemsToCanvas,
-  updateScale,
-} from "../model/layout"
-import {
-  getLayerActionKey,
-  getLayerEntries,
-  moveLayer,
-  reorderLayer,
-} from "../model/layers"
+  createEditorDocument,
+  transitionEditorDocument,
+  type EditorDocumentIntent,
+  type EditorDocumentOutcome,
+  type EditorInteraction,
+  type EditorTransactionEdit,
+  type EditorTransactionToken,
+} from "../model/editor-document"
+import { getLayerActionKey, getLayerEntries } from "../model/layers"
+import { getArrowOffset, getCanvasRatioLabel } from "../model/layout"
 import type {
   AspectRatioPreset,
-  CanvasItem,
   CanvasLayout,
-  CanvasSize,
   LayerAction,
   SelectionMode,
 } from "../model/types"
-import { useEditorHistory } from "./use-editor-history"
 
 type SetStatus = (
   message: string,
@@ -33,11 +25,8 @@ type SetStatus = (
 ) => void
 
 export function useEditorDocument(setStatus: SetStatus) {
-  const [layout, setLayout] = useState<CanvasLayout>(EMPTY_LAYOUT)
-  const [originalCanvas, setOriginalCanvas] = useState<CanvasSize>(
-    EMPTY_LAYOUT.canvas
-  )
-  const [selectedIds, setSelectedIds] = useState<string[]>([])
+  const documentRef = useRef(createEditorDocument())
+  const [snapshot, setSnapshot] = useState(documentRef.current.snapshot)
   const [zoom, setZoom] = useState(DEFAULT_ZOOM)
   const [showCanvasMarkers, setShowCanvasMarkers] = useState(true)
   const layerActionRefs = useRef(new Map<string, HTMLButtonElement>())
@@ -46,8 +35,16 @@ export function useEditorDocument(setStatus: SetStatus) {
     itemId: string
     action: LayerAction
   } | null>(null)
-  const history = useEditorHistory(layout, setLayout)
 
+  const transition = useCallback((intent: EditorDocumentIntent) => {
+    const result = transitionEditorDocument(documentRef.current, intent)
+    documentRef.current = result.document
+    setSnapshot(result.document.snapshot)
+    return result.outcome
+  }, [])
+
+  const layout = snapshot.layout
+  const selectedIds = [...snapshot.selectedIds]
   const selectedId = selectedIds[0] ?? ""
   const selectedIdSet = new Set(selectedIds)
   const selectedItem = layout.items.find((item) => item.id === selectedId)
@@ -61,7 +58,10 @@ export function useEditorDocument(setStatus: SetStatus) {
     layerEntries.map((entry) => [entry.item.id, entry.layerIndex])
   )
   const viewportScale = zoom / 100
-  const activeRatio = getCanvasRatioLabel(layout.canvas, originalCanvas)
+  const activeRatio = getCanvasRatioLabel(
+    layout.canvas,
+    snapshot.originalCanvas
+  )
   const canvasMaxSide = Math.max(layout.canvas.width, layout.canvas.height)
 
   useEffect(() => {
@@ -81,65 +81,49 @@ export function useEditorDocument(setStatus: SetStatus) {
   })
 
   function clearSelection() {
-    setSelectedIds([])
+    return transition({ type: "clear-selection" })
   }
-  function selectOnlyItem(itemId: string) {
-    setSelectedIds(itemId ? [itemId] : [])
+
+  function selectOnlyItem(imageId: string) {
+    return transition({ type: "select", imageId, mode: "replace" })
   }
-  function focusItem(itemId: string) {
-    setSelectedIds((current) =>
-      current.includes(itemId)
-        ? [itemId, ...current.filter((id) => id !== itemId)]
-        : [itemId]
-    )
+
+  function focusItem(imageId: string) {
+    return transition({ type: "focus", imageId })
   }
-  function selectItem(itemId: string, mode: SelectionMode) {
-    if (mode === "replace") return selectOnlyItem(itemId)
-    setSelectedIds((current) => {
-      if (mode === "add")
-        return [itemId, ...current.filter((id) => id !== itemId)]
-      return current.includes(itemId)
-        ? current.filter((id) => id !== itemId)
-        : [itemId, ...current]
-    })
+
+  function selectItem(imageId: string, mode: SelectionMode) {
+    return transition({ type: "select", imageId, mode })
   }
-  function applyLayout(next: CanvasLayout, preserveAsOriginal = false) {
-    setLayout(next)
-    if (preserveAsOriginal) setOriginalCanvas(next.canvas)
-    selectOnlyItem(next.items[0]?.id ?? "")
+
+  function applyLayout(next: CanvasLayout) {
+    const outcome = transition({ type: "load", layout: next })
+    if (outcome.type === "rejected") {
+      throw new Error("Invalid composition layout")
+    }
   }
-  function applyCanvasSize(canvas: CanvasSize, message: string) {
-    const nextCanvas = clampCanvas(canvas)
-    history.recordChange((current) => ({
-      canvas: nextCanvas,
-      items: scaleItemsToCanvas(current.canvas, current.items, nextCanvas),
-    }))
-    clearSelection()
-    setStatus(message)
+
+  function beginTransaction(
+    interaction: EditorInteraction
+  ): EditorTransactionToken | null {
+    const outcome = transition({ type: "begin-transaction", interaction })
+    return outcome.type === "transaction-started" ? outcome.token : null
   }
-  function updateCanvasSize(field: "width" | "height", value: number) {
-    history.recordChange((current) => {
-      const nextCanvas = clampCanvas({
-        ...current.canvas,
-        [field]: clampCanvasSize(value),
-      })
-      return {
-        canvas: nextCanvas,
-        items: scaleItemsToCanvas(current.canvas, current.items, nextCanvas),
-      }
-    })
+
+  function previewTransaction(
+    token: EditorTransactionToken,
+    edit: EditorTransactionEdit
+  ) {
+    return transition({ type: "preview-transaction", token, edit })
   }
-  function updateSelectedItem(patch: Partial<CanvasItem>) {
-    if (!selectedItem) return
-    history.recordChange((current) => ({
-      ...current,
-      items: current.items.map((item) =>
-        item.id === selectedItem.id
-          ? clampItem(updateScale({ ...item, ...patch }, item), current.canvas)
-          : item
-      ),
-    }))
+
+  function finishTransaction(
+    token: EditorTransactionToken,
+    disposition: "commit" | "rollback"
+  ) {
+    return transition({ type: "finish-transaction", token, disposition })
   }
+
   function moveItemLayer(
     itemId: string,
     direction: -1 | 1,
@@ -154,34 +138,70 @@ export function useEditorDocument(setStatus: SetStatus) {
       action
     )
   }
+
   function moveItemLayerTo(
     itemId: string,
     target: number,
     message: string,
     action: LayerAction
   ) {
-    if (!layerIndexById.has(itemId)) return
-    focusItem(itemId)
-    if (target < 0 || target >= layout.items.length) return
+    const outcome = transition({ type: "move-layer", imageId: itemId, target })
+    if (outcome.type !== "edit-applied") return
     pendingLayerFocusRef.current = { itemId, action }
-    history.recordChange((current) => ({
-      ...current,
-      items: moveLayer(current.items, itemId, target),
-    }))
     setStatus(message)
   }
+
   function reorderItemLayer(
     itemId: string,
     targetItemId: string,
     placement: "above" | "below"
   ) {
-    focusItem(itemId)
-    history.recordChange((current) => ({
-      ...current,
-      items: reorderLayer(current.items, itemId, targetItemId, placement),
-    }))
-    setStatus("Layer reordered")
+    const outcome = transition({
+      type: "reorder-layer",
+      imageId: itemId,
+      targetImageId: targetItemId,
+      placement,
+    })
+    if (outcome.type === "edit-applied") setStatus("Layer reordered")
   }
+
+  function applyAspectRatioPreset(preset: AspectRatioPreset) {
+    const outcome = transition({
+      type: "set-canvas-ratio",
+      ratio: preset.width / preset.height,
+    })
+    if (outcome.type === "edit-applied") {
+      setStatus(`Canvas ratio ${preset.label}`)
+    }
+  }
+
+  function restoreOriginalCanvas() {
+    const outcome = transition({ type: "restore-loaded-canvas" })
+    if (outcome.type === "edit-applied") setStatus("original canvas ratio")
+  }
+
+  function nudgeSelection(key: string, step: number) {
+    const offset = getArrowOffset(key, step)
+    if (!offset) return null
+    return transition({
+      type: "nudge-selection",
+      dx: offset.x,
+      dy: offset.y,
+    })
+  }
+
+  function undo() {
+    const outcome = transition({ type: "undo" })
+    if (outcome.type === "history-moved") setStatus("Undo")
+    return outcome
+  }
+
+  function redo() {
+    const outcome = transition({ type: "redo" })
+    if (outcome.type === "history-moved") setStatus("Redo")
+    return outcome
+  }
+
   function setLayerActionRef(itemId: string, action: LayerAction) {
     return (node: HTMLButtonElement | null) => {
       const key = getLayerActionKey(itemId, action)
@@ -189,6 +209,7 @@ export function useEditorDocument(setStatus: SetStatus) {
       else layerActionRefs.current.delete(key)
     }
   }
+
   function setLayerRowRef(itemId: string) {
     return (node: HTMLDivElement | null) => {
       if (node) layerRowRefs.current.set(itemId, node)
@@ -198,55 +219,40 @@ export function useEditorDocument(setStatus: SetStatus) {
 
   return {
     layout,
-    setLayout,
-    originalCanvas,
     selectedIds,
-    setZoom,
     zoom,
+    setZoom,
     showCanvasMarkers,
     setShowCanvasMarkers,
     selectedItem,
     selectedItems,
     selectedIndex,
     selectedIdSet,
-    layerEntries,
     layerListEntries,
     layerIndexById,
     viewportScale,
     activeRatio,
     canvasMaxSide,
-    layoutRef: history.layoutRef,
-    recordLayoutChange: history.recordChange,
-    commitDrag: history.commitDrag,
+    transaction: snapshot.transaction,
+    applyLayout,
+    beginTransaction,
+    previewTransaction,
+    finishTransaction,
     clearSelection,
     selectOnlyItem,
     focusItem,
     selectItem,
-    applyLayout,
-    updateSelectedItem,
-    updateCanvasSize,
-    updateCanvasScale: (value: number) =>
-      applyCanvasSize(
-        getCanvasForMaxSide(layout.canvas, value),
-        "Canvas size updated"
-      ),
-    applyAspectRatioPreset: (preset: AspectRatioPreset) =>
-      applyCanvasSize(
-        getCanvasForRatio(layout.canvas, preset.width / preset.height),
-        `Canvas ratio ${preset.label}`
-      ),
-    restoreOriginalCanvas: () =>
-      applyCanvasSize(originalCanvas, "original canvas ratio"),
     moveItemLayer,
     moveItemLayerTo,
     reorderItemLayer,
+    applyAspectRatioPreset,
+    restoreOriginalCanvas,
+    nudgeSelection,
     setLayerActionRef,
     setLayerRowRef,
-    undo: () => {
-      if (history.undo()) setStatus("Undo")
-    },
-    redo: () => {
-      if (history.redo()) setStatus("Redo")
-    },
+    undo,
+    redo,
   }
 }
+
+export type EditorTransitionOutcome = EditorDocumentOutcome

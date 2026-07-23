@@ -15,7 +15,6 @@ import {
   getInitialCompositionRef,
   parseCompositionInput,
 } from "../model/composition"
-import { normalizeCanvasLayout } from "../model/layout"
 import type {
   CanvasLayout,
   CompositionRef,
@@ -24,7 +23,7 @@ import type {
 
 type CompositionSessionOptions = {
   authSession: AuthSession | null
-  applyLayout: (layout: CanvasLayout, preserveAsOriginal?: boolean) => void
+  applyLayout: (layout: CanvasLayout) => void
   setStatus: (
     message: string,
     kind?: "idle" | "loading" | "success" | "error"
@@ -60,10 +59,7 @@ export function useCompositionSession(options: CompositionSessionOptions) {
           composition,
           authSession.token
         )
-        optionsRef.current.applyLayout(
-          normalizeCanvasLayout(payload.layout),
-          true
-        )
+        optionsRef.current.applyLayout(payload.layout)
         setRemoteComposition({
           compositionId: payload.compositionId,
           token: composition.token,
@@ -170,7 +166,6 @@ export function useCompositionSession(options: CompositionSessionOptions) {
         options.authSession.token,
         layout
       )
-      options.applyLayout(normalizeCanvasLayout(payload.layout))
       setRemoteComposition({
         compositionId: payload.compositionId,
         token: remoteComposition.token,

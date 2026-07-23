@@ -8,7 +8,7 @@ import {
 } from "../model/constants"
 import { getImageAriaLabel } from "../model/markers"
 import type { AspectRatioPreset, CanvasItem, CanvasSize } from "../model/types"
-import { NumberField } from "./NumberField"
+import { NumberField, type ContinuousNumberEdit } from "./NumberField"
 import { PanelHeader } from "./PanelHeader"
 import { SliderField } from "./SliderField"
 
@@ -23,13 +23,15 @@ type PropertiesPanelProps = {
   selectedIds: string[]
   selectedItem?: CanvasItem
   selectedIndex: number
-  onCanvasSizeChange: (field: "width" | "height", value: number) => void
+  canvasDimensionEdit: (field: "width" | "height") => ContinuousNumberEdit
+  canvasScaleEdit: ContinuousNumberEdit
+  selectedItemEdit: (
+    field: "x" | "y" | "width" | "height"
+  ) => ContinuousNumberEdit
   onZoomChange: (value: number) => void
-  onCanvasScaleChange: (value: number) => void
   onAspectRatio: (preset: AspectRatioPreset) => void
   onRestoreOriginal: () => void
   onMarkersChange: (value: boolean) => void
-  onSelectedItemChange: (patch: Partial<CanvasItem>) => void
 }
 
 export function PropertiesPanel(props: PropertiesPanelProps) {
@@ -40,14 +42,14 @@ export function PropertiesPanel(props: PropertiesPanelProps) {
         <div className="properties-panel__content">
           <div className="properties-panel__fields">
             <NumberField
+              edit={props.canvasDimensionEdit("width")}
               label="Width"
               value={props.canvas.width}
-              onChange={(value) => props.onCanvasSizeChange("width", value)}
             />
             <NumberField
+              edit={props.canvasDimensionEdit("height")}
               label="Height"
               value={props.canvas.height}
-              onChange={(value) => props.onCanvasSizeChange("height", value)}
             />
           </div>
           <div className="properties-panel__slider-group">
@@ -65,7 +67,7 @@ export function PropertiesPanel(props: PropertiesPanelProps) {
               min={MIN_CANVAS_SIZE}
               value={props.canvasMaxSide}
               valueLabel={`${props.canvasMaxSide}px`}
-              onChange={props.onCanvasScaleChange}
+              edit={props.canvasScaleEdit}
             />
           </div>
           <div className="properties-panel__ratio">
@@ -128,28 +130,24 @@ export function PropertiesPanel(props: PropertiesPanelProps) {
           <div className="properties-panel__selection-content">
             <div className="properties-panel__fields">
               <NumberField
+                edit={props.selectedItemEdit("x")}
                 label="X"
                 value={props.selectedItem.x}
-                onChange={(value) => props.onSelectedItemChange({ x: value })}
               />
               <NumberField
+                edit={props.selectedItemEdit("y")}
                 label="Y"
                 value={props.selectedItem.y}
-                onChange={(value) => props.onSelectedItemChange({ y: value })}
               />
               <NumberField
+                edit={props.selectedItemEdit("width")}
                 label="Width"
                 value={props.selectedItem.width}
-                onChange={(value) =>
-                  props.onSelectedItemChange({ width: value })
-                }
               />
               <NumberField
+                edit={props.selectedItemEdit("height")}
                 label="Height"
                 value={props.selectedItem.height}
-                onChange={(value) =>
-                  props.onSelectedItemChange({ height: value })
-                }
               />
             </div>
           </div>

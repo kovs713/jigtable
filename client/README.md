@@ -72,6 +72,7 @@ WebSocket URL must use `wss://`.
 | ------------------- | ----------------------------------------------------- |
 | `bun run dev`       | start the Vite development server                     |
 | `bun run lint`      | run ESLint                                            |
+| `bun run test`      | test editor document behavior                         |
 | `bun run typecheck` | run TypeScript without emitting files                 |
 | `bun run build`     | validate deployment env, typecheck, and build `dist/` |
 | `bun run preview`   | serve the production build locally                    |

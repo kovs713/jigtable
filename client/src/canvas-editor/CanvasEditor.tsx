@@ -4,6 +4,7 @@ import { CanvasStage } from "./components/CanvasStage"
 import { EditorAuthGate } from "./components/EditorAuthGate"
 import { EditorHeader } from "./components/EditorHeader"
 import { LayersPanel } from "./components/LayersPanel"
+import type { ContinuousNumberEdit } from "./components/NumberField"
 import { PropertiesPanel } from "./components/PropertiesPanel"
 import { StatusBar } from "./components/StatusBar"
 import { useCompositionSession } from "./hooks/use-composition-session"
@@ -12,6 +13,10 @@ import { useEditorDrag } from "./hooks/use-editor-drag"
 import { useEditorHoverLink } from "./hooks/use-editor-hover-link"
 import { useEditorShortcuts } from "./hooks/use-editor-shortcuts"
 import { useTelegramAuth } from "./hooks/use-telegram-auth"
+import type {
+  EditorInteraction,
+  EditorTransactionEdit,
+} from "./model/editor-document"
 import { getImageMarkerStyle } from "./model/markers"
 import type { EditorStatus } from "./model/types"
 
@@ -36,9 +41,6 @@ export function CanvasEditor() {
   })
   const hover = useEditorHoverLink(editor.layout.items, editor.viewportScale)
   const drag = useEditorDrag({
-    layout: editor.layout,
-    layoutRef: editor.layoutRef,
-    setLayout: editor.setLayout,
     viewportScale: editor.viewportScale,
     selectedIdSet: editor.selectedIdSet,
     selectedItems: editor.selectedItems,
@@ -46,19 +48,75 @@ export function CanvasEditor() {
     selectOnlyItem: editor.selectOnlyItem,
     focusItem: editor.focusItem,
     clearSelection: editor.clearSelection,
-    commitDrag: editor.commitDrag,
+    beginTransaction: editor.beginTransaction,
+    previewTransaction: editor.previewTransaction,
+    finishTransaction: editor.finishTransaction,
     setStatus: updateStatus,
   })
 
+  const save = () => {
+    if (editor.transaction) {
+      updateStatus("Finish or cancel the current edit before saving", "idle")
+      return
+    }
+    return session.save(editor.layout)
+  }
+
   useEditorShortcuts({
     selectedIds: editor.selectedIds,
-    save: () => session.save(editor.layout),
+    save,
     undo: editor.undo,
     redo: editor.redo,
     clearSelection: editor.clearSelection,
-    recordLayoutChange: editor.recordLayoutChange,
+    nudgeSelection: editor.nudgeSelection,
     setStatus: updateStatus,
   })
+
+  function numberEdit(
+    interaction: EditorInteraction,
+    toEdit: (value: number) => EditorTransactionEdit,
+    message: string
+  ): ContinuousNumberEdit {
+    return {
+      begin: () => editor.beginTransaction(interaction),
+      preview: (token, value) => {
+        editor.previewTransaction(token, toEdit(value))
+      },
+      finish: (token, disposition) => {
+        const outcome = editor.finishTransaction(token, disposition)
+        if (
+          outcome.type === "transaction-finished" &&
+          outcome.disposition === "commit" &&
+          outcome.changed
+        ) {
+          updateStatus(message)
+        } else if (
+          outcome.type === "transaction-finished" &&
+          outcome.disposition === "rollback"
+        ) {
+          updateStatus("Edit canceled", "idle")
+        }
+      },
+    }
+  }
+
+  const canvasDimensionEdit = (field: "width" | "height") =>
+    numberEdit(
+      { type: "canvas-dimension", field },
+      (value) => ({ type: "canvas-dimension", field, value }),
+      "Canvas size updated"
+    )
+  const canvasScaleEdit = numberEdit(
+    { type: "canvas-max-side" },
+    (value) => ({ type: "canvas-max-side", value }),
+    "Canvas size updated"
+  )
+  const selectedItemEdit = (field: "x" | "y" | "width" | "height") =>
+    numberEdit(
+      { type: "primary-field", field },
+      (value) => ({ type: "primary-field", field, value }),
+      "Image updated"
+    )
 
   if (session.remoteComposition && !auth.authSession) {
     return (
@@ -82,7 +140,20 @@ export function CanvasEditor() {
   }
 
   return (
-    <main className="jigsaw-editor">
+    <main
+      className="jigsaw-editor"
+      onPointerDownCapture={(event) => {
+        const activeElement = document.activeElement
+        if (
+          activeElement instanceof HTMLElement &&
+          event.target instanceof Node &&
+          !activeElement.contains(event.target) &&
+          activeElement.matches("input,textarea,select")
+        ) {
+          activeElement.blur()
+        }
+      }}
+    >
       {hover.hoverLinkItemId && hover.hoverLinkLine ? (
         <svg
           aria-hidden="true"
@@ -117,7 +188,7 @@ export function CanvasEditor() {
         onLoad={() => void session.loadFromCode()}
         onLoadCodeChange={session.setLoadCode}
         onLogin={() => void auth.loginWithTelegram()}
-        onSave={() => void session.save(editor.layout)}
+        onSave={() => void save()}
         onSelectComposition={session.selectComposition}
       />
       <div className="editor-workspace">
@@ -153,19 +224,19 @@ export function CanvasEditor() {
         <PropertiesPanel
           activeRatio={editor.activeRatio}
           canvas={editor.layout.canvas}
+          canvasDimensionEdit={canvasDimensionEdit}
           canvasMaxSide={editor.canvasMaxSide}
+          canvasScaleEdit={canvasScaleEdit}
           selectedIds={editor.selectedIds}
           selectedIndex={editor.selectedIndex}
           selectedItem={editor.selectedItem}
           showCanvasMarkers={editor.showCanvasMarkers}
           zoom={editor.zoom}
           onAspectRatio={editor.applyAspectRatioPreset}
-          onCanvasScaleChange={editor.updateCanvasScale}
-          onCanvasSizeChange={editor.updateCanvasSize}
           onMarkersChange={editor.setShowCanvasMarkers}
           onRestoreOriginal={editor.restoreOriginalCanvas}
-          onSelectedItemChange={editor.updateSelectedItem}
           onZoomChange={editor.setZoom}
+          selectedItemEdit={selectedItemEdit}
         />
       </div>
       <StatusBar
