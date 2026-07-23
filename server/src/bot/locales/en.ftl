@@ -87,6 +87,8 @@ upload-status-pictures =
 upload-status-deleted = deleted: { $count }.
 upload-status-duplicates = duplicates removed: { $count }.
 upload-status-continue = send more pictures or build.
+group-photo-prompt = reply to this message with pictures for the shared pack.
+group-photo-placeholder = attach pictures
 viewer-empty = everything has been removed.
 viewer-caption =
     { $current } of { $total }

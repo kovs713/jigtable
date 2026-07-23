@@ -91,6 +91,8 @@ upload-status-pictures =
 upload-status-deleted = удалено: { $count }.
 upload-status-duplicates = повторов выкинул: { $count }.
 upload-status-continue = докидывай ещё или собираем.
+group-photo-prompt = ответь на это сообщение картинками для общего набора.
+group-photo-placeholder = прикрепи картинки
 viewer-empty = всё удалил. набор пустой.
 viewer-caption =
     { $current } из { $total }

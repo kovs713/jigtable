@@ -6,6 +6,8 @@ import type {
   JigsawState as PuzzleState,
 } from "@jigtable/core/types"
 
+import type { ActivePreview } from "./types"
+
 import { getRoomStats } from "./stats"
 import type { Room, RoomSnapshot, ToggleLock } from "./types"
 
@@ -28,6 +30,7 @@ export function toRoomSnapshot(room: Room): RoomSnapshot {
     stats: getRoomStats(room),
     createdAt: room.createdAt,
     updatedAt: room.updatedAt,
+    activePreviews: [...room.activePreviews.values()],
   }
 }
 

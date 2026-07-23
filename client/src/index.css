@@ -13,23 +13,6 @@
 
 @custom-variant dark (&:is(.dark *));
 
-/*
-  ВАЖНО: разделение ответственности между слоями.
-
-  1) CANVAS  — то, что рисует пазл (фон под картинкой, частицы и т.д).
-     Управляется вашим JS/state, этот файл его не трогает и не должен трогать.
-
-  2) CHROME  — тулбар, сайдбар, диалоги, поповеры, карточки настроек.
-     Всё, что раньше сидело на --card/--popover/--sidebar с opacity:100%,
-     теперь полупрозрачно + backdrop-blur, поэтому визуально "сидит" на
-     canvas, а не наклеено поверх него, независимо от того, какой фон
-     пользователь выбрал под пазл.
-
-  Утилиты ниже (.glass, .glass-elevated, .corner-brackets) применяйте
-  на компоненты тулбара/сайдбара/диалогов вручную — токены цвета сами
-  по себе не включают blur (это не color-свойство).
-*/
-
 @theme inline {
   --font-heading: var(--font-sans);
   --font-sans: "Satoshi", system-ui, sans-serif;
@@ -80,7 +63,6 @@
   --background: oklch(0.985 0 0);
   --foreground: oklch(0.145 0 0);
 
-  /* Chrome-поверхности теперь с альфой — становятся "стеклом" в .glass */
   --card: oklch(0.965 0 0 / 0.8);
   --card-foreground: oklch(0.145 0 0);
   --popover: oklch(0.965 0 0 / 0.88);
@@ -107,7 +89,6 @@
   --input: oklch(0.82 0 0);
   --ring: oklch(0.52 0.13 205);
 
-  /* Хэарлайн-грань и брекеты для стекла — нейтральны по тону */
   --panel-border: oklch(0 0 0 / 0.12);
   --panel-blur: 16px;
   --panel-saturate: 140%;
@@ -315,12 +296,6 @@
   background: color-mix(in oklch, var(--muted), transparent 25%);
 }
 
-/* ==========================================================================
-   CHROME: стеклянные панели поверх произвольного canvas.
-   Применяйте на тулбар / сайдбар / диалоги / поповеры / карточки настроек.
-   Радиус намеренно 0 — панели остаются угловатыми, "мастерская" эстетика.
-   ========================================================================== */
-
 .glass {
   background: var(--card);
   backdrop-filter: blur(var(--panel-blur)) saturate(var(--panel-saturate));
@@ -329,8 +304,6 @@
   border: 0.5px solid var(--panel-border);
 }
 
-/* Для диалогов/поповеров — меньше blur, больше непрозрачности,
-   чтобы модальный контент не терял читаемость поверх занятого фона. */
 .glass-elevated {
   background: var(--popover);
   backdrop-filter: blur(calc(var(--panel-blur) * 1.5))
@@ -348,8 +321,6 @@
   border: 0.5px solid var(--sidebar-border);
 }
 
-/* Угловые засечки вместо скруглений — HUD/tech-деталь на панелях.
-   Не требует лишней разметки, работает через background layers. */
 .corner-brackets {
   position: relative;
   background-repeat: no-repeat;
@@ -382,8 +353,6 @@
     var(--bracket-thickness) var(--bracket-length);
 }
 
-/* Модификатор: брекеты цветом акцента — для активного/выделенного
-   элемента (например выбранный инструмент в тулбаре). */
 .corner-brackets--accent {
   --bracket-color: var(--bracket-color-accent);
 }

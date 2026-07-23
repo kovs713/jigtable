@@ -76,6 +76,13 @@ export interface RoomStats {
   snapCount: number
 }
 
+export interface ActivePreview {
+  presenceId: string
+  intervalId: string
+  playerId: string
+  userId: string | null
+}
+
 export interface RoomSnapshot {
   roomId: string
   jigsaw: {
@@ -92,6 +99,7 @@ export interface RoomSnapshot {
   stats: RoomStats
   createdAt: number
   updatedAt: number
+  activePreviews: ActivePreview[]
 }
 
 export interface CreateJigsawRoomRequest {

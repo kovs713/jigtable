@@ -1,0 +1,95 @@
+.canvas-resize-handle {
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+}
+
+.canvas-resize-handle__indicator {
+  --canvas-handle-size: 12px;
+  --canvas-handle-thickness: 2.5px;
+  --canvas-handle-color: var(--primary);
+
+  width: var(--canvas-handle-size) !important;
+  height: var(--canvas-handle-size) !important;
+  background: transparent;
+  border: 0;
+  opacity: 0.75;
+  transition: opacity 120ms ease;
+}
+
+.canvas-resize-handle:hover .canvas-resize-handle__indicator,
+.canvas-resize-handle:focus-visible .canvas-resize-handle__indicator {
+  opacity: 1;
+}
+
+/* Top-left corner. */
+.canvas-resize-handle:is(
+    [data-edge="top-left"],
+    [data-edge="topLeft"],
+    [data-edge="nw"]
+  )
+  .canvas-resize-handle__indicator {
+  border-top: var(--canvas-handle-thickness) solid var(--canvas-handle-color);
+  border-left: var(--canvas-handle-thickness) solid var(--canvas-handle-color);
+}
+
+/* Top-right corner. */
+.canvas-resize-handle:is(
+    [data-edge="top-right"],
+    [data-edge="topRight"],
+    [data-edge="ne"]
+  )
+  .canvas-resize-handle__indicator {
+  border-top: var(--canvas-handle-thickness) solid var(--canvas-handle-color);
+  border-right: var(--canvas-handle-thickness) solid var(--canvas-handle-color);
+}
+
+/* Bottom-right corner. */
+.canvas-resize-handle:is(
+    [data-edge="bottom-right"],
+    [data-edge="bottomRight"],
+    [data-edge="se"]
+  )
+  .canvas-resize-handle__indicator {
+  border-right: var(--canvas-handle-thickness) solid var(--canvas-handle-color);
+  border-bottom: var(--canvas-handle-thickness) solid var(--canvas-handle-color);
+}
+
+/* Bottom-left corner. */
+.canvas-resize-handle:is(
+    [data-edge="bottom-left"],
+    [data-edge="bottomLeft"],
+    [data-edge="sw"]
+  )
+  .canvas-resize-handle__indicator {
+  border-bottom: var(--canvas-handle-thickness) solid var(--canvas-handle-color);
+  border-left: var(--canvas-handle-thickness) solid var(--canvas-handle-color);
+}
+
+/* Horizontal handles. */
+.canvas-resize-handle:is(
+    [data-edge="top"],
+    [data-edge="bottom"],
+    [data-edge="n"],
+    [data-edge="s"]
+  )
+  .canvas-resize-handle__indicator {
+  width: 16px !important;
+  height: var(--canvas-handle-thickness) !important;
+  background: var(--canvas-handle-color);
+  border: 0;
+}
+
+/* Vertical handles. */
+.canvas-resize-handle:is(
+    [data-edge="left"],
+    [data-edge="right"],
+    [data-edge="w"],
+    [data-edge="e"]
+  )
+  .canvas-resize-handle__indicator {
+  width: var(--canvas-handle-thickness) !important;
+  height: 16px !important;
+  background: var(--canvas-handle-color);
+  border: 0;
+}

@@ -1,0 +1,70 @@
+.editor-auth-gate {
+  display: grid;
+  min-height: 100svh;
+  place-items: center;
+  padding: 1.5rem;
+  color: var(--foreground);
+  background-color: var(--background);
+}
+
+.editor-auth-gate__panel {
+  display: grid;
+  width: min(100%, 34rem);
+  gap: 1.25rem;
+  padding: clamp(1.5rem, 5vw, 3rem);
+  color: var(--card-foreground);
+}
+
+.editor-auth-gate__kicker,
+.editor-auth-gate__status {
+  font-family: var(--editor-font-mono);
+  font-size: 0.6875rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.editor-auth-gate__kicker {
+  color: var(--primary);
+  font-weight: 650;
+}
+
+.editor-auth-gate__title {
+  max-width: 12ch;
+  font-size: clamp(2rem, 8vw, 4rem);
+  font-weight: 650;
+  line-height: 0.95;
+  letter-spacing: -0.055em;
+}
+
+.editor-auth-gate__description {
+  max-width: 31rem;
+  color: var(--muted-foreground);
+  font-size: 1rem;
+  line-height: 1.6;
+}
+
+.editor-auth-gate__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 1rem;
+}
+
+.editor-auth-gate__back {
+  color: var(--muted-foreground);
+  font-size: 0.875rem;
+  text-decoration: underline;
+  text-underline-offset: 0.25rem;
+}
+
+.editor-auth-gate__back:hover {
+  color: var(--foreground);
+}
+
+.editor-auth-gate__status {
+  color: var(--muted-foreground);
+}
+
+.editor-auth-gate__telegram-widget {
+  min-height: 2rem;
+}
