@@ -20,7 +20,7 @@ export function readLocalJigsawSession(): JigsawSession {
   }
 
   const legacyPlayer = readLegacyPlayer()
-  const session = createLocalSession(legacyPlayer ?? undefined)
+  const session = createLocalJigsawSession(legacyPlayer ?? undefined)
 
   saveLocalJigsawSession(session)
 
@@ -57,8 +57,6 @@ export async function restoreJigsawSession(
     throw new Error("Invalid jigsaw session")
   }
 
-  saveLocalJigsawSession(session)
-
   return session
 }
 
@@ -89,8 +87,6 @@ export async function saveJigsawSessionProfile(
     throw new Error("Invalid jigsaw session")
   }
 
-  saveLocalJigsawSession(session)
-
   return session
 }
 
@@ -99,7 +95,9 @@ export function saveLocalJigsawSession(session: JigsawSession): void {
   localStorage.removeItem(LEGACY_PLAYER_STORAGE_KEY)
 }
 
-function createLocalSession(player?: Partial<JigsawPlayer>): JigsawSession {
+export function createLocalJigsawSession(
+  player?: Partial<JigsawPlayer>
+): JigsawSession {
   const now = Date.now()
   const id = player?.id ?? createId("player")
   const suffix = id
