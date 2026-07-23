@@ -6,7 +6,7 @@ import {
 } from "@jigtable/core/protocol"
 
 type RoomChatWidgetProps = {
-  messages: ChatMessage[]
+  messages: readonly ChatMessage[]
   ownPlayerId: string
   connected: boolean
   onSend: (text: string) => boolean
