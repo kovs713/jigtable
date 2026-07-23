@@ -92,7 +92,7 @@ function traceEdge(
 
   for (let index = 1; index + 2 < shape.points.length; index += 3) {
     const control1 = edgePointToWorld(
-      shape.points[index],
+      shape.points[index]!,
       x1,
       y1,
       unitX,
@@ -103,7 +103,7 @@ function traceEdge(
       perpendicularLength
     )
     const control2 = edgePointToWorld(
-      shape.points[index + 1],
+      shape.points[index + 1]!,
       x1,
       y1,
       unitX,
@@ -114,7 +114,7 @@ function traceEdge(
       perpendicularLength
     )
     const end = edgePointToWorld(
-      shape.points[index + 2],
+      shape.points[index + 2]!,
       x1,
       y1,
       unitX,
