@@ -4,13 +4,14 @@ import type { PlayerSessionResult } from "@jigtable/core/session-history"
 
 import { paths } from "@/app/routes"
 
-import type { JigsawRoomResult } from "./room-api"
+import type { JigsawRoomResult } from "@/features/room/data"
 import {
   comparePlayerResults,
   formatContributionPercentage,
   SESSION_LABELS,
-} from "./session-results"
-import { formatElapsedTime } from "./time"
+} from "@/features/history/session-results"
+
+import { formatElapsedTime } from "./timer"
 
 interface SolvedRoomResultsProps {
   roomId: string

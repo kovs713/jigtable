@@ -2,20 +2,21 @@ import { useEffect, useState } from "react"
 
 import type { PlayerSessionResult } from "@jigtable/core/session-history"
 
-import { HistoryPreview } from "@/jigsaw-room/HistoryPreview"
-import {
-  fetchJigsawRoomResult,
-  type JigsawRoomResult,
-} from "@/jigsaw-room/room-api"
 import {
   comparePlayerResults,
   formatContributionPercentage,
   SESSION_LABELS,
-} from "@/jigsaw-room/session-results"
-import { formatDate, formatDuration } from "@/jigsaw-room/time"
+} from "@/features/history/session-results"
+import {
+  fetchJigsawRoomResult,
+  type JigsawRoomResult,
+} from "@/features/room/data"
+import { formatDate, formatDuration } from "@/shared/formatting/date-time"
 
-import "@/jigsaw-room/jigsaw-room-view.css"
-import "@/jigsaw-room/jigsaw-room.css"
+import { HistoryPreview } from "./HistoryPreview"
+
+import "@/features/room/room.css"
+import "./room-view-page.css"
 
 export function RoomViewPage({ roomId }: { roomId: string }) {
   const [result, setResult] = useState<JigsawRoomResult | null>(null)

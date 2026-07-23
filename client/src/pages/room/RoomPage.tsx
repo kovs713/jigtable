@@ -25,12 +25,8 @@ import {
 } from "@jigtable/core/scatter"
 import type { GroupId, JigsawState, PieceId } from "@jigtable/core/types"
 
-import { loadImageTexture } from "@/jigsaw-room/image-texture"
-import { RoomChatWidget } from "@/jigsaw-room/RoomChatWidget"
-import { SolvedRoomResults } from "@/jigsaw-room/SolvedRoomResults"
 import {
   fetchAuthMe,
-  fetchJigsawHistory,
   getTelegramBotUsername,
   getTelegramLoginWidgetBlocker,
   hasTelegramWebAppInitData,
@@ -39,63 +35,56 @@ import {
   readLocalAuthSession,
   saveLocalAuthSession,
   type AuthSession,
-} from "@/jigsaw-room/multiplayer/auth"
+} from "@/features/auth/auth"
+import { fetchJigsawHistory } from "@/features/history/history"
 import type {
   JigsawMultiplayerClient,
   MultiplayerStatus,
-} from "@/jigsaw-room/multiplayer/client"
+} from "@/features/room/multiplayer"
+import { createJigsawMultiplayerClient } from "@/features/room/multiplayer"
 import {
-  createJigsawMultiplayerClient,
   readLocalJigsawSession,
   restoreJigsawSession,
   saveJigsawSessionProfile,
   saveLocalJigsawSession,
-} from "@/jigsaw-room/multiplayer/client"
-import type { CameraController } from "@/jigsaw-room/pixi/camera"
-import { createCameraController } from "@/jigsaw-room/pixi/camera"
-import {
-  createJigsawPixiApp,
-  destroyJigsawPixiApp,
-} from "@/jigsaw-room/pixi/create-app"
-import type { JigsawScene } from "@/jigsaw-room/pixi/create-scene"
-import {
-  createJigsawScene,
-  readSceneColors,
-} from "@/jigsaw-room/pixi/create-scene"
-import type {
-  CursorBroadcastController,
-  RemoteCursorViewSet,
-} from "@/jigsaw-room/pixi/cursors"
-import {
-  createRemoteCursorViews,
-  setupCursorBroadcast,
-} from "@/jigsaw-room/pixi/cursors"
-import type { DebugTicker, JigsawStats } from "@/jigsaw-room/pixi/debug"
-import {
-  createDebugTicker,
-  getJigsawStats,
-} from "@/jigsaw-room/pixi/debug"
-import type { InteractionController } from "@/jigsaw-room/pixi/interactions"
-import { setupPieceInteractions } from "@/jigsaw-room/pixi/interactions"
-import type { LockOverlayRenderer } from "@/jigsaw-room/pixi/locks"
-import { createLockOverlayRenderer } from "@/jigsaw-room/pixi/locks"
-import type { PieceViewSet } from "@/jigsaw-room/pixi/pieces"
-import { createPieceViews } from "@/jigsaw-room/pixi/pieces"
-import type { PingController } from "@/jigsaw-room/pixi/pings"
-import { createPingController } from "@/jigsaw-room/pixi/pings"
+} from "@/features/session/session"
 import {
   fetchJigsawRoomResult,
   fetchJigsawRoomSnapshot,
   type JigsawRoomResult,
-} from "@/jigsaw-room/room-api"
+} from "@/features/room/data"
+
+import { loadImageTexture } from "./image-texture"
+import { RoomChatWidget } from "./RoomChatWidget"
+import { SolvedRoomResults } from "./SolvedRoomResults"
+import type { CameraController } from "./pixi/camera"
+import { createCameraController } from "./pixi/camera"
+import { createJigsawPixiApp, destroyJigsawPixiApp } from "./pixi/create-app"
+import type { JigsawScene } from "./pixi/create-scene"
+import { createJigsawScene, readSceneColors } from "./pixi/create-scene"
+import type {
+  CursorBroadcastController,
+  RemoteCursorViewSet,
+} from "./pixi/cursors"
+import { createRemoteCursorViews, setupCursorBroadcast } from "./pixi/cursors"
+import type { DebugTicker, JigsawStats } from "./pixi/debug"
+import { createDebugTicker, getJigsawStats } from "./pixi/debug"
+import type { InteractionController } from "./pixi/interactions"
+import { setupPieceInteractions } from "./pixi/interactions"
+import type { LockOverlayRenderer } from "./pixi/locks"
+import { createLockOverlayRenderer } from "./pixi/locks"
+import type { PieceViewSet } from "./pixi/pieces"
+import { createPieceViews } from "./pixi/pieces"
+import type { PingController } from "./pixi/pings"
+import { createPingController } from "./pixi/pings"
 import {
   createInitialTimer,
   formatElapsedTime,
   getTimerElapsedMs,
-} from "@/jigsaw-room/time"
+} from "./timer"
 
-import "@/jigsaw-room/jigsaw-room-game.css"
-import "@/jigsaw-room/jigsaw-room.css"
+import "@/features/room/room.css"
+import "./room-page.css"
 
 const JIGSAW_IMAGE_URL = "/test_jigsaw.png"
 const ACTIVE_JIGSAW_CONFIG = JIGSAW_CONFIG_2000

@@ -16,7 +16,6 @@ import { Slider } from "@/shared/ui/slider"
 import { API_BASE_URL } from "@/config"
 import {
   fetchAuthMe,
-  fetchJigsawHistory,
   getTelegramBotUsername,
   getTelegramLoginWidgetBlocker,
   hasTelegramWebAppInitData,
@@ -26,16 +25,19 @@ import {
   readLocalAuthSession,
   saveLocalAuthSession,
   type AuthSession,
-  type JigsawHistoryItem,
-} from "@/jigsaw-room/multiplayer/auth"
+} from "@/features/auth/auth"
 import {
-  createJigsawRoomFromComposition,
   fetchUserCompositions,
   type UserCompositionItem,
-} from "@/jigsaw-room/room-api"
+} from "@/features/compositions/compositions"
+import {
+  fetchJigsawHistory,
+  type JigsawHistoryItem,
+} from "@/features/history/history"
+import { createJigsawRoomFromComposition } from "@/features/room/data"
 
-import "@/jigsaw-room/jigsaw-room-create.css"
-import "@/jigsaw-room/jigsaw-room.css"
+import "@/features/room/room.css"
+import "./room-create-page.css"
 
 type CompositionLayoutItem = {
   id: string

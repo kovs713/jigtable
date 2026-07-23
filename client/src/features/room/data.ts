@@ -17,15 +17,6 @@ export interface CreateJigsawRoomInput {
   sourceHeight?: number
 }
 
-export interface UserCompositionItem {
-  compositionId: string
-  compositionToken: string
-  status: string
-  createdAt: string | null
-  imageCount: number
-  canvas: { width: number; height: number } | null
-}
-
 export async function createJigsawRoom(
   input: CreateJigsawRoomInput,
   authToken: string
@@ -64,24 +55,6 @@ export async function createJigsawRoomFromComposition(
   )
 
   return readJsonResponse<CreateJigsawRoomResponse>(response)
-}
-
-export async function fetchUserCompositions(
-  authToken: string
-): Promise<UserCompositionItem[]> {
-  const response = await fetch(
-    `${API_BASE_URL}${apiRoutes.compositions.get.me.pattern}`,
-    {
-      headers: { Authorization: `Bearer ${authToken}` },
-    }
-  )
-  const payload = await readJsonResponse<unknown>(response)
-
-  if (!isRecord(payload) || !Array.isArray(payload.compositions)) {
-    throw new Error("Invalid compositions response")
-  }
-
-  return payload.compositions as UserCompositionItem[]
 }
 
 export async function fetchJigsawRoomSnapshot(

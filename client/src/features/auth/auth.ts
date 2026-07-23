@@ -1,4 +1,3 @@
-import type { JigsawConfig } from "@jigtable/core/types"
 import { isRecord } from "@jigtable/shared"
 import { apiRoutes } from "@jigtable/shared/api-routes"
 
@@ -26,27 +25,6 @@ export interface AuthSession {
   token: string
   user: AuthUser
   expiresAt: string
-}
-
-export interface JigsawHistoryItem {
-  roomId: string
-  completedAt: string
-  elapsedMs: number
-  pieceCount: number
-  snapCount: number
-  imageUrl: string | null
-  jigsawConfig: JigsawConfig | null
-  source: {
-    kind: "dev" | "jigsaw_image" | "external"
-    label: string
-  }
-  participants: Array<{
-    playerId?: string
-    userId?: string
-    telegramId?: string
-    name: string
-    color: string
-  }>
 }
 
 interface TelegramWebAppGlobal {
@@ -206,24 +184,6 @@ export async function fetchAuthMe(token: string): Promise<AuthSession> {
   saveLocalAuthSession(session)
 
   return session
-}
-
-export async function fetchJigsawHistory(
-  token: string
-): Promise<JigsawHistoryItem[]> {
-  const response = await fetch(
-    `${API_BASE_URL}${apiRoutes.auth.get.history.pattern}`,
-    {
-      headers: authHeaders(token),
-    }
-  )
-  const payload = await readJsonResponse<unknown>(response)
-
-  if (!isRecord(payload) || !Array.isArray(payload.history)) {
-    throw new Error("Invalid history response")
-  }
-
-  return payload.history as JigsawHistoryItem[]
 }
 
 async function requestAuth(

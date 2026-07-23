@@ -2,7 +2,6 @@ import { useEffect, useMemo, useRef, useState } from "react"
 
 import {
   fetchAuthMe,
-  fetchJigsawHistory,
   getTelegramBotUsername,
   getTelegramLoginWidgetBlocker,
   hasTelegramWebAppInitData,
@@ -11,13 +10,16 @@ import {
   readLocalAuthSession,
   saveLocalAuthSession,
   type AuthSession,
+} from "@/features/auth/auth"
+import {
+  fetchJigsawHistory,
   type JigsawHistoryItem,
-} from "@/jigsaw-room/multiplayer/auth"
-import { readLocalJigsawSession } from "@/jigsaw-room/multiplayer/client"
-import { formatDate, formatDuration } from "@/jigsaw-room/time"
+} from "@/features/history/history"
+import { readLocalJigsawSession } from "@/features/session/session"
+import { formatDate, formatDuration } from "@/shared/formatting/date-time"
 
-import "@/jigsaw-room/jigsaw-room.css"
-import "@/jigsaw-room/jigsaw-room-profile.css"
+import "@/features/room/room.css"
+import "./profile-page.css"
 
 export function ProfilePage() {
   const widgetRef = useRef<HTMLDivElement | null>(null)

@@ -1,7 +1,7 @@
 import type { RefObject } from "react"
 
-import type { AuthSession } from "@/jigsaw-room/multiplayer/auth"
-import type { UserCompositionItem } from "@/jigsaw-room/room-api"
+import type { AuthSession } from "@/features/auth/auth"
+import type { UserCompositionItem } from "@/features/compositions/compositions"
 import { cn } from "@/lib/utils"
 import { Button } from "@/shared/ui/button"
 import { Input } from "@/shared/ui/input"

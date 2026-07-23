@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 
-import type { AuthSession } from "@/jigsaw-room/multiplayer/auth"
+import type { AuthSession } from "@/features/auth/auth"
 import {
   fetchUserCompositions,
   type UserCompositionItem,
-} from "@/jigsaw-room/room-api"
+} from "@/features/compositions/compositions"
 
 import {
   fetchCompositionLayout,

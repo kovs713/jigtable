@@ -10,7 +10,7 @@ import {
   readLocalAuthSession,
   saveLocalAuthSession,
   type AuthSession,
-} from "@/jigsaw-room/multiplayer/auth"
+} from "@/features/auth/auth"
 
 export function useTelegramAuth() {
   const telegramWidgetRef = useRef<HTMLDivElement | null>(null)

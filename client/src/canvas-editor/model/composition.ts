@@ -1,4 +1,4 @@
-import type { UserCompositionItem } from "@/jigsaw-room/room-api"
+import type { UserCompositionItem } from "@/features/compositions/compositions"
 
 import type { CompositionRef } from "./types"
 

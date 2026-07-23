@@ -6,7 +6,7 @@ import type {
   PlayerCursor as JigsawPlayerCursor,
 } from "@jigtable/core/protocol"
 
-import type { JigsawMultiplayerClient } from "../multiplayer/client"
+import type { JigsawMultiplayerClient } from "@/features/room/multiplayer"
 import type { CameraController } from "./camera"
 
 // multiplayer cursor broadcast throttle — 40 events/sec
