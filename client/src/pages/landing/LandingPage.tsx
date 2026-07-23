@@ -94,7 +94,7 @@ const WORKFLOW = [
     index: "02",
     scope: "telegram",
     label: "confirm selection",
-    description: "Check the received images and confirm the batch.",
+    description: "Check the received images and confirm them.",
   },
   {
     index: "03",
