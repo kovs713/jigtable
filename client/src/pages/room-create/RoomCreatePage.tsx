@@ -4,15 +4,15 @@ import { useEffect, useMemo, useRef, useState } from "react"
 import type { CreateJigsawRoomResponse } from "@jigtable/core/protocol"
 import { apiRoutes } from "@jigtable/shared/api-routes"
 
-import { Button } from "@/components/ui/button"
+import { Button } from "@/shared/ui/button"
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select"
-import { Slider } from "@/components/ui/slider"
+} from "@/shared/ui/select"
+import { Slider } from "@/shared/ui/slider"
 import { API_BASE_URL } from "@/config"
 import {
   fetchAuthMe,
@@ -27,15 +27,15 @@ import {
   saveLocalAuthSession,
   type AuthSession,
   type JigsawHistoryItem,
-} from "./multiplayer/auth"
+} from "@/jigsaw-room/multiplayer/auth"
 import {
   createJigsawRoomFromComposition,
   fetchUserCompositions,
   type UserCompositionItem,
-} from "./room-api"
+} from "@/jigsaw-room/room-api"
 
-import "./jigsaw-room-create.css"
-import "./jigsaw-room.css"
+import "@/jigsaw-room/jigsaw-room-create.css"
+import "@/jigsaw-room/jigsaw-room.css"
 
 type CompositionLayoutItem = {
   id: string
@@ -90,7 +90,7 @@ function getPresetRanges(presets: number[]) {
   })
 }
 
-export function JigsawRoomCreateApp() {
+export function RoomCreatePage() {
   const widgetRef = useRef<HTMLDivElement | null>(null)
   const initialCompositionId = useMemo(() => getInitialCompositionId(), [])
   const initialCompositionToken = useMemo(
@@ -798,4 +798,4 @@ function CompositionCanvasPreview({ layout }: { layout: CompositionLayout }) {
   )
 }
 
-export default JigsawRoomCreateApp
+export default RoomCreatePage

@@ -12,14 +12,14 @@ import {
   saveLocalAuthSession,
   type AuthSession,
   type JigsawHistoryItem,
-} from "./multiplayer/auth"
-import { readLocalJigsawSession } from "./multiplayer/client"
-import { formatDate, formatDuration } from "./time"
+} from "@/jigsaw-room/multiplayer/auth"
+import { readLocalJigsawSession } from "@/jigsaw-room/multiplayer/client"
+import { formatDate, formatDuration } from "@/jigsaw-room/time"
 
-import "./jigsaw-room.css"
-import "./jigsaw-room-profile.css"
+import "@/jigsaw-room/jigsaw-room.css"
+import "@/jigsaw-room/jigsaw-room-profile.css"
 
-export function JigsawProfileApp() {
+export function ProfilePage() {
   const widgetRef = useRef<HTMLDivElement | null>(null)
   const anonSessionRef = useRef(readLocalJigsawSession())
   const [authSession, setAuthSession] = useState<AuthSession | null>(() =>
@@ -345,4 +345,4 @@ function getInitials(name: string | null | undefined): string {
     : (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
 }
 
-export default JigsawProfileApp
+export default ProfilePage

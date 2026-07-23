@@ -2,19 +2,22 @@ import { useEffect, useState } from "react"
 
 import type { PlayerSessionResult } from "@jigtable/core/session-history"
 
-import { HistoryPreview } from "./HistoryPreview"
-import { fetchJigsawRoomResult, type JigsawRoomResult } from "./room-api"
+import { HistoryPreview } from "@/jigsaw-room/HistoryPreview"
+import {
+  fetchJigsawRoomResult,
+  type JigsawRoomResult,
+} from "@/jigsaw-room/room-api"
 import {
   comparePlayerResults,
   formatContributionPercentage,
   SESSION_LABELS,
-} from "./session-results"
-import { formatDate, formatDuration } from "./time"
+} from "@/jigsaw-room/session-results"
+import { formatDate, formatDuration } from "@/jigsaw-room/time"
 
-import "./jigsaw-room-view.css"
-import "./jigsaw-room.css"
+import "@/jigsaw-room/jigsaw-room-view.css"
+import "@/jigsaw-room/jigsaw-room.css"
 
-export function JigsawViewApp({ roomId }: { roomId: string }) {
+export function RoomViewPage({ roomId }: { roomId: string }) {
   const [result, setResult] = useState<JigsawRoomResult | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
@@ -217,4 +220,4 @@ function ResultStat({ label, value }: { label: string; value: string }) {
   )
 }
 
-export default JigsawViewApp
+export default RoomViewPage

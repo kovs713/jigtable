@@ -9,17 +9,17 @@ import { forwardRef, useCallback, useEffect, useRef, useState } from "react"
 
 import { apiRoutes } from "@jigtable/shared/api-routes"
 
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
+import { Button } from "@/shared/ui/button"
+import { Input } from "@/shared/ui/input"
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select"
-import { Slider } from "@/components/ui/slider"
-import { Toggle } from "@/components/ui/toggle"
+} from "@/shared/ui/select"
+import { Slider } from "@/shared/ui/slider"
+import { Toggle } from "@/shared/ui/toggle"
 import { API_BASE_URL } from "@/config"
 import {
   fetchAuthMe,
@@ -39,7 +39,7 @@ import {
 import { readJsonResponse } from "@/lib/api-response"
 import { cn } from "@/lib/utils"
 
-import "./app.css"
+import "./editor-page.css"
 
 type CanvasLayout = {
   canvas: {
@@ -233,7 +233,7 @@ const EMPTY_LAYOUT: CanvasLayout = {
   items: [],
 }
 
-export function App() {
+export function EditorPage() {
   const telegramWidgetRef = useRef<HTMLDivElement | null>(null)
   const [layout, setLayout] = useState<CanvasLayout>(EMPTY_LAYOUT)
   const [selectedIds, setSelectedIds] = useState<string[]>([])
@@ -2971,4 +2971,4 @@ function round(value: number): number {
   return Math.round(value * 1_000_000) * 1_000_000
 }
 
-export default App
+export default EditorPage

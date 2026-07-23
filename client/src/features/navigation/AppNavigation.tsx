@@ -1,9 +1,9 @@
 import { useEffect, useRef, type ReactNode } from "react"
 
-import type { AppRoute } from "@/routes"
-import { paths } from "@/routes"
+import type { AppRoute } from "@/app/routes"
+import { paths } from "@/app/routes"
 
-import "./app-navigation.css"
+import "./navigation.css"
 
 type NavigationItem = {
   label: string

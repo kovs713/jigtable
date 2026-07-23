@@ -2,7 +2,7 @@ import { useEffect, useRef } from "react"
 
 import type { PlayerSessionResult } from "@jigtable/core/session-history"
 
-import { paths } from "@/routes"
+import { paths } from "@/app/routes"
 
 import type { JigsawRoomResult } from "./room-api"
 import {
